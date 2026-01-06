@@ -304,82 +304,8 @@ const StatePanel = memo(({ stateAbbr, onClose }) => {
           </div>
         )}
 
-        {/* Past Legislation */}
-        {state.pastLegislation?.length > 0 && (
-          <div style={{ marginBottom: spacing["2xl"] }}>
-            <SectionHeader>Past Legislation</SectionHeader>
-            <div style={{ display: "flex", flexDirection: "column", gap: spacing.sm }}>
-              {state.pastLegislation.map((bill, i) => (
-                <a
-                  key={i}
-                  href={bill.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: spacing.md,
-                    padding: spacing.md,
-                    backgroundColor: colors.gray[50],
-                    border: `1px solid ${colors.border.light}`,
-                    borderRadius: spacing.radius.lg,
-                    textDecoration: "none",
-                    transition: "background-color 0.15s ease",
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.gray[100]}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = colors.gray[50]}
-                >
-                  <div style={{
-                    flexShrink: 0,
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "50%",
-                    backgroundColor: colors.gray[200],
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: colors.text.secondary,
-                  }}>
-                    <BillIcon />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{
-                      margin: 0,
-                      color: colors.secondary[900],
-                      fontSize: typography.fontSize.sm,
-                      fontWeight: typography.fontWeight.semibold,
-                      fontFamily: typography.fontFamily.body,
-                    }}>{bill.bill}</p>
-                    <p style={{
-                      margin: `${spacing.xs} 0 0`,
-                      color: colors.text.secondary,
-                      fontSize: typography.fontSize.xs,
-                      fontFamily: typography.fontFamily.body,
-                    }}>
-                      <span style={{
-                        display: "inline-block",
-                        padding: `2px ${spacing.xs}`,
-                        borderRadius: spacing.radius.sm,
-                        marginRight: spacing.sm,
-                        fontSize: typography.fontSize.xs,
-                        fontWeight: typography.fontWeight.medium,
-                        backgroundColor: colors.gray[200],
-                        color: colors.text.secondary,
-                      }}>
-                        {bill.year}
-                      </span>
-                      {bill.description}
-                    </p>
-                  </div>
-                  <LinkIcon />
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* No activity message */}
-        {stateSpecific.length === 0 && inProgress.length === 0 && !state.taxChanges?.length && !state.activeBills?.length && !state.pastLegislation?.length && (
+        {stateSpecific.length === 0 && inProgress.length === 0 && !state.taxChanges?.length && !state.activeBills?.length && (
           <div style={{ textAlign: "center", padding: spacing["2xl"] }}>
             <p style={{
               margin: 0,

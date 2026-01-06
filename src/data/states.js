@@ -124,9 +124,6 @@ export const stateData = {
     },
     legislativeActivity: "high",
     activeBills: [],
-    pastLegislation: [
-      { bill: "HB 111", year: 2024, description: "Accelerated flat tax to 5.19% (effective Jan 2025)", url: "https://www.legis.ga.gov/legislation/66053" }
-    ],
   },
   HI: {
     name: "Hawaii",
@@ -151,9 +148,6 @@ export const stateData = {
     },
     legislativeActivity: "moderate",
     activeBills: [],
-    pastLegislation: [
-      { bill: "H0001", year: 2025, description: "Rate cut to 5.8% + grocery credit expansion (-$225M)", url: "https://legislature.idaho.gov/sessioninfo/2025/legislation/H0001/" }
-    ],
   },
   IL: {
     name: "Illinois",
@@ -202,9 +196,6 @@ export const stateData = {
     },
     legislativeActivity: "high",
     activeBills: [],
-    pastLegislation: [
-      { bill: "SB 269", year: 2024, description: "Path to 4% flat tax (veto override)", url: "http://www.kslegislature.org/li/b2023_24/measures/sb269/" }
-    ],
     taxChanges: [
       { change: "Path to 4% flat tax", effective: "Phased", impact: "Gradual rate reduction", url: "http://www.kslegislature.org/li/b2023_24/measures/sb269/" }
     ],
@@ -235,9 +226,6 @@ export const stateData = {
     },
     legislativeActivity: "moderate",
     activeBills: [],
-    pastLegislation: [
-      { bill: "HB 1 (2024 Special Session)", year: 2024, description: "Flat 3% tax effective Jan 2025 (-$1.3B revenue)", url: "https://legis.la.gov/legis/BillInfo.aspx?s=241ES&b=HB1&sbi=y" }
-    ],
   },
   ME: {
     name: "Maine",
@@ -312,9 +300,6 @@ export const stateData = {
     },
     legislativeActivity: "moderate",
     activeBills: [],
-    pastLegislation: [
-      { bill: "HB 1733", year: 2024, description: "Path to 0% income tax by 2030 (phased elimination)", url: "http://billstatus.ls.state.ms.us/2024/pdf/history/HB/HB1733.xml" }
-    ],
   },
   MO: {
     name: "Missouri",
@@ -339,9 +324,6 @@ export const stateData = {
     },
     legislativeActivity: "moderate",
     activeBills: [],
-    pastLegislation: [
-      { bill: "HB 337", year: 2025, description: "Rate cuts to 5.4% + EITC doubled to 20% (2025-2027, -$245M)", url: "https://laws.leg.mt.gov/legprd/LAW0210W$BSIV.ActionQuery?P_BILL_NO1=337&P_BLTP_BILL_TYP_CD=HB&Z_ACTION=Find&P_SESS=20251" }
-    ],
   },
   NE: {
     name: "Nebraska",
@@ -416,9 +398,6 @@ export const stateData = {
     activeBills: [
       { bill: "S.2162 (Working Families Tax Credit)", status: "proposed", description: "New refundable credit for working families", url: "https://www.nysenate.gov/legislation/bills/2025/S2162" }
     ],
-    pastLegislation: [
-      { bill: "FY2026 Budget", year: 2025, description: "Multiple income tax changes", url: "https://www.budget.ny.gov/pubs/archive/fy26/ex/fy26fp-ex.pdf" }
-    ],
   },
   NC: {
     name: "North Carolina",
@@ -473,9 +452,6 @@ export const stateData = {
     },
     legislativeActivity: "high",
     activeBills: [],
-    pastLegislation: [
-      { bill: "HB 2764", year: 2024, description: "4.5% rate with triggered path to elimination", url: "http://www.oklegislature.gov/BillInfo.aspx?Bill=HB2764&Session=2400" }
-    ],
   },
   OR: {
     name: "Oregon",
@@ -574,9 +550,6 @@ export const stateData = {
     },
     legislativeActivity: "moderate",
     activeBills: [],
-    pastLegislation: [
-      { bill: "HB 0001", year: 2025, description: "Income tax changes (-$96M revenue)", url: "https://le.utah.gov/~2025/bills/static/HB0001.html" }
-    ],
   },
   VT: {
     name: "Vermont",
