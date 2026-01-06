@@ -1,4 +1,4 @@
-import { useState, useRef, memo } from "react";
+import { useState, useRef, memo, useEffect } from "react";
 import {
   ComposableMap,
   Geographies,
@@ -25,17 +25,89 @@ const fipsToAbbr = {
   "56": "WY", "72": "PR",
 };
 
-// Get color based on whether state has specific research
-const getStateColor = (stateAbbr, research) => {
-  const stateResearch = research.filter(
-    (r) => r.state === stateAbbr && r.state !== "all" && r.status === "published"
-  );
-  return stateResearch.length > 0 ? mapColors.hasResearch : mapColors.default;
+// Month abbreviation to number mapping
+const monthToNum = {
+  "Jan": 0, "Feb": 1, "Mar": 2, "Apr": 3, "May": 4, "Jun": 5,
+  "Jul": 6, "Aug": 7, "Sep": 8, "Oct": 9, "Nov": 10, "Dec": 11
 };
 
-const USMap = memo(({ selectedState, onStateSelect, research }) => {
+// Parse session dates like "Jan 13 - Mar 27, 2026" or "Dec 1, 2025 - Feb 27, 2026"
+const parseSessionDates = (dateStr) => {
+  if (!dateStr || dateStr === "Odd years only") {
+    return null;
+  }
+
+  // Match patterns like "Jan 13 - Mar 27, 2026" or "Dec 1, 2025 - Feb 27, 2026"
+  const match = dateStr.match(/(\w+)\s+(\d+),?\s*(\d{4})?\s*-\s*(\w+)\s+(\d+),?\s*(\d{4})/);
+  if (!match) return null;
+
+  const [, startMonth, startDay, startYear, endMonth, endDay, endYear] = match;
+
+  const start = new Date(
+    parseInt(startYear || endYear),
+    monthToNum[startMonth],
+    parseInt(startDay)
+  );
+
+  const end = new Date(
+    parseInt(endYear),
+    monthToNum[endMonth],
+    parseInt(endDay),
+    23, 59, 59 // End of day
+  );
+
+  return { start, end };
+};
+
+// Get current date in EST
+const getESTDate = () => {
+  return new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+};
+
+// Determine session status: "inSession", "upcoming", "ended", "noSession"
+const getSessionStatus = (stateAbbr) => {
+  const state = stateData[stateAbbr];
+  if (!state) return "noSession";
+
+  const dates = parseSessionDates(state.session.dates);
+  if (!dates) return "noSession";
+
+  const now = getESTDate();
+
+  if (now < dates.start) return "upcoming";
+  if (now > dates.end) return "ended";
+  return "inSession";
+};
+
+// Get color based on session status
+const getStateColor = (stateAbbr) => {
+  const status = getSessionStatus(stateAbbr);
+  return mapColors[status];
+};
+
+const USMap = memo(({ selectedState, onStateSelect }) => {
   const [position, setPosition] = useState({ coordinates: [-96, 38], zoom: 1 });
+  const [, setRefresh] = useState(0); // Force re-render trigger
   const containerRef = useRef(null);
+
+  // Auto-refresh at midnight EST to update session colors
+  useEffect(() => {
+    const scheduleNextMidnight = () => {
+      const now = getESTDate();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      const msUntilMidnight = tomorrow - now;
+
+      return setTimeout(() => {
+        setRefresh((r) => r + 1); // Trigger re-render
+        scheduleNextMidnight(); // Schedule next midnight
+      }, msUntilMidnight);
+    };
+
+    const timeoutId = scheduleNextMidnight();
+    return () => clearTimeout(timeoutId);
+  }, []);
 
   const handleMoveEnd = (position) => {
     setPosition(position);
@@ -84,8 +156,8 @@ const USMap = memo(({ selectedState, onStateSelect, research }) => {
 
                 const isSelected = selectedState === abbr;
 
-                // Get color based on research coverage
-                const fillColor = getStateColor(abbr, research);
+                // Get color based on session status
+                const fillColor = getStateColor(abbr);
 
                 return (
                   <Geography

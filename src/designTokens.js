@@ -109,9 +109,11 @@ export const colors = {
 
 // Map-specific status colors (non-partisan PolicyEngine palette)
 export const mapColors = {
-  // Simple two-tone view
-  hasResearch: colors.primary[600],      // Dark teal - has state-specific research
-  default: colors.primary[200],          // Light teal - default state color
+  // Session-based coloring
+  inSession: colors.primary[600],        // Dark teal - currently in session
+  upcoming: colors.primary[300],         // Medium teal - session upcoming
+  ended: colors.gray[300],               // Gray - session ended
+  noSession: colors.gray[200],           // Light gray - no session this year
 };
 
 export const typography = {

@@ -2,7 +2,6 @@ import { useState } from "react";
 import USMap from "./components/USMap";
 import StatePanel from "./components/StatePanel";
 import { stateData } from "./data/states";
-import { research } from "./data/research";
 import { colors, mapColors, typography, spacing } from "./designTokens";
 
 function App() {
@@ -101,19 +100,20 @@ function App() {
             <USMap
               selectedState={selectedState}
               onStateSelect={setSelectedState}
-              research={research}
             />
             {/* Legend */}
             <div style={{
               display: "flex",
               justifyContent: "center",
-              gap: spacing["2xl"],
+              gap: spacing.lg,
               marginTop: spacing.lg,
               paddingTop: spacing.md,
               borderTop: `1px solid ${colors.border.light}`,
             }}>
-              <LegendItem color={mapColors.hasResearch} label="Has Research" />
-              <LegendItem color={mapColors.default} label="No Research Yet" />
+              <LegendItem color={mapColors.inSession} label="In Session" />
+              <LegendItem color={mapColors.upcoming} label="Upcoming" />
+              <LegendItem color={mapColors.ended} label="Ended" />
+              <LegendItem color={mapColors.noSession} label="No 2026 Session" />
             </div>
           </div>
 
