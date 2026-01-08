@@ -105,117 +105,111 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-// Dashboard card with preview
+// Dashboard card (compact style, same as StandardCard)
 const DashboardCard = memo(({ item }) => (
   <div
-    className="card-hover"
     style={{
       backgroundColor: colors.white,
-      borderRadius: spacing.radius.xl,
+      borderRadius: spacing.radius.lg,
       border: `1px solid ${colors.border.light}`,
-      overflow: "hidden",
-      boxShadow: "var(--shadow-elevation-low)",
+      padding: spacing.md,
+      transition: "box-shadow 0.2s ease, transform 0.2s ease",
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.boxShadow = "var(--shadow-elevation-low)";
+      e.currentTarget.style.transform = "translateY(-2px)";
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.boxShadow = "none";
+      e.currentTarget.style.transform = "translateY(0)";
     }}
   >
-    {/* Thumbnail */}
-    <div style={{
-      height: "140px",
-      background: `linear-gradient(135deg, ${colors.primary[600]} 0%, ${colors.primary[400]} 100%)`,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-    }}>
-      {item.thumbnail ? (
-        <img src={item.thumbnail} alt={item.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      ) : (
-        <div style={{ textAlign: "center", color: colors.white }}>
-          <DashboardIcon />
-          <p style={{
-            margin: `${spacing.sm} 0 0`,
-            opacity: 0.8,
-            fontSize: typography.fontSize.sm,
-            fontFamily: typography.fontFamily.body,
-          }}>Interactive Dashboard</p>
-        </div>
-      )}
-    </div>
-    <div style={{ padding: spacing.lg }}>
+    <div style={{ display: "flex", alignItems: "flex-start", gap: spacing.md }}>
       <div style={{
+        flexShrink: 0,
+        width: "40px",
+        height: "40px",
+        borderRadius: spacing.radius.lg,
+        backgroundColor: `${colors.primary[400]}15`,
         display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "space-between",
-        marginBottom: spacing.sm,
+        alignItems: "center",
+        justifyContent: "center",
+        color: colors.primary[600],
       }}>
-        <span style={{
-          color: colors.primary[700],
-          fontSize: typography.fontSize.xs,
+        <DashboardIcon />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: spacing.sm, marginBottom: spacing.xs }}>
+          <span style={{
+            color: colors.primary[700],
+            fontSize: typography.fontSize.xs,
+            fontWeight: typography.fontWeight.semibold,
+            fontFamily: typography.fontFamily.primary,
+            textTransform: "uppercase",
+            letterSpacing: "0.5px",
+          }}>
+            {getTypeLabel(item.type)}
+          </span>
+          <StatusBadge status={item.status} />
+        </div>
+        <h4 style={{
+          margin: `0 0 ${spacing.xs}`,
+          color: colors.secondary[900],
+          fontSize: typography.fontSize.sm,
           fontWeight: typography.fontWeight.semibold,
           fontFamily: typography.fontFamily.primary,
-          textTransform: "uppercase",
-          letterSpacing: "0.5px",
-        }}>
-          {getTypeLabel(item.type)}
-        </span>
-        <StatusBadge status={item.status} />
-      </div>
-      <h4 style={{
-        margin: `0 0 ${spacing.sm}`,
-        color: colors.secondary[900],
-        fontSize: typography.fontSize.base,
-        fontWeight: typography.fontWeight.semibold,
-        fontFamily: typography.fontFamily.primary,
-        lineHeight: "1.4",
-      }}>{item.title}</h4>
-      <p style={{
-        margin: `0 0 ${spacing.md}`,
-        color: colors.text.secondary,
-        fontSize: typography.fontSize.sm,
-        fontFamily: typography.fontFamily.body,
-        lineHeight: "1.5",
-      }}>{item.description}</p>
-      {item.keyFindings && item.keyFindings.length > 0 && (
-        <ul style={{
-          margin: `0 0 ${spacing.md}`,
-          padding: 0,
-          listStyle: "none",
-        }}>
-          {item.keyFindings.slice(0, 2).map((finding, i) => (
-            <li key={i} style={{
-              display: "flex",
-              alignItems: "flex-start",
-              marginBottom: spacing.xs,
-              color: colors.text.tertiary,
-              fontSize: typography.fontSize.xs,
+        }}>{item.title}</h4>
+        <p style={{
+          margin: `0 0 ${spacing.sm}`,
+          color: colors.text.secondary,
+          fontSize: typography.fontSize.sm,
+          fontFamily: typography.fontFamily.body,
+          lineHeight: "1.5",
+        }}>{item.description}</p>
+        {item.keyFindings && item.keyFindings.length > 0 && (
+          <ul style={{
+            margin: `0 0 ${spacing.sm}`,
+            padding: 0,
+            listStyle: "none",
+          }}>
+            {item.keyFindings.slice(0, 2).map((finding, i) => (
+              <li key={i} style={{
+                display: "flex",
+                alignItems: "flex-start",
+                marginBottom: spacing.xs,
+                color: colors.text.tertiary,
+                fontSize: typography.fontSize.xs,
+                fontFamily: typography.fontFamily.body,
+              }}>
+                <span style={{ color: colors.primary[400], marginRight: spacing.xs }}>•</span>
+                {finding}
+              </li>
+            ))}
+          </ul>
+        )}
+        {item.url && (
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: spacing.xs,
+              color: colors.primary[600],
+              fontSize: typography.fontSize.sm,
+              fontWeight: typography.fontWeight.medium,
               fontFamily: typography.fontFamily.body,
-            }}>
-              <span style={{ color: colors.primary[400], marginRight: spacing.xs }}>•</span>
-              {finding}
-            </li>
-          ))}
-        </ul>
-      )}
-      {item.url && (
-        <a
-          href={item.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: spacing.xs,
-            color: colors.primary[600],
-            fontSize: typography.fontSize.sm,
-            fontWeight: typography.fontWeight.medium,
-            fontFamily: typography.fontFamily.body,
-            textDecoration: "none",
-            transition: "color 0.2s ease",
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.color = colors.primary[400]}
-          onMouseLeave={(e) => e.currentTarget.style.color = colors.primary[600]}
-        >
-          Open Dashboard <ExternalLinkIcon />
-        </a>
-      )}
+              textDecoration: "none",
+              transition: "color 0.2s ease",
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = colors.primary[400]}
+            onMouseLeave={(e) => e.currentTarget.style.color = colors.primary[600]}
+          >
+            Open Dashboard <ExternalLinkIcon />
+          </a>
+        )}
+      </div>
     </div>
   </div>
 ));

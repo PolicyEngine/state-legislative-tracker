@@ -54,22 +54,6 @@ export const research = [
     tags: ["state-budget", "income-tax"],
   },
   {
-    id: "ky-income-tax",
-    state: "KY",
-    type: "blog",
-    status: "published",
-    title: "Kentucky Cuts Income Tax Rate",
-    url: "https://policyengine.org/us/research/kentucky-cuts-income-tax-rate",
-    date: "2025-02",
-    author: "David Trimmer",
-    description: "Cutting the rate from 4% to 3.5% as part of path toward elimination",
-    keyFindings: [
-      "Benefits skew toward higher-income households",
-      "Part of phased elimination plan",
-    ],
-    tags: ["flat-tax", "tax-cuts"],
-  },
-  {
     id: "ut-tax-changes",
     state: "UT",
     type: "blog",
@@ -331,15 +315,6 @@ export const research = [
     status: "planned",
     title: "South Carolina H.4216 Flat Tax Proposal",
     description: "Impact of proposed transition to 3.99% flat tax",
-    tags: ["flat-tax", "planned"],
-  },
-  {
-    id: "ks-flat-tax",
-    state: "KS",
-    type: "blog",
-    status: "planned",
-    title: "Kansas Path to 4% Flat Tax (SB 269)",
-    description: "Analysis of veto override and path to flat tax",
     tags: ["flat-tax", "planned"],
   },
 ];

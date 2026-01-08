@@ -196,9 +196,6 @@ export const stateData = {
     },
     legislativeActivity: "high",
     activeBills: [],
-    taxChanges: [
-      { change: "Path to 4% flat tax", effective: "Phased", impact: "Gradual rate reduction", url: "http://www.kslegislature.org/li/b2023_24/measures/sb269/" }
-    ],
   },
   KY: {
     name: "Kentucky",
@@ -211,9 +208,6 @@ export const stateData = {
     },
     legislativeActivity: "high",
     activeBills: [],
-    taxChanges: [
-      { change: "Flat 3.5%", effective: "Jan 2026", impact: "Path toward elimination", url: "https://apps.legislature.ky.gov/record/24rs/hb1.html" }
-    ],
   },
   LA: {
     name: "Louisiana",
