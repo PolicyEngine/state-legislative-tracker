@@ -23,6 +23,7 @@ image = (
     )
     .run_commands(
         # Clone repo and build
+        "echo 'Build version: 2026-01-09-v2'",
         f"git clone --branch {BRANCH} --single-branch {REPO_URL} /app",
         "cd /app && npm install --legacy-peer-deps",
         "cd /app && npm run build",
