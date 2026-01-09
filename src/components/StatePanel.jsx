@@ -450,7 +450,7 @@ const StatePanel = memo(({ stateAbbr, onClose }) => {
                 fontFamily: typography.fontFamily.primary,
               }}
             >
-              Request Analysis
+              Get in Contact
             </a>
           </div>
         </div>

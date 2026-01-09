@@ -246,7 +246,7 @@ function App() {
           />
           <QuickLinkCard
             href="mailto:hello@policyengine.org?subject=State Legislative Analysis Request"
-            title="Request Analysis"
+            title="Get in Contact"
             description="Get custom analysis for your state's legislation"
           />
         </div>

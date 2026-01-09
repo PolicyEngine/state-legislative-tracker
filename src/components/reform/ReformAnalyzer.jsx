@@ -376,10 +376,10 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, onClo
             fontFamily: typography.fontFamily.body,
             color: colors.text.tertiary,
           }}>
-            Powered by <a href="https://policyengine.org" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary[600], textDecoration: "none" }}>PolicyEngine</a>
+            Powered by <a href="https://app.policyengine.org/us/reports" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary[600], textDecoration: "none" }}>PolicyEngine</a>
           </p>
           <a
-            href="https://policyengine.org/us/household"
+            href="https://app.policyengine.org/us/reports"
             target="_blank"
             rel="noopener noreferrer"
             style={{
