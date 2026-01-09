@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Compute aggregate impacts for reforms using PolicyEngine API.
+Compute aggregate impacts for reforms using PolicyEngine API and Microsimulation.
 
 This script creates policies and fetches economy-wide impacts including:
 - Budgetary impact (cost to state)
 - Poverty rate change
 - Child poverty rate change
+- District-level impacts (using Microsimulation)
 
 Results are saved to a JSON file for use in the frontend.
 """
@@ -13,9 +14,31 @@ Results are saved to a JSON file for use in the frontend.
 import json
 import time
 import requests
+import argparse
 from pathlib import Path
 
+# Try to import PolicyEngine for district-level calculations
+try:
+    from policyengine_us import Microsimulation
+    from policyengine_core.reforms import Reform
+    from policyengine_core.periods import instant
+    import numpy as np
+    HAS_POLICYENGINE = True
+except ImportError:
+    HAS_POLICYENGINE = False
+    print("Warning: policyengine-us not installed. District-level impacts will be skipped.")
+
 API_BASE = "https://api.policyengine.org"
+
+# Congressional district names by state
+CONGRESSIONAL_DISTRICTS = {
+    "UT": {
+        1: "Congressional District 1",
+        2: "Congressional District 2",
+        3: "Congressional District 3",
+        4: "Congressional District 4",
+    }
+}
 
 # Define reforms to compute
 REFORMS = [
@@ -118,12 +141,32 @@ def extract_impacts(economy_data: dict) -> dict:
     if "intra_decile" in economy_data:
         intra = economy_data["intra_decile"].get("all", {})
         impacts["winnersLosers"] = {
-            "gainMore5": intra.get("Gain more than 5%", 0),
-            "gainLess5": intra.get("Gain less than 5%", 0),
-            "loseLess5": intra.get("Lose less than 5%", 0),
-            "loseMore5": intra.get("Lose more than 5%", 0),
+            "gainMore5Pct": intra.get("Gain more than 5%", 0),
+            "gainLess5Pct": intra.get("Gain less than 5%", 0),
+            "loseLess5Pct": intra.get("Lose less than 5%", 0),
+            "loseMore5Pct": intra.get("Lose more than 5%", 0),
             "noChange": intra.get("No change", 0),
         }
+
+    # Decile impact - average change per income decile
+    if "decile" in economy_data:
+        decile_data = economy_data["decile"]
+        # Average income change by decile (relative)
+        if "average" in decile_data:
+            avg = decile_data["average"]
+            impacts["decileImpact"] = {
+                "relative": {
+                    str(i): avg.get(str(i), 0) for i in range(1, 11)
+                }
+            }
+        # Absolute income change by decile
+        if "income" in decile_data:
+            income = decile_data["income"]
+            if "decileImpact" not in impacts:
+                impacts["decileImpact"] = {}
+            impacts["decileImpact"]["absolute"] = {
+                str(i): income.get(str(i), 0) for i in range(1, 11)
+            }
 
     # Inequality metrics
     if "inequality" in economy_data:
@@ -137,7 +180,140 @@ def extract_impacts(economy_data: dict) -> dict:
     return impacts
 
 
+def compute_district_impacts(state: str, reform_dict: dict, year: int = 2026) -> dict:
+    """
+    Compute district-level impacts using PolicyEngine Microsimulation.
+
+    This runs a full microsimulation to get impacts by congressional district.
+    """
+    if not HAS_POLICYENGINE:
+        print("  Skipping district impacts (policyengine-us not installed)")
+        return {}
+
+    state_upper = state.upper()
+    state_lower = state.lower()
+
+    # Get state FIPS code for filtering
+    STATE_FIPS = {
+        "UT": 49, "CA": 6, "NY": 36, "TX": 48, "FL": 12,
+        # Add more as needed
+    }
+
+    if state_upper not in STATE_FIPS:
+        print(f"  Skipping district impacts (state {state_upper} not configured)")
+        return {}
+
+    state_fips = STATE_FIPS[state_upper]
+
+    print("  Computing district-level impacts...")
+
+    try:
+        # Create reform class dynamically
+        def create_reform_class(parameters):
+            def modify_params(params):
+                for param_path, values in parameters.items():
+                    param = params
+                    for key in param_path.split("."):
+                        param = getattr(param, key)
+                    for period, value in values.items():
+                        # Convert API period format "2026-01-01.2100-12-31" to Instant objects
+                        if "." in period:
+                            start_str, stop_str = period.split(".")
+                        else:
+                            start_str = period
+                            stop_str = "2100-12-31"
+                        param.update(start=instant(start_str), stop=instant(stop_str), value=value)
+                return params
+
+            class DynamicReform(Reform):
+                def apply(self):
+                    self.modify_parameters(modify_params)
+
+            return DynamicReform
+
+        ReformClass = create_reform_class(reform_dict)
+
+        # Run baseline and reform simulations
+        print("    Running baseline simulation...")
+        baseline = Microsimulation()
+
+        print("    Running reform simulation...")
+        reformed = Microsimulation(reform=ReformClass)
+
+        # Get relevant variables
+        baseline_income = baseline.calculate("household_net_income", year).values
+        reform_income = reformed.calculate("household_net_income", year).values
+        income_change = reform_income - baseline_income
+
+        household_weight = baseline.calculate("household_weight", year).values
+        state_code = baseline.calculate("state_code_str", year).values
+        cd_geoid = baseline.calculate("congressional_district_geoid", year).values
+
+        # Check if congressional district data is available
+        unique_geoids = np.unique(cd_geoid)
+        if len(unique_geoids) == 1 and unique_geoids[0] == 0:
+            print("    Warning: Congressional district data not available in dataset")
+            print("    District-level impacts require enhanced CPS data with district geocoding")
+            return {}
+
+        # Filter to state
+        in_state = state_code == state_upper
+
+        # Get poverty variables (not currently used but kept for future district poverty calc)
+        # baseline_poverty = baseline.calculate("in_poverty", year).values
+        # reform_poverty = reformed.calculate("in_poverty", year).values
+        # person_weight = baseline.calculate("person_weight", year).values
+
+        # Compute district impacts
+        districts = CONGRESSIONAL_DISTRICTS.get(state_upper, {})
+        district_impacts = {}
+
+        for district_num, district_name in districts.items():
+            # District GEOID format: state_fips * 100 + district_num (e.g., 4901 for UT-1)
+            district_geoid = state_fips * 100 + district_num
+
+            # Filter households in this district
+            in_district = (cd_geoid == district_geoid) & in_state
+
+            if not np.any(in_district):
+                continue
+
+            district_weights = household_weight[in_district]
+            district_income_change = income_change[in_district]
+
+            # Compute metrics
+            total_households = float(np.sum(district_weights))
+            total_benefit = float(np.sum(district_income_change * district_weights))
+            avg_benefit = total_benefit / total_households if total_households > 0 else 0
+
+            # Winners share (households with positive income change)
+            winners = district_income_change > 1  # More than $1 gain
+            winners_share = float(np.sum(district_weights[winners]) / total_households) if total_households > 0 else 0
+
+            district_impacts[f"{state_upper}-{district_num}"] = {
+                "districtName": district_name,
+                "avgBenefit": round(avg_benefit, 0),
+                "householdsAffected": round(total_households, 0),
+                "totalBenefit": round(total_benefit, 0),
+                "povertyChange": 0.0,  # TODO: compute per-district poverty change
+                "winnersShare": round(winners_share, 2),
+            }
+
+            print(f"    District {district_num}: ${avg_benefit:.0f} avg benefit")
+
+        return district_impacts
+
+    except Exception as e:
+        print(f"  Error computing district impacts: {e}")
+        return {}
+
+
 def main():
+    parser = argparse.ArgumentParser(description="Compute aggregate impacts for reforms")
+    parser.add_argument("--force", action="store_true", help="Force recomputation of all impacts")
+    parser.add_argument("--districts-only", action="store_true", help="Only compute district impacts for existing reforms")
+    args = parser.parse_args()
+
     output_path = Path(__file__).parent.parent / "src" / "data" / "reformImpacts.json"
 
     # Load existing impacts if any
@@ -156,8 +332,25 @@ def main():
         print(f"\nProcessing: {reform_config['label']}")
         print(f"  State: {state.upper()}")
 
-        # Skip if already computed
-        if reform_id in impacts and impacts[reform_id].get("computed"):
+        # Districts-only mode: just update district impacts for existing data
+        if args.districts_only:
+            if reform_id not in impacts or not impacts[reform_id].get("computed"):
+                print("  Not yet computed, skipping district-only update...")
+                continue
+            print("  Computing district impacts only...")
+            district_impacts = compute_district_impacts(
+                state=state,
+                reform_dict=reform_config["reform"],
+            )
+            if district_impacts:
+                impacts[reform_id]["districtImpacts"] = district_impacts
+                print(f"  Done! District impacts updated.")
+            else:
+                print("  Keeping existing district data (if any).")
+            continue
+
+        # Skip if already computed (unless forced)
+        if not args.force and reform_id in impacts and impacts[reform_id].get("computed"):
             print("  Already computed, skipping...")
             continue
 
@@ -175,6 +368,14 @@ def main():
             impacts[reform_id] = extract_impacts(economy_data)
             impacts[reform_id]["policyId"] = policy_id
             impacts[reform_id]["state"] = state.upper()
+
+            # Compute district-level impacts
+            district_impacts = compute_district_impacts(
+                state=state,
+                reform_dict=reform_config["reform"],
+            )
+            if district_impacts:
+                impacts[reform_id]["districtImpacts"] = district_impacts
 
             print(f"  Done! Impacts computed.")
 

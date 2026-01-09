@@ -1,32 +1,48 @@
 {
   "ut-sb0060-rate-cut": {
     "computed": true,
-    "computedAt": "2026-01-07",
-    "policyId": 95604,
-    "state": "UT",
+    "computedAt": "2026-01-08 20:35:40",
     "budgetaryImpact": {
-      "netCost": -81126034,
-      "stateRevenueImpact": -83574086,
-      "households": 624921
+      "netCost": -81126034.36734772,
+      "stateRevenueImpact": -83574085.770401,
+      "households": 624921.1359609773
     },
     "povertyImpact": {
-      "baselineRate": 0.1949,
-      "reformRate": 0.1949,
+      "baselineRate": 0.19492490502154167,
+      "reformRate": 0.19492490502154167,
       "change": 0.0,
       "percentChange": 0.0
     },
     "childPovertyImpact": {
-      "baselineRate": 0.2077,
-      "reformRate": 0.2077,
+      "baselineRate": 0.2077184888522847,
+      "reformRate": 0.2077184888522847,
       "change": 0.0,
       "percentChange": 0.0
     },
     "winnersLosers": {
-      "gainLess5Pct": 0.532,
       "gainMore5Pct": 0,
+      "gainLess5Pct": 0.5319744985335045,
       "loseLess5Pct": 0,
       "loseMore5Pct": 0,
-      "noChange": 0.468
+      "noChange": 0.46802550146649546
+    },
+    "decileImpact": {
+      "relative": {
+        "1": 5.002975822487821,
+        "2": 12.039611271853108,
+        "3": 23.242159532064527,
+        "4": 35.40390783163671,
+        "5": 51.841044921765246,
+        "6": 83.64340839306355,
+        "7": 155.27282045718007,
+        "8": 254.09553883848056,
+        "9": 296.60527744546346,
+        "10": 582.7971357866921
+      }
+    },
+    "inequality": {
+      "giniBaseline": 0.4932778021874614,
+      "giniReform": 0.49333309021342897
     },
     "districtImpacts": {
       "UT-1": {
@@ -61,6 +77,8 @@
         "povertyChange": 0.0,
         "winnersShare": 0.52
       }
-    }
+    },
+    "policyId": 95604,
+    "state": "UT"
   }
 }
