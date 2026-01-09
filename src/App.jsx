@@ -21,38 +21,34 @@ function App() {
         }}
       >
         <div style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing.xl} ${spacing["2xl"]}` }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: spacing.lg }}>
+          <div style={{ display: "flex", alignItems: "center", gap: spacing.lg }}>
+            <a href="https://policyengine.org" target="_blank" rel="noopener noreferrer">
               <img
-                src="/policyengine.png"
-                alt="PolicyEngine Logo"
-                style={{ height: "44px", width: "auto" }}
-                onError={(e) => {
-                  e.target.style.display = "none";
-                }}
+                src="/policyengine-favicon.svg"
+                alt="PolicyEngine"
+                style={{ height: "40px", width: "auto" }}
               />
-              <div>
-                <h1 style={{
-                  margin: 0,
-                  color: colors.secondary[900],
-                  fontSize: typography.fontSize["2xl"],
-                  fontWeight: typography.fontWeight.bold,
-                  fontFamily: typography.fontFamily.primary,
-                  letterSpacing: "-0.02em",
-                }}>
-                  2026 State Legislative Tracker
-                </h1>
-                <p style={{
-                  margin: "2px 0 0",
-                  color: colors.text.secondary,
-                  fontSize: typography.fontSize.sm,
-                  fontFamily: typography.fontFamily.body,
-                }}>
-                  PolicyEngine State Tax Research
-                </p>
-              </div>
+            </a>
+            <div>
+              <h1 style={{
+                margin: 0,
+                color: colors.secondary[900],
+                fontSize: typography.fontSize["2xl"],
+                fontWeight: typography.fontWeight.bold,
+                fontFamily: typography.fontFamily.primary,
+                letterSpacing: "-0.02em",
+              }}>
+                2026 State Legislative Tracker
+              </h1>
+              <p style={{
+                margin: "2px 0 0",
+                color: colors.text.secondary,
+                fontSize: typography.fontSize.sm,
+                fontFamily: typography.fontFamily.body,
+              }}>
+                PolicyEngine State Tax Research
+              </p>
             </div>
-
           </div>
         </div>
       </header>
