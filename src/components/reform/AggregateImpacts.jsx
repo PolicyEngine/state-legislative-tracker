@@ -51,9 +51,10 @@ export default function AggregateImpacts({ impacts }) {
 
   const { budgetaryImpact, povertyImpact, childPovertyImpact, winnersLosers, decileImpact } = impacts;
 
-  // Determine if this is a tax cut (revenue loss) or tax increase
-  // Note: For tax cuts, netCost is negative (state loses revenue, but households gain)
-  const isRevenueLoss = budgetaryImpact?.netCost < 0;
+  // Use state income tax revenue impact for display
+  // Note: For tax cuts, this is negative (state loses revenue, but households gain)
+  const stateIncomeTaxImpact = budgetaryImpact?.stateRevenueImpact ?? budgetaryImpact?.netCost;
+  const isRevenueLoss = stateIncomeTaxImpact < 0;
   const householdsGain = isRevenueLoss; // Tax cut = households benefit
 
   // Calculate total winners and losers
@@ -104,7 +105,7 @@ export default function AggregateImpacts({ impacts }) {
             fontFamily: typography.fontFamily.primary,
             color: householdsGain ? colors.primary[600] : colors.red[600],
           }}>
-            {formatCurrency(budgetaryImpact?.netCost)}
+            {formatCurrency(stateIncomeTaxImpact)}
           </span>
           <span style={{
             fontSize: typography.fontSize.base,
@@ -119,7 +120,7 @@ export default function AggregateImpacts({ impacts }) {
             color: colors.text.tertiary,
             marginLeft: spacing.sm,
           }}>
-            {isRevenueLoss ? "state revenue decrease" : "state revenue increase"}
+            state & local income tax revenue
           </span>
         </div>
       </div>
