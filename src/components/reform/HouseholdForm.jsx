@@ -1,19 +1,5 @@
 import { colors, typography, spacing } from "../../designTokens";
 
-const filingStatusOptions = [
-  { value: "single", label: "Single" },
-  { value: "married", label: "Married Filing Jointly" },
-  { value: "head_of_household", label: "Head of Household" },
-];
-
-const childrenOptions = [
-  { value: 0, label: "No children" },
-  { value: 1, label: "1 child" },
-  { value: 2, label: "2 children" },
-  { value: 3, label: "3 children" },
-  { value: 4, label: "4+ children" },
-];
-
 const inputStyle = {
   width: "100%",
   padding: `${spacing.sm} ${spacing.md}`,
@@ -36,6 +22,12 @@ const labelStyle = {
   fontFamily: typography.fontFamily.body,
 };
 
+const smallInputStyle = {
+  ...inputStyle,
+  width: "80px",
+  textAlign: "center",
+};
+
 export default function HouseholdForm({
   values,
   onChange,
@@ -44,10 +36,30 @@ export default function HouseholdForm({
   stateAbbr
 }) {
   const handleChange = (field) => (e) => {
-    const value = field === "income" || field === "numChildren"
+    const value = field === "income" || field === "headAge" || field === "spouseAge"
       ? parseInt(e.target.value, 10) || 0
-      : e.target.value;
+      : field === "isMarried"
+        ? e.target.checked
+        : e.target.value;
     onChange({ ...values, [field]: value });
+  };
+
+  const handleChildAgeChange = (index) => (e) => {
+    const age = parseInt(e.target.value, 10) || 0;
+    const newChildrenAges = [...values.childrenAges];
+    newChildrenAges[index] = age;
+    onChange({ ...values, childrenAges: newChildrenAges });
+  };
+
+  const addChild = () => {
+    if (values.childrenAges.length < 6) {
+      onChange({ ...values, childrenAges: [...values.childrenAges, 10] });
+    }
+  };
+
+  const removeChild = (index) => {
+    const newChildrenAges = values.childrenAges.filter((_, i) => i !== index);
+    onChange({ ...values, childrenAges: newChildrenAges });
   };
 
   return (
@@ -55,23 +67,68 @@ export default function HouseholdForm({
       onSubmit={(e) => { e.preventDefault(); onSubmit(); }}
       style={{ display: "flex", flexDirection: "column", gap: spacing.lg }}
     >
-      {/* Filing Status */}
+      {/* Marital Status */}
       <div>
-        <label style={labelStyle}>Filing Status</label>
-        <select
-          value={values.filingStatus}
-          onChange={handleChange("filingStatus")}
-          style={{ ...inputStyle, cursor: "pointer" }}
-        >
-          {filingStatusOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+        <label style={{
+          ...labelStyle,
+          display: "flex",
+          alignItems: "center",
+          gap: spacing.sm,
+          cursor: "pointer",
+          marginBottom: 0,
+        }}>
+          <input
+            type="checkbox"
+            checked={values.isMarried}
+            onChange={handleChange("isMarried")}
+            style={{
+              width: "18px",
+              height: "18px",
+              cursor: "pointer",
+              accentColor: colors.primary[600],
+            }}
+          />
+          <span style={{ fontSize: typography.fontSize.sm, color: colors.secondary[900] }}>
+            Married
+          </span>
+        </label>
+      </div>
+
+      {/* Ages - Side by Side */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: values.isMarried ? "1fr 1fr" : "1fr",
+        gap: spacing.md,
+      }}>
+        <div>
+          <label style={labelStyle}>Your Age</label>
+          <input
+            type="number"
+            value={values.headAge}
+            onChange={handleChange("headAge")}
+            min={18}
+            max={100}
+            style={{ ...inputStyle, width: "100%" }}
+          />
+        </div>
+        {values.isMarried && (
+          <div>
+            <label style={labelStyle}>Spouse Age</label>
+            <input
+              type="number"
+              value={values.spouseAge}
+              onChange={handleChange("spouseAge")}
+              min={18}
+              max={100}
+              style={{ ...inputStyle, width: "100%" }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Income */}
       <div>
-        <label style={labelStyle}>Annual Employment Income</label>
+        <label style={labelStyle}>Annual Household Employment Income</label>
         <div style={{ position: "relative" }}>
           <span style={{
             position: "absolute",
@@ -94,18 +151,98 @@ export default function HouseholdForm({
         </div>
       </div>
 
-      {/* Number of Children */}
+      {/* Children */}
       <div>
-        <label style={labelStyle}>Children (under 18)</label>
-        <select
-          value={values.numChildren}
-          onChange={handleChange("numChildren")}
-          style={{ ...inputStyle, cursor: "pointer" }}
-        >
-          {childrenOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+        <label style={{ ...labelStyle, marginBottom: spacing.sm }}>
+          Children
+        </label>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: spacing.sm,
+        }}>
+          {values.childrenAges.map((age, index) => (
+            <div
+              key={index}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: spacing.xs,
+                padding: spacing.sm,
+                backgroundColor: colors.background.secondary,
+                borderRadius: spacing.radius.lg,
+                position: "relative",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => removeChild(index)}
+                style={{
+                  position: "absolute",
+                  top: "4px",
+                  right: "4px",
+                  padding: "2px 6px",
+                  border: "none",
+                  borderRadius: spacing.radius.md,
+                  backgroundColor: "transparent",
+                  color: colors.text.tertiary,
+                  cursor: "pointer",
+                  fontSize: typography.fontSize.xs,
+                  lineHeight: 1,
+                }}
+                title="Remove child"
+              >
+                ×
+              </button>
+              <span style={{
+                fontSize: typography.fontSize.xs,
+                fontFamily: typography.fontFamily.body,
+                color: colors.text.tertiary,
+              }}>
+                Child {index + 1}
+              </span>
+              <input
+                type="number"
+                value={age}
+                onChange={handleChildAgeChange(index)}
+                min={0}
+                max={17}
+                style={{
+                  ...smallInputStyle,
+                  width: "60px",
+                  padding: spacing.xs,
+                }}
+                placeholder="Age"
+              />
+            </div>
           ))}
-        </select>
+          {values.childrenAges.length < 6 && (
+            <button
+              type="button"
+              onClick={addChild}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: spacing.sm,
+                border: `1px dashed ${colors.border.medium}`,
+                borderRadius: spacing.radius.lg,
+                backgroundColor: "transparent",
+                color: colors.primary[600],
+                fontSize: typography.fontSize.xs,
+                fontWeight: typography.fontWeight.medium,
+                fontFamily: typography.fontFamily.body,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                minHeight: "70px",
+              }}
+            >
+              + Add
+            </button>
+          )}
+        </div>
       </div>
 
       {/* State (fixed for state-specific reforms) */}

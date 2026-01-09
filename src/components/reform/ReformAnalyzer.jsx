@@ -81,9 +81,11 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, onClo
   const aggregateImpacts = reformImpactsData[reformConfig.id] || null;
 
   const [householdInputs, setHouseholdInputs] = useState({
-    filingStatus: "single",
+    headAge: 35,
+    isMarried: false,
+    spouseAge: 35,
     income: 50000,
-    numChildren: 0,
+    childrenAges: [],
   });
 
   const [results, setResults] = useState(null);

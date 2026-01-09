@@ -23,9 +23,11 @@ export function getStateName(abbr) {
  * Build a PolicyEngine-compatible household object from simple inputs
  */
 export function buildHousehold({
-  filingStatus = "single",
+  headAge = 35,
+  isMarried = false,
+  spouseAge = 35,
   income = 50000,
-  numChildren = 0,
+  childrenAges = [],
   state = "NY",
   year = "2026",
 }) {
@@ -35,35 +37,35 @@ export function buildHousehold({
   // Use state abbreviation (API expects 2-letter codes like "UT", not "Utah")
   const stateCode = state;
 
-  // Add primary adult
+  // Add primary adult (head of household)
   people.adult = {
-    age: { [year]: 35 },
+    age: { [year]: headAge },
     employment_income: { [year]: income },
   };
   memberList.push("adult");
 
   // Add spouse if married
-  if (filingStatus === "married" || filingStatus === "married_filing_jointly") {
+  if (isMarried) {
     people.spouse = {
-      age: { [year]: 35 },
+      age: { [year]: spouseAge },
       employment_income: { [year]: 0 },
     };
     memberList.push("spouse");
   }
 
-  // Add children
-  for (let i = 0; i < numChildren; i++) {
+  // Add children with their specific ages
+  childrenAges.forEach((age, i) => {
     const childId = `child${i + 1}`;
     people[childId] = {
-      age: { [year]: 10 },
+      age: { [year]: age },
       employment_income: { [year]: 0 },
     };
     memberList.push(childId);
-  }
+  });
 
   // Build marital units
   const maritalUnits = {};
-  if (filingStatus === "married" || filingStatus === "married_filing_jointly") {
+  if (isMarried) {
     maritalUnits.marital_unit = {
       members: ["adult", "spouse"],
     };
@@ -73,11 +75,11 @@ export function buildHousehold({
     };
   }
   // Each child gets their own marital unit
-  for (let i = 0; i < numChildren; i++) {
+  childrenAges.forEach((_, i) => {
     maritalUnits[`child${i + 1}_marital_unit`] = {
       members: [`child${i + 1}`],
     };
-  }
+  });
 
   // Build state-specific tax variable name (e.g., "ut_income_tax" for UT)
   const stateTaxVar = `${stateCode.toLowerCase()}_income_tax`;
