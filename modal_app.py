@@ -23,7 +23,7 @@ image = (
     )
     .run_commands(
         # Clone repo and build - date command busts cache on each deploy
-        "date",
+        "date && echo 'v3'",
         f"git clone --branch {BRANCH} --single-branch {REPO_URL} /app",
         "cd /app && npm install --legacy-peer-deps",
         "cd /app && npm run build",
