@@ -61,7 +61,7 @@ export const stateData = {
     },
     legislativeActivity: "high",
     activeBills: [
-      { bill: "ACA 3 (Billionaire Tax)", status: "proposed", description: "5% wealth tax on $1B+", url: "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260ACA3" }
+      { bill: "ACA 3 (Billionaire Tax)", status: "Proposed", description: "5% wealth tax on $1B+", url: "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260ACA3" }
     ],
     taxChanges: [],
   },
@@ -267,7 +267,14 @@ export const stateData = {
       stateCTC: { available: false },
     },
     legislativeActivity: "moderate",
-    activeBills: [],
+    activeBills: [
+      {
+        bill: "Invest in MI Kids Initiative",
+        status: "Proposed",
+        description: "Additional 5% tax on annual taxable income to fund public schools",
+        url: "https://www.michigan.gov/sos/-/media/Project/Websites/sos/BSC-Announcements/Invest-in-MI-Kids-Petition.pdf"
+      }
+    ],
   },
   MN: {
     name: "Minnesota",
@@ -390,7 +397,7 @@ export const stateData = {
     activeBills: [
       {
         bill: "S.2082 (Working Families Tax Credit)",
-        status: "proposed",
+        status: "Proposed",
         description: "New refundable credit for working families",
         url: "https://www.nysenate.gov/legislation/bills/2025/S2082"
       }
@@ -408,7 +415,7 @@ export const stateData = {
     legislativeActivity: "high",
     activeBills: [],
     taxChanges: [
-      { change: "Flat 3.99%", effective: "Jan 2026", impact: "Continued rate reduction", url: "https://www.ncleg.gov/BillLookUp/2023/H259" }
+      { change: "Flat 3.99%", effective: "Jan 2026", impact: "Continued rate reduction", url: "https://www.ncleg.net/EnactedLegislation/Statutes/PDF/BySection/Chapter_105/GS_105-153.7.pdf" }
     ],
   },
   ND: {
@@ -435,7 +442,7 @@ export const stateData = {
     legislativeActivity: "high",
     activeBills: [],
     taxChanges: [
-      { change: "Flat 2.75%", effective: "Jan 2026", impact: "-$1.1B revenue", url: "https://www.legislature.ohio.gov/legislation/135/hb1" }
+      { change: "Flat 2.75%", effective: "Jan 2026", impact: "-$1.1B revenue", url: "https://codes.ohio.gov/assets/laws/revised-code/authenticated/57/5747/5747.02/9-30-2025/5747.02-9-30-2025.pdf" }
     ],
   },
   OK: {
@@ -481,7 +488,7 @@ export const stateData = {
     policyLevers: {
       incomeTax: { available: true, type: "graduated", topRate: "5.99%", brackets: 3 },
       stateEITC: { available: true, match: "15%" },
-      stateCTC: { available: true, name: "Child Tax Credit" },
+      stateCTC: { available: false, note: "Proposed" },
     },
     legislativeActivity: "low",
     activeBills: [],
@@ -499,7 +506,7 @@ export const stateData = {
     activeBills: [
       {
         bill: "H.4216",
-        status: "proposed",
+        status: "Proposed",
         description: "Flat 3.99% tax proposal",
         url: "https://www.scstatehouse.gov/billsearch.php?billnumbers=4216&session=126"
       }
@@ -553,13 +560,13 @@ export const stateData = {
     legislativeActivity: "high",
     activeBills: [
       {
-        bill: "SB0060",
-        status: "proposed",
+        bill: "SB60",
+        status: "Proposed",
         description: "Cut income tax rate from 4.5% to 4.45%",
-        url: "https://le.utah.gov/~2026/bills/static/SB0060.html",
+        url: "https://le.utah.gov/~2026/bills/static/SB60.html",
         reformConfig: {
-          id: "ut-sb0060-rate-cut",
-          label: "Utah Income Tax Rate Cut (SB0060)",
+          id: "ut-sb60-rate-cut",
+          label: "Utah Income Tax Rate Cut (SB60)",
           description: "Reduces Utah's flat income tax rate from 4.5% to 4.45%",
           reform: {
             "gov.states.ut.tax.income.rate": {
@@ -607,7 +614,7 @@ export const stateData = {
     activeBills: [
       {
         bill: "Millionaires' Tax Proposal",
-        status: "proposed",
+        status: "Proposed",
         description: "9.9% income tax on earnings over $1M",
         url: "https://governor.wa.gov/news/2025/governor-ferguson-announces-support-millionaires-tax"
       }

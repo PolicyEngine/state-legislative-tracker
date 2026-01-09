@@ -43,9 +43,9 @@ CONGRESSIONAL_DISTRICTS = {
 # Define reforms to compute
 REFORMS = [
     {
-        "id": "ut-sb0060-rate-cut",
+        "id": "ut-sb60-rate-cut",
         "state": "ut",
-        "label": "Utah Income Tax Rate Cut (SB0060)",
+        "label": "Utah Income Tax Rate Cut (SB60)",
         "reform": {
             "gov.states.ut.tax.income.rate": {
                 "2026-01-01.2100-12-31": 0.0445

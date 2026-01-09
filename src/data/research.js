@@ -69,6 +69,21 @@ export const research = [
     tags: ["income-tax", "tax-cuts"],
   },
   {
+    id: "ky-income-tax-cut",
+    state: "KY",
+    type: "blog",
+    status: "published",
+    title: "Kentucky Cuts Income Tax Rate",
+    url: "https://www.policyengine.org/us/research/kentucky-cuts-income-tax-rate",
+    date: "2025",
+    author: "PolicyEngine",
+    description: "Analysis of Kentucky's income tax rate reduction",
+    keyFindings: [
+      "Impact of rate cut on Kentucky residents",
+    ],
+    tags: ["income-tax", "tax-cuts", "flat-tax"],
+  },
+  {
     id: "or-rebate",
     state: "OR",
     type: "blog",
@@ -166,6 +181,23 @@ export const research = [
       "Increased taxes for high-income filers",
     ],
     tags: ["tax-reform", "credits"],
+  },
+  {
+    id: "ri-ctc-calculator",
+    state: "RI",
+    type: "dashboard",
+    status: "published",
+    title: "Rhode Island Child Tax Credit Calculator",
+    url: "https://www.policyengine.org/us/rhode-island-ctc-calculator",
+    thumbnail: null,
+    date: "2025",
+    author: "PolicyEngine",
+    description: "Interactive calculator for a potential Rhode Island Child Tax Credit",
+    keyFindings: [
+      "Explore a potential Rhode Island CTC",
+      "Create customize CTC and dependent exemption reforms"
+    ],
+    tags: ["ctc", "interactive", "calculator", "proposed"],
   },
 
   // Federal tools relevant to all/multiple states
