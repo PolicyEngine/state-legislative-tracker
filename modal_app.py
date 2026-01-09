@@ -22,8 +22,8 @@ image = (
         "apt-get install -y nodejs",
     )
     .run_commands(
-        # Clone repo and build
-        "echo 'Build version: 2026-01-09-v2'",
+        # Clone repo and build - date command busts cache on each deploy
+        "date",
         f"git clone --branch {BRANCH} --single-branch {REPO_URL} /app",
         "cd /app && npm install --legacy-peer-deps",
         "cd /app && npm run build",
