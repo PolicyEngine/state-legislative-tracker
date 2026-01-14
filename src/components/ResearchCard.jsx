@@ -441,12 +441,34 @@ const PlannedCard = memo(({ item }) => (
           fontFamily: typography.fontFamily.primary,
         }}>{item.title}</h4>
         <p style={{
-          margin: 0,
+          margin: `0 0 ${item.sourceUrl ? spacing.sm : 0}`,
           color: colors.text.secondary,
           fontSize: typography.fontSize.sm,
           fontFamily: typography.fontFamily.body,
           lineHeight: "1.5",
         }}>{item.description}</p>
+        {item.sourceUrl && (
+          <a
+            href={item.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: spacing.xs,
+              color: colors.primary[600],
+              fontSize: typography.fontSize.sm,
+              fontWeight: typography.fontWeight.medium,
+              fontFamily: typography.fontFamily.body,
+              textDecoration: "none",
+              transition: "color 0.2s ease",
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = colors.primary[400]}
+            onMouseLeave={(e) => e.currentTarget.style.color = colors.primary[600]}
+          >
+            View Source <ExternalLinkIcon />
+          </a>
+        )}
       </div>
     </div>
   </div>

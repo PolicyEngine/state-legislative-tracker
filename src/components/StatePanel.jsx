@@ -66,9 +66,12 @@ const StatePanel = memo(({ stateAbbr, onClose }) => {
   const inProgress = research.filter((r) => r.status === "in_progress");
   const planned = research.filter((r) => r.status === "planned");
 
+  // Sort by date (newest first)
+  const sortByDate = (items) => [...items].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
   // Separate state-specific from federal
-  const stateSpecific = published.filter((r) => r.state === stateAbbr);
-  const federal = published.filter((r) => r.state === "all" || (r.relevantStates && r.relevantStates.includes(stateAbbr)));
+  const stateSpecific = sortByDate(published.filter((r) => r.state === stateAbbr));
+  const federal = sortByDate(published.filter((r) => r.state === "all" || (r.relevantStates && r.relevantStates.includes(stateAbbr))));
 
   return (
     <div
@@ -358,6 +361,18 @@ const StatePanel = memo(({ stateAbbr, onClose }) => {
           </div>
         )}
 
+        {/* Planned Research */}
+        {planned.length > 0 && (
+          <div style={{ marginBottom: spacing["2xl"] }}>
+            <SectionHeader>Planned</SectionHeader>
+            <div style={{ display: "flex", flexDirection: "column", gap: spacing.md }}>
+              {planned.map((item) => (
+                <ResearchCard key={item.id} item={item} />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Federal Tools */}
         {federal.length > 0 && (
           <div style={{ marginBottom: spacing["2xl"] }}>
@@ -369,18 +384,6 @@ const StatePanel = memo(({ stateAbbr, onClose }) => {
                 .map((item) => (
                   <ResearchCard key={item.id} item={item} />
                 ))}
-            </div>
-          </div>
-        )}
-
-        {/* Planned Research */}
-        {planned.length > 0 && (
-          <div style={{ marginBottom: spacing["2xl"] }}>
-            <SectionHeader>Planned</SectionHeader>
-            <div style={{ display: "flex", flexDirection: "column", gap: spacing.md }}>
-              {planned.map((item) => (
-                <ResearchCard key={item.id} item={item} />
-              ))}
             </div>
           </div>
         )}
