@@ -751,19 +751,71 @@ const STATE_ZOOMS = {
   "ID": 3, "WA": 3, "HI": 3,
 };
 
-// District details panel for generic map
-function DistrictDetails({ impact }) {
+// District detail card for generic map - matches Utah style
+function GenericDistrictDetailCard({ districtNum, impact, maxBenefit, stateName }) {
   const avgBenefit = impact?.avgBenefit || 0;
   const isPositive = avgBenefit > 0;
   const isNeutral = avgBenefit === 0;
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: spacing.lg }}>
+    <div style={{
+      padding: spacing.xl,
+      backgroundColor: colors.white,
+      borderRadius: spacing.radius.xl,
+      border: `1px solid ${colors.border.light}`,
+      boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+    }}>
+      {/* Header */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: spacing.md,
+        marginBottom: spacing.lg,
+        paddingBottom: spacing.lg,
+        borderBottom: `1px solid ${colors.border.light}`,
+      }}>
+        <span style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "40px",
+          height: "40px",
+          borderRadius: spacing.radius.lg,
+          backgroundColor: getImpactColor(avgBenefit, maxBenefit),
+          color: colors.white,
+          fontSize: typography.fontSize.lg,
+          fontWeight: typography.fontWeight.bold,
+          fontFamily: typography.fontFamily.primary,
+        }}>
+          {districtNum}
+        </span>
+        <div>
+          <h4 style={{
+            margin: 0,
+            fontSize: typography.fontSize.lg,
+            fontWeight: typography.fontWeight.semibold,
+            fontFamily: typography.fontFamily.primary,
+            color: colors.secondary[900],
+          }}>
+            Congressional District {districtNum}
+          </h4>
+          <p style={{
+            margin: `${spacing.xs} 0 0`,
+            fontSize: typography.fontSize.sm,
+            fontFamily: typography.fontFamily.body,
+            color: colors.text.secondary,
+          }}>
+            {stateName}
+          </p>
+        </div>
+      </div>
+
       {/* Impact Value */}
       <div style={{
         display: "flex",
         alignItems: "center",
         gap: spacing.sm,
+        marginBottom: spacing.lg,
       }}>
         <span style={{
           color: isNeutral ? colors.gray[500] : (isPositive ? colors.primary[600] : colors.red[600]),
@@ -790,7 +842,7 @@ function DistrictDetails({ impact }) {
       {/* Stats Grid */}
       <div style={{
         display: "grid",
-        gridTemplateColumns: "1fr 1fr",
+        gridTemplateColumns: "1fr 1fr 1fr",
         gap: spacing.md,
       }}>
         <StatBox
@@ -801,11 +853,6 @@ function DistrictDetails({ impact }) {
           label="Winners"
           value={impact.winnersShare ? `${(impact.winnersShare * 100).toFixed(0)}%` : "—"}
           color={colors.primary[600]}
-        />
-        <StatBox
-          label="Total Benefit"
-          value={impact.totalBenefit ? `$${(impact.totalBenefit / 1_000_000).toFixed(1)}M` : "—"}
-          color={isPositive ? colors.primary[600] : colors.gray[500]}
         />
         <StatBox
           label="Poverty Δ"
@@ -1104,44 +1151,134 @@ function GenericStateDistrictMap({ stateAbbr, reformId }) {
         </div>
       </div>
 
-      {/* District Details Panel */}
+      {/* Detail Panel - matches Utah style */}
       <div style={{
-        backgroundColor: colors.background.secondary,
-        borderRadius: spacing.radius.xl,
-        border: `1px solid ${colors.border.light}`,
-        padding: spacing.xl,
         display: "flex",
         flexDirection: "column",
+        gap: spacing.lg,
       }}>
-        <h4 style={{
-          margin: `0 0 ${spacing.lg}`,
-          fontSize: typography.fontSize.sm,
-          fontWeight: typography.fontWeight.semibold,
-          fontFamily: typography.fontFamily.body,
-          color: colors.text.secondary,
-          textTransform: "uppercase",
-          letterSpacing: "0.5px",
-        }}>
-          {activeDistrict ? `District ${activeDistrict.split("-")[1]} Details` : "Select a District"}
-        </h4>
-
         {activeDistrict && activeImpact ? (
-          <DistrictDetails impact={activeImpact} />
+          <GenericDistrictDetailCard
+            districtNum={activeDistrict.split("-")[1]}
+            impact={activeImpact}
+            maxBenefit={maxBenefit}
+            stateName={stateName}
+          />
         ) : (
           <div style={{
             flex: 1,
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            color: colors.text.tertiary,
-            fontSize: typography.fontSize.sm,
-            fontFamily: typography.fontFamily.body,
-            textAlign: "center",
-            padding: spacing.xl,
+            padding: spacing["2xl"],
+            backgroundColor: colors.background.secondary,
+            borderRadius: spacing.radius.xl,
+            border: `1px dashed ${colors.border.medium}`,
           }}>
-            Click on a district in the map to view detailed impact analysis
+            <div style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: spacing.radius.full,
+              backgroundColor: colors.primary[50],
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: spacing.md,
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={colors.primary[400]} strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+              </svg>
+            </div>
+            <p style={{
+              margin: 0,
+              color: colors.text.tertiary,
+              fontSize: typography.fontSize.sm,
+              fontFamily: typography.fontFamily.body,
+              textAlign: "center",
+            }}>
+              Click on a district<br />to see detailed impact data
+            </p>
           </div>
         )}
+
+        {/* District Summary Cards */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: spacing.md,
+        }}>
+          {geoData?.features?.map((feature) => {
+            const info = getDistrictInfo(feature);
+            if (!info) return null;
+
+            const impact = hasDistrictData
+              ? reformImpacts.districtImpacts[info.districtId]
+              : null;
+            const avgBenefit = impact?.avgBenefit || 0;
+            const isActive = activeDistrict === info.districtId;
+
+            return (
+              <button
+                key={info.districtId}
+                onClick={() => setSelectedDistrict(selectedDistrict === info.districtId ? null : info.districtId)}
+                style={{
+                  padding: spacing.md,
+                  backgroundColor: isActive ? colors.primary[50] : colors.white,
+                  borderRadius: spacing.radius.lg,
+                  border: `1px solid ${isActive ? colors.primary[300] : colors.border.light}`,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}>
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: spacing.sm,
+                  }}>
+                    <span style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "24px",
+                      height: "24px",
+                      borderRadius: spacing.radius.md,
+                      backgroundColor: getImpactColor(avgBenefit, maxBenefit),
+                      color: colors.white,
+                      fontSize: typography.fontSize.xs,
+                      fontWeight: typography.fontWeight.bold,
+                      fontFamily: typography.fontFamily.primary,
+                    }}>
+                      {info.districtNum}
+                    </span>
+                    <span style={{
+                      fontSize: typography.fontSize.sm,
+                      fontWeight: typography.fontWeight.medium,
+                      fontFamily: typography.fontFamily.body,
+                      color: colors.secondary[800],
+                    }}>
+                      District {info.districtNum}
+                    </span>
+                  </div>
+                  <span style={{
+                    fontSize: typography.fontSize.sm,
+                    fontWeight: typography.fontWeight.bold,
+                    fontFamily: typography.fontFamily.primary,
+                    color: avgBenefit > 0 ? colors.primary[600] : (avgBenefit < 0 ? colors.red[600] : colors.gray[500]),
+                  }}>
+                    {avgBenefit > 0 ? "+" : ""}{avgBenefit === 0 ? "$0" : `$${Math.abs(avgBenefit)}`}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
