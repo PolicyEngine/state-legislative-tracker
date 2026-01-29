@@ -593,7 +593,7 @@ export const stateData = {
         }
       },
       {
-        bill: "HB210 (Substitute)",
+        bill: "HB210 (S1)",
         status: "Proposed",
         description: "Removes marriage penalties from income tax credits by setting single/HOH/MFS phaseouts to half of joint filer amounts; repeals state EITC",
         url: "https://le.utah.gov/~2026/bills/static/HB0210.html",
