@@ -199,6 +199,22 @@ export const research = [
     ],
     tags: ["ctc", "interactive", "calculator", "proposed"],
   },
+  {
+    id: "ri-governor-mckee-ctc",
+    state: "RI",
+    type: "blog",
+    status: "published",
+    title: "Governor McKee's Child Tax Credit Proposal",
+    url: "https://www.policyengine.org/us/research/ri-governor-mckee-child-tax-credit",
+    date: "2026-01",
+    author: "PolicyEngine",
+    description: "Analysis of Rhode Island Governor Dan McKee's proposed Child Tax Credit",
+    keyFindings: [
+      "Governor McKee proposes new state CTC for Rhode Island",
+      "Impact analysis on Rhode Island families",
+    ],
+    tags: ["ctc", "governor-proposal", "state-credits"],
+  },
 
   // Federal tools relevant to all/multiple states
   {
