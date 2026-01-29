@@ -126,40 +126,6 @@
       "giniBaseline": 0.45036857462693386,
       "giniReform": 0.45037728774080993
     },
-    "districtImpacts": {
-      "UT-1": {
-        "districtName": "Congressional District 1",
-        "avgBenefit": 8,
-        "householdsAffected": 264705,
-        "totalBenefit": 2117640,
-        "povertyChange": -0.19,
-        "winnersShare": 0.31
-      },
-      "UT-2": {
-        "districtName": "Congressional District 2",
-        "avgBenefit": 12,
-        "householdsAffected": 264705,
-        "totalBenefit": 3176460,
-        "povertyChange": -0.19,
-        "winnersShare": 0.32
-      },
-      "UT-3": {
-        "districtName": "Congressional District 3",
-        "avgBenefit": 10,
-        "householdsAffected": 264705,
-        "totalBenefit": 2647050,
-        "povertyChange": -0.19,
-        "winnersShare": 0.31
-      },
-      "UT-4": {
-        "districtName": "Congressional District 4",
-        "avgBenefit": 9,
-        "householdsAffected": 264705,
-        "totalBenefit": 2382345,
-        "povertyChange": -0.19,
-        "winnersShare": 0.30
-      }
-    },
     "policyId": 95826,
     "state": "UT"
   },
@@ -207,64 +173,6 @@
     "inequality": {
       "giniBaseline": 0.46763097221797384,
       "giniReform": 0.4657016768090012
-    },
-    "districtImpacts": {
-      "SC-1": {
-        "districtName": "Congressional District 1",
-        "avgBenefit": 195,
-        "householdsAffected": 273540,
-        "totalBenefit": 53340300,
-        "povertyChange": -2.1,
-        "winnersShare": 0.22
-      },
-      "SC-2": {
-        "districtName": "Congressional District 2",
-        "avgBenefit": 185,
-        "householdsAffected": 273540,
-        "totalBenefit": 50604900,
-        "povertyChange": -2.0,
-        "winnersShare": 0.21
-      },
-      "SC-3": {
-        "districtName": "Congressional District 3",
-        "avgBenefit": 220,
-        "householdsAffected": 273540,
-        "totalBenefit": 60178800,
-        "povertyChange": -2.3,
-        "winnersShare": 0.24
-      },
-      "SC-4": {
-        "districtName": "Congressional District 4",
-        "avgBenefit": 190,
-        "householdsAffected": 273540,
-        "totalBenefit": 51972600,
-        "povertyChange": -2.0,
-        "winnersShare": 0.22
-      },
-      "SC-5": {
-        "districtName": "Congressional District 5",
-        "avgBenefit": 235,
-        "householdsAffected": 273540,
-        "totalBenefit": 64281900,
-        "povertyChange": -2.4,
-        "winnersShare": 0.25
-      },
-      "SC-6": {
-        "districtName": "Congressional District 6",
-        "avgBenefit": 265,
-        "householdsAffected": 273540,
-        "totalBenefit": 72488100,
-        "povertyChange": -2.8,
-        "winnersShare": 0.28
-      },
-      "SC-7": {
-        "districtName": "Congressional District 7",
-        "avgBenefit": 225,
-        "householdsAffected": 273540,
-        "totalBenefit": 61546500,
-        "povertyChange": -2.3,
-        "winnersShare": 0.24
-      }
     },
     "policyId": 95762,
     "state": "SC"
