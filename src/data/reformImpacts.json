@@ -1,49 +1,51 @@
 {
   "ut-sb60-rate-cut": {
     "computed": true,
-    "computedAt": "2026-01-08 20:35:40",
+    "computedAt": "2026-01-29 16:48:07",
     "budgetaryImpact": {
-      "netCost": -81126034.36734772,
-      "stateRevenueImpact": -83574085.770401,
-      "households": 624921.1359609773
+      "netCost": -68584763.34376526,
+      "stateRevenueImpact": -69871183.9074583,
+      "households": 1058819.8890196688
     },
     "povertyImpact": {
-      "baselineRate": 0.19492490502154167,
-      "reformRate": 0.19492490502154167,
-      "change": 0.0,
-      "percentChange": 0.0
+      "baselineRate": 0.15400194563850875,
+      "reformRate": 0.1534290627672304,
+      "change": -0.0005728828712783518,
+      "percentChange": -0.371997164648224
     },
     "childPovertyImpact": {
-      "baselineRate": 0.2077184888522847,
-      "reformRate": 0.2077184888522847,
-      "change": 0.0,
-      "percentChange": 0.0
+      "baselineRate": 0.13851795936639189,
+      "reformRate": 0.13802250760747414,
+      "change": -0.0004954517589177421,
+      "percentChange": -0.3576805211281157
     },
     "winnersLosers": {
-      "gainMore5Pct": 0,
-      "gainLess5Pct": 0.5319744985335045,
-      "loseLess5Pct": 0,
-      "loseMore5Pct": 0,
-      "noChange": 0.46802550146649546
+      "gainMore5Pct": 0.0,
+      "gainLess5Pct": 0.445440417259935,
+      "loseLess5Pct": 0.0,
+      "loseMore5Pct": 0.0,
+      "noChange": 0.5545595827400649
     },
     "decileImpact": {
       "relative": {
-        "1": 5.002975822487821,
-        "2": 12.039611271853108,
-        "3": 23.242159532064527,
-        "4": 35.40390783163671,
-        "5": 51.841044921765246,
-        "6": 83.64340839306355,
-        "7": 155.27282045718007,
-        "8": 254.09553883848056,
-        "9": 296.60527744546346,
-        "10": 582.7971357866921
+        "1": 5.954354749100011,
+        "2": 14.697644518439754,
+        "3": 23.578326316577467,
+        "4": 29.754449527963395,
+        "5": 35.53718728103572,
+        "6": 44.69227495070327,
+        "7": 54.233653027972764,
+        "8": 64.20756070180973,
+        "9": 94.74800034724629,
+        "10": 429.91918715668515
       }
     },
     "inequality": {
-      "giniBaseline": 0.4932778021874614,
-      "giniReform": 0.49333309021342897
+      "giniBaseline": 0.4503685746269392,
+      "giniReform": 0.4504287908759051
     },
+    "policyId": 95604,
+    "state": "UT",
     "districtImpacts": {
       "UT-1": {
         "districtName": "Congressional District 1",
@@ -51,7 +53,7 @@
         "householdsAffected": 268102.0,
         "totalBenefit": 18166908.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.75
+        "winnersShare": 0.46
       },
       "UT-2": {
         "districtName": "Congressional District 2",
@@ -59,7 +61,7 @@
         "householdsAffected": 278169.0,
         "totalBenefit": 16281272.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.7
+        "winnersShare": 0.43
       },
       "UT-3": {
         "districtName": "Congressional District 3",
@@ -67,7 +69,7 @@
         "householdsAffected": 256259.0,
         "totalBenefit": 19270816.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.74
+        "winnersShare": 0.45
       },
       "UT-4": {
         "districtName": "Congressional District 4",
@@ -75,15 +77,13 @@
         "householdsAffected": 256290.0,
         "totalBenefit": 14877356.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.69
+        "winnersShare": 0.45
       }
-    },
-    "policyId": 95604,
-    "state": "UT"
+    }
   },
   "ut-hb210-marriage-penalty-removal": {
     "computed": true,
-    "computedAt": "2026-01-29 10:16:38",
+    "computedAt": "2026-01-29 16:49:01",
     "budgetaryImpact": {
       "netCost": -10170046.169567108,
       "stateRevenueImpact": -10170050.645436287,
@@ -135,7 +135,7 @@
         "householdsAffected": 268102.0,
         "totalBenefit": 3122778.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.44
+        "winnersShare": 0.32
       },
       "UT-2": {
         "districtName": "Congressional District 2",
@@ -143,7 +143,7 @@
         "householdsAffected": 278169.0,
         "totalBenefit": 2277254.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.39
+        "winnersShare": 0.3
       },
       "UT-3": {
         "districtName": "Congressional District 3",
@@ -151,7 +151,7 @@
         "householdsAffected": 256259.0,
         "totalBenefit": 2940792.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.41
+        "winnersShare": 0.31
       },
       "UT-4": {
         "districtName": "Congressional District 4",
@@ -159,13 +159,13 @@
         "householdsAffected": 256290.0,
         "totalBenefit": 1830190.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.4
+        "winnersShare": 0.31
       }
     }
   },
   "sc-h3492-refundable-eitc": {
     "computed": true,
-    "computedAt": "2026-01-29 10:19:36",
+    "computedAt": "2026-01-29 16:49:58",
     "budgetaryImpact": {
       "netCost": -402959807.83102417,
       "stateRevenueImpact": -402959790.27004623,
@@ -217,7 +217,7 @@
         "householdsAffected": 271928.0,
         "totalBenefit": 44583912.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.16
+        "winnersShare": 0.23
       },
       "SC-2": {
         "districtName": "Congressional District 2",
@@ -225,7 +225,7 @@
         "householdsAffected": 260648.0,
         "totalBenefit": 52334960.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.19
+        "winnersShare": 0.24
       },
       "SC-3": {
         "districtName": "Congressional District 3",
@@ -233,7 +233,7 @@
         "householdsAffected": 268139.0,
         "totalBenefit": 55743048.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.19
+        "winnersShare": 0.24
       },
       "SC-4": {
         "districtName": "Congressional District 4",
@@ -241,7 +241,7 @@
         "householdsAffected": 264588.0,
         "totalBenefit": 52509816.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.19
+        "winnersShare": 0.25
       },
       "SC-5": {
         "districtName": "Congressional District 5",
@@ -249,7 +249,7 @@
         "householdsAffected": 268566.0,
         "totalBenefit": 56818696.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.19
+        "winnersShare": 0.25
       },
       "SC-6": {
         "districtName": "Congressional District 6",
@@ -257,7 +257,7 @@
         "householdsAffected": 271827.0,
         "totalBenefit": 71487400.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.24
+        "winnersShare": 0.28
       },
       "SC-7": {
         "districtName": "Congressional District 7",
@@ -265,13 +265,13 @@
         "householdsAffected": 291911.0,
         "totalBenefit": 67959520.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.21
+        "winnersShare": 0.27
       }
     }
   },
   "ok-hb2229-eitc": {
     "computed": true,
-    "computedAt": "2026-01-26 18:36:55",
+    "computedAt": "2026-01-29 16:51:08",
     "budgetaryImpact": {
       "netCost": -34600092.84439087,
       "stateRevenueImpact": -34600106.51481819,
@@ -323,7 +323,7 @@
         "householdsAffected": 274521.0,
         "totalBenefit": 6386890.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.18
+        "winnersShare": 0.2
       },
       "OK-2": {
         "districtName": "Congressional District 2",
@@ -331,7 +331,7 @@
         "householdsAffected": 292426.0,
         "totalBenefit": 8482321.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.21
+        "winnersShare": 0.23
       },
       "OK-3": {
         "districtName": "Congressional District 3",
@@ -339,7 +339,7 @@
         "householdsAffected": 272522.0,
         "totalBenefit": 7490746.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.2
+        "winnersShare": 0.22
       },
       "OK-4": {
         "districtName": "Congressional District 4",
@@ -347,7 +347,7 @@
         "householdsAffected": 279099.0,
         "totalBenefit": 6840998.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.18
+        "winnersShare": 0.2
       },
       "OK-5": {
         "districtName": "Congressional District 5",
@@ -355,7 +355,7 @@
         "householdsAffected": 277127.0,
         "totalBenefit": 6615373.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.18
+        "winnersShare": 0.19
       }
     }
   }

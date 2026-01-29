@@ -366,6 +366,8 @@ def compute_district_impacts(state: str, reform_dict: dict, year: int = 2026) ->
         income_change = reform_income - baseline_income
 
         household_weight = baseline.calculate("household_weight", year).values
+        household_count_people = baseline.calculate("household_count_people", year).values
+        household_income_decile = baseline.calculate("household_income_decile", year).values
         state_code = baseline.calculate("state_code_str", year).values
         cd_geoid = baseline.calculate("congressional_district_geoid", year).values
 
@@ -406,9 +408,40 @@ def compute_district_impacts(state: str, reform_dict: dict, year: int = 2026) ->
             total_benefit = float(np.sum(district_income_change * district_weights))
             avg_benefit = total_benefit / total_households if total_households > 0 else 0
 
-            # Winners share (households with positive income change)
-            winners = district_income_change > 1  # More than $1 gain
-            winners_share = float(np.sum(district_weights[winners]) / total_households) if total_households > 0 else 0
+            # Winners share - match API's intra_decile_impact calculation exactly
+            # API methodology:
+            # 1. Calculate relative income change using capped values
+            # 2. Weight by people (household_count_people * household_weight)
+            # 3. Calculate proportion of winners per decile
+            # 4. Average across 10 deciles
+            district_baseline = baseline_income[in_district]
+            district_reform = reform_income[in_district]
+            absolute_change = district_reform - district_baseline
+            capped_baseline = np.maximum(district_baseline, 1)
+            capped_reform = np.maximum(district_reform, 1) + absolute_change
+            relative_change = (capped_reform - capped_baseline) / capped_baseline
+
+            # Get people weights and deciles for this district
+            district_people = household_count_people[in_district] * district_weights
+            district_decile = household_income_decile[in_district]
+
+            # API threshold: > 0.001 (0.1%) = winner
+            is_winner = relative_change > 0.001
+
+            # Calculate proportion of winners per decile, then average
+            decile_proportions = []
+            for decile in range(1, 11):
+                in_decile = district_decile == decile
+                if not np.any(in_decile):
+                    decile_proportions.append(0.0)
+                    continue
+                people_in_decile = float(np.sum(district_people[in_decile]))
+                winners_in_decile = float(np.sum(district_people[in_decile & is_winner]))
+                proportion = winners_in_decile / people_in_decile if people_in_decile > 0 else 0.0
+                decile_proportions.append(proportion)
+
+            # Average across deciles (matching API's sum / 10)
+            winners_share = sum(decile_proportions) / 10
 
             district_impacts[f"{state_upper}-{district_num}"] = {
                 "districtName": district_name,
