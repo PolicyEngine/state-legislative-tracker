@@ -455,7 +455,24 @@ export const stateData = {
       stateCTC: { available: false },
     },
     legislativeActivity: "high",
-    activeBills: [],
+    activeBills: [
+      {
+        bill: "HB2229",
+        status: "In Committee",
+        description: "Double state EITC from 5% to 10% of federal credit",
+        url: "https://www.billtrack50.com/billdetail/1788567",
+        reformConfig: {
+          id: "ok-hb2229-eitc",
+          label: "Oklahoma HB2229: Double State EITC",
+          description: "Increases Oklahoma's EITC match from 5% to 10% of the federal credit",
+          reform: {
+            "gov.states.ok.tax.income.credits.earned_income.eitc_fraction": {
+              "2026": 0.10
+            }
+          }
+        }
+      }
+    ],
   },
   OR: {
     name: "Oregon",

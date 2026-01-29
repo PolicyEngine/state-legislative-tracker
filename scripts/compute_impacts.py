@@ -28,6 +28,14 @@ except ImportError:
     HAS_POLICYENGINE = False
     print("Warning: policyengine-us not installed. District-level impacts will be skipped.")
 
+# Try to import huggingface_hub for downloading state datasets
+try:
+    from huggingface_hub import hf_hub_download
+    HAS_HF_HUB = True
+except ImportError:
+    HAS_HF_HUB = False
+    print("Warning: huggingface_hub not installed. Will use default dataset.")
+
 API_BASE = "https://api.policyengine.org"
 
 # Congressional district names by state
@@ -37,6 +45,13 @@ CONGRESSIONAL_DISTRICTS = {
         2: "Congressional District 2",
         3: "Congressional District 3",
         4: "Congressional District 4",
+    },
+    "OK": {
+        1: "Congressional District 1",
+        2: "Congressional District 2",
+        3: "Congressional District 3",
+        4: "Congressional District 4",
+        5: "Congressional District 5",
     }
 }
 
@@ -49,6 +64,16 @@ REFORMS = [
         "reform": {
             "gov.states.ut.tax.income.rate": {
                 "2026-01-01.2100-12-31": 0.0445
+            }
+        }
+    },
+    {
+        "id": "ok-hb2229-eitc",
+        "state": "ok",
+        "label": "Oklahoma HB2229: Double State EITC (5% to 10%)",
+        "reform": {
+            "gov.states.ok.tax.income.credits.earned_income.eitc_fraction": {
+                "2026-01-01.2100-12-31": 0.10
             }
         }
     }
@@ -180,11 +205,35 @@ def extract_impacts(economy_data: dict) -> dict:
     return impacts
 
 
+def get_state_dataset(state: str) -> str:
+    """
+    Download state-specific dataset from Hugging Face.
+
+    Returns path to the downloaded H5 file.
+    Raises exception if unavailable (no fallback to national dataset).
+    """
+    if not HAS_HF_HUB:
+        raise RuntimeError("huggingface_hub not installed - cannot download state dataset")
+
+    state_upper = state.upper()
+    filename = f"states/{state_upper}.h5"
+
+    print(f"    Downloading {state_upper} dataset from Hugging Face...")
+    dataset_path = hf_hub_download(
+        repo_id="policyengine/policyengine-us-data",
+        filename=filename,
+        repo_type="model",  # It's a model repo, not dataset repo
+    )
+    print(f"    Dataset ready: {dataset_path}")
+    return dataset_path
+
+
 def compute_district_impacts(state: str, reform_dict: dict, year: int = 2026) -> dict:
     """
     Compute district-level impacts using PolicyEngine Microsimulation.
 
     This runs a full microsimulation to get impacts by congressional district.
+    Uses state-specific datasets from Hugging Face which include district geocoding.
     """
     if not HAS_POLICYENGINE:
         print("  Skipping district impacts (policyengine-us not installed)")
@@ -195,7 +244,7 @@ def compute_district_impacts(state: str, reform_dict: dict, year: int = 2026) ->
 
     # Get state FIPS code for filtering
     STATE_FIPS = {
-        "UT": 49, "CA": 6, "NY": 36, "TX": 48, "FL": 12,
+        "UT": 49, "CA": 6, "NY": 36, "TX": 48, "FL": 12, "OK": 40,
         # Add more as needed
     }
 
@@ -206,6 +255,15 @@ def compute_district_impacts(state: str, reform_dict: dict, year: int = 2026) ->
     state_fips = STATE_FIPS[state_upper]
 
     print("  Computing district-level impacts...")
+
+    # Download state-specific dataset (has congressional district geocoding)
+    # No fallback to national dataset - it would give wrong results
+    try:
+        state_dataset = get_state_dataset(state)
+    except Exception as e:
+        print(f"  Error downloading state dataset: {e}")
+        print("  Skipping district impacts (state dataset required)")
+        return {}
 
     try:
         # Create reform class dynamically
@@ -233,12 +291,12 @@ def compute_district_impacts(state: str, reform_dict: dict, year: int = 2026) ->
 
         ReformClass = create_reform_class(reform_dict)
 
-        # Run baseline and reform simulations
+        # Run baseline and reform simulations using state-specific dataset
         print("    Running baseline simulation...")
-        baseline = Microsimulation()
+        baseline = Microsimulation(dataset=state_dataset)
 
         print("    Running reform simulation...")
-        reformed = Microsimulation(reform=ReformClass)
+        reformed = Microsimulation(reform=ReformClass, dataset=state_dataset)
 
         # Get relevant variables
         baseline_income = baseline.calculate("household_net_income", year).values

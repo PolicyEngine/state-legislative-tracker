@@ -1,6 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import {
+  ComposableMap,
+  Geographies,
+  Geography,
+  ZoomableGroup,
+  Annotation,
+  Marker,
+} from "react-simple-maps";
+import { geoCentroid } from "d3-geo";
 import { colors, typography, spacing } from "../../designTokens";
 import reformImpactsData from "../../data/reformImpacts.json";
+
+// ArcGIS REST API for 118th Congressional Districts
+const getCongressionalDistrictsUrl = (stateAbbr) =>
+  `https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_118th_Congressional_Districts/FeatureServer/0/query?where=${encodeURIComponent(`STATE_ABBR='${stateAbbr}'`)}&outFields=*&f=geojson`;
+
+// State FIPS codes for filtering
+const STATE_FIPS = {
+  "AL": "01", "AK": "02", "AZ": "04", "AR": "05", "CA": "06",
+  "CO": "08", "CT": "09", "DE": "10", "FL": "12", "GA": "13",
+  "HI": "15", "ID": "16", "IL": "17", "IN": "18", "IA": "19",
+  "KS": "20", "KY": "21", "LA": "22", "ME": "23", "MD": "24",
+  "MA": "25", "MI": "26", "MN": "27", "MS": "28", "MO": "29",
+  "MT": "30", "NE": "31", "NV": "32", "NH": "33", "NJ": "34",
+  "NM": "35", "NY": "36", "NC": "37", "ND": "38", "OH": "39",
+  "OK": "40", "OR": "41", "PA": "42", "RI": "44", "SC": "45",
+  "SD": "46", "TN": "47", "TX": "48", "UT": "49", "VT": "50",
+  "VA": "51", "WA": "53", "WV": "54", "WI": "55", "WY": "56",
+};
 
 // Real geographic SVG paths for Utah congressional districts (118th Congress)
 // Generated from Census Bureau TIGER/Line shapefiles
@@ -59,6 +86,13 @@ const STATE_DISTRICTS = {
     { id: "2", name: "District 2", region: "Western & Rural Utah" },
     { id: "3", name: "District 3", region: "Central & Eastern Utah" },
     { id: "4", name: "District 4", region: "Salt Lake Suburbs" },
+  ],
+  OK: [
+    { id: "1", name: "District 1", region: "Tulsa Area" },
+    { id: "2", name: "District 2", region: "Eastern Oklahoma" },
+    { id: "3", name: "District 3", region: "Western Oklahoma" },
+    { id: "4", name: "District 4", region: "South Central Oklahoma" },
+    { id: "5", name: "District 5", region: "Oklahoma City Area" },
   ],
   // Add more states as needed...
 };
@@ -689,38 +723,569 @@ function CardBasedDistrictView({ stateAbbr, reformId }) {
   );
 }
 
-export default function DistrictMap({ stateAbbr, reformId }) {
-  // Use SVG map for Utah, fall back to cards for other states
-  if (stateAbbr === "UT") {
-    return (
-      <div style={{ height: "100%" }}>
-        <div style={{
-          marginBottom: spacing.lg,
+// State center coordinates for map projection
+const STATE_CENTERS = {
+  "AL": [-86.9, 32.8], "AK": [-153.0, 64.0], "AZ": [-111.9, 34.2], "AR": [-92.4, 34.9],
+  "CA": [-119.4, 37.2], "CO": [-105.5, 39.0], "CT": [-72.7, 41.6], "DE": [-75.5, 39.0],
+  "FL": [-82.5, 28.5], "GA": [-83.5, 32.7], "HI": [-157.5, 20.5], "ID": [-114.7, 44.4],
+  "IL": [-89.2, 40.0], "IN": [-86.3, 39.9], "IA": [-93.5, 42.0], "KS": [-98.4, 38.5],
+  "KY": [-85.7, 37.8], "LA": [-91.9, 31.0], "ME": [-69.2, 45.3], "MD": [-76.8, 39.0],
+  "MA": [-71.8, 42.3], "MI": [-85.6, 44.3], "MN": [-94.3, 46.3], "MS": [-89.7, 32.7],
+  "MO": [-92.5, 38.4], "MT": [-109.6, 47.0], "NE": [-99.8, 41.5], "NV": [-116.6, 39.3],
+  "NH": [-71.5, 43.7], "NJ": [-74.7, 40.1], "NM": [-106.0, 34.5], "NY": [-75.5, 43.0],
+  "NC": [-79.4, 35.5], "ND": [-100.5, 47.4], "OH": [-82.8, 40.3], "OK": [-97.5, 35.5],
+  "OR": [-120.5, 44.0], "PA": [-77.6, 40.9], "RI": [-71.5, 41.7], "SC": [-80.9, 33.9],
+  "SD": [-100.2, 44.4], "TN": [-86.3, 35.8], "TX": [-99.3, 31.5], "UT": [-111.7, 39.3],
+  "VT": [-72.7, 44.0], "VA": [-78.8, 37.5], "WA": [-120.5, 47.4], "WV": [-80.6, 38.9],
+  "WI": [-89.8, 44.6], "WY": [-107.5, 43.0],
+};
+
+// State zoom levels
+const STATE_ZOOMS = {
+  "AK": 0.5, "TX": 2, "CA": 2, "MT": 2.5, "AZ": 3, "NM": 3, "NV": 3, "CO": 3,
+  "OR": 3, "WY": 3, "KS": 3, "NE": 3, "SD": 3, "ND": 3, "OK": 3, "MN": 2.5,
+  "IA": 3, "MO": 3, "AR": 3.5, "LA": 3.5, "WI": 3, "IL": 3, "MI": 2.5, "IN": 3.5,
+  "OH": 3.5, "KY": 3.5, "TN": 3, "MS": 3.5, "AL": 3.5, "GA": 3, "FL": 2.5,
+  "SC": 4, "NC": 3, "VA": 3, "WV": 4, "PA": 3.5, "NY": 2.5, "ME": 3, "VT": 5,
+  "NH": 5, "MA": 5, "RI": 8, "CT": 6, "NJ": 5, "DE": 7, "MD": 5, "UT": 3.5,
+  "ID": 3, "WA": 3, "HI": 3,
+};
+
+// District detail card for generic map - matches Utah style
+function GenericDistrictDetailCard({ districtNum, impact, maxBenefit, stateName }) {
+  const avgBenefit = impact?.avgBenefit || 0;
+  const isPositive = avgBenefit > 0;
+  const isNeutral = avgBenefit === 0;
+
+  return (
+    <div style={{
+      padding: spacing.xl,
+      backgroundColor: colors.white,
+      borderRadius: spacing.radius.xl,
+      border: `1px solid ${colors.border.light}`,
+      boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+    }}>
+      {/* Header */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: spacing.md,
+        marginBottom: spacing.lg,
+        paddingBottom: spacing.lg,
+        borderBottom: `1px solid ${colors.border.light}`,
+      }}>
+        <span style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "40px",
+          height: "40px",
+          borderRadius: spacing.radius.lg,
+          backgroundColor: getImpactColor(avgBenefit, maxBenefit),
+          color: colors.white,
+          fontSize: typography.fontSize.lg,
+          fontWeight: typography.fontWeight.bold,
+          fontFamily: typography.fontFamily.primary,
         }}>
-          <h3 style={{
+          {districtNum}
+        </span>
+        <div>
+          <h4 style={{
             margin: 0,
             fontSize: typography.fontSize.lg,
             fontWeight: typography.fontWeight.semibold,
             fontFamily: typography.fontFamily.primary,
             color: colors.secondary[900],
           }}>
-            Impact by Congressional District
-          </h3>
+            Congressional District {districtNum}
+          </h4>
           <p style={{
             margin: `${spacing.xs} 0 0`,
             fontSize: typography.fontSize.sm,
             fontFamily: typography.fontFamily.body,
             color: colors.text.secondary,
           }}>
-            Click on a district to see detailed impact analysis
+            {stateName}
           </p>
         </div>
-        <UtahDistrictMap reformId={reformId} />
+      </div>
+
+      {/* Impact Value */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: spacing.sm,
+        marginBottom: spacing.lg,
+      }}>
+        <span style={{
+          color: isNeutral ? colors.gray[500] : (isPositive ? colors.primary[600] : colors.red[600]),
+        }}>
+          {isNeutral ? null : (isPositive ? <ArrowUpIcon /> : <ArrowDownIcon />)}
+        </span>
+        <span style={{
+          fontSize: typography.fontSize["3xl"],
+          fontWeight: typography.fontWeight.bold,
+          fontFamily: typography.fontFamily.primary,
+          color: isNeutral ? colors.gray[600] : (isPositive ? colors.primary[700] : colors.red[700]),
+        }}>
+          {isPositive ? "+" : ""}{avgBenefit === 0 ? "$0" : `$${Math.abs(avgBenefit).toLocaleString()}`}
+        </span>
+        <span style={{
+          fontSize: typography.fontSize.base,
+          fontFamily: typography.fontFamily.body,
+          color: colors.text.tertiary,
+        }}>
+          /household avg
+        </span>
+      </div>
+
+      {/* Stats Grid */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr 1fr",
+        gap: spacing.md,
+      }}>
+        <StatBox
+          label="Households"
+          value={impact.householdsAffected?.toLocaleString() || "—"}
+        />
+        <StatBox
+          label="Winners"
+          value={impact.winnersShare ? `${(impact.winnersShare * 100).toFixed(0)}%` : "—"}
+          color={colors.primary[600]}
+        />
+        <StatBox
+          label="Poverty Δ"
+          value={impact.povertyChange === 0
+            ? "None"
+            : `${impact.povertyChange > 0 ? "+" : ""}${(impact.povertyChange * 100).toFixed(2)}pp`}
+          color={impact.povertyChange < 0 ? colors.primary[600] : (impact.povertyChange > 0 ? colors.red[600] : colors.gray[500])}
+        />
+      </div>
+    </div>
+  );
+}
+
+// Generic state district map using react-simple-maps with ArcGIS GeoJSON
+// Matches Utah map styling with district labels and same color scheme
+function GenericStateDistrictMap({ stateAbbr, reformId }) {
+  const [selectedDistrict, setSelectedDistrict] = useState(null);
+  const [geoData, setGeoData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const reformImpacts = reformImpactsData[reformId];
+  const hasDistrictData = reformImpacts?.districtImpacts;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchDistricts = async () => {
+      try {
+        const res = await fetch(getCongressionalDistrictsUrl(stateAbbr));
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (cancelled) return;
+
+        if (data.features && data.features.length > 0) {
+          setGeoData(data);
+          setError(null);
+        } else {
+          setGeoData(null);
+          setError("No districts found");
+        }
+        setLoading(false);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Failed to load congressional districts:", err);
+        setGeoData(null);
+        setError(err.message);
+        setLoading(false);
+      }
+    };
+
+    fetchDistricts();
+
+    return () => { cancelled = true; };
+  }, [stateAbbr]);
+
+  // Calculate centroids for district labels
+  const districtCentroids = useMemo(() => {
+    if (!geoData) return {};
+    const centroids = {};
+    geoData.features.forEach(feature => {
+      const props = feature.properties;
+      // ArcGIS uses CDFIPS for district number (e.g., "01", "02")
+      const districtFp = props.CDFIPS || props.CD118FP || props.CDFP;
+      const districtNum = parseInt(districtFp, 10);
+      const districtId = `${stateAbbr}-${districtNum || 1}`;
+      const centroid = geoCentroid(feature);
+      centroids[districtId] = {
+        coords: centroid,
+        num: districtNum === 0 ? "AL" : districtNum,
+      };
+    });
+    return centroids;
+  }, [geoData, stateAbbr]);
+
+  // Calculate max benefit for color scaling
+  const maxBenefit = useMemo(() => {
+    if (!hasDistrictData) return 100;
+    return Math.max(...Object.values(reformImpacts.districtImpacts).map(d => Math.abs(d?.avgBenefit || 0)), 1);
+  }, [hasDistrictData, reformImpacts]);
+
+  if (loading) {
+    return (
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "300px",
+        color: colors.text.secondary,
+      }}>
+        Loading map...
       </div>
     );
   }
 
-  // For other states, use card-based view with header
+  if (error || !geoData) {
+    return <CardBasedDistrictView stateAbbr={stateAbbr} reformId={reformId} />;
+  }
+
+  // Parse district number from ArcGIS GeoJSON properties
+  const getDistrictInfo = (geo) => {
+    const props = geo.properties;
+    if (!props) return null;
+    // ArcGIS uses CDFIPS for district number (e.g., "01", "02")
+    const districtFp = props.CDFIPS || props.CD118FP || props.CDFP;
+    const districtNum = parseInt(districtFp, 10);
+    return {
+      districtId: `${stateAbbr}-${districtNum || 1}`,
+      districtNum: districtNum === 0 ? "AL" : districtNum,
+      name: props.NAMELSAD || props.NAME || `District ${districtNum}`,
+    };
+  };
+
+  const getAvgBenefit = (districtId) => {
+    if (!hasDistrictData) return 0;
+    return reformImpacts.districtImpacts[districtId]?.avgBenefit || 0;
+  };
+
+  const activeDistrict = selectedDistrict;
+  const activeImpact = activeDistrict && hasDistrictData
+    ? reformImpacts.districtImpacts[activeDistrict]
+    : null;
+
+  const center = STATE_CENTERS[stateAbbr] || [-97, 38];
+  const zoom = STATE_ZOOMS[stateAbbr] || 3;
+
+  const stateName = {
+    "OK": "Oklahoma", "UT": "Utah", "CA": "California", "NY": "New York",
+    "TX": "Texas", "FL": "Florida", "GA": "Georgia", "NC": "North Carolina",
+    "PA": "Pennsylvania", "OH": "Ohio", "MI": "Michigan", "IL": "Illinois",
+  }[stateAbbr] || stateAbbr;
+
+  return (
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: spacing["2xl"],
+      height: "100%",
+    }}>
+      {/* Map Container */}
+      <div style={{
+        backgroundColor: colors.background.secondary,
+        borderRadius: spacing.radius.xl,
+        border: `1px solid ${colors.border.light}`,
+        padding: spacing.xl,
+        display: "flex",
+        flexDirection: "column",
+      }}>
+        <h4 style={{
+          margin: `0 0 ${spacing.md}`,
+          fontSize: typography.fontSize.sm,
+          fontWeight: typography.fontWeight.semibold,
+          fontFamily: typography.fontFamily.body,
+          color: colors.text.secondary,
+          textTransform: "uppercase",
+          letterSpacing: "0.5px",
+        }}>
+          {stateName} Congressional Districts
+        </h4>
+
+        <div style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "300px",
+        }}>
+          <ComposableMap
+            projection="geoMercator"
+            projectionConfig={{ scale: 800 }}
+            style={{ width: "100%", height: "100%", maxHeight: "350px" }}
+          >
+            <ZoomableGroup center={center} zoom={zoom}>
+              <Geographies geography={geoData}>
+                {({ geographies }) =>
+                  geographies.map(geo => {
+                    const info = getDistrictInfo(geo);
+                    if (!info) return null;
+
+                    const avgBenefit = getAvgBenefit(info.districtId);
+                    const isSelected = selectedDistrict === info.districtId;
+                    const fillColor = isSelected
+                      ? getImpactHoverColor(avgBenefit, maxBenefit)
+                      : getImpactColor(avgBenefit, maxBenefit);
+
+                    return (
+                      <Geography
+                        key={geo.rsmKey || info.districtId}
+                        geography={geo}
+                        onClick={() => setSelectedDistrict(
+                          selectedDistrict === info.districtId ? null : info.districtId
+                        )}
+                        style={{
+                          default: {
+                            fill: fillColor,
+                            stroke: isSelected ? colors.primary[700] : colors.white,
+                            strokeWidth: isSelected ? 1 : 0.5,
+                            outline: "none",
+                            cursor: "pointer",
+                            transition: "fill 0.2s ease",
+                          },
+                          hover: {
+                            fill: getImpactHoverColor(avgBenefit, maxBenefit),
+                            stroke: colors.primary[600],
+                            strokeWidth: 0.8,
+                            outline: "none",
+                            cursor: "pointer",
+                          },
+                          pressed: {
+                            fill: getImpactHoverColor(avgBenefit, maxBenefit),
+                            stroke: colors.primary[700],
+                            strokeWidth: 1,
+                            outline: "none",
+                          },
+                        }}
+                      />
+                    );
+                  })
+                }
+              </Geographies>
+              {/* District Labels */}
+              {Object.entries(districtCentroids).map(([districtId, data]) => (
+                <Marker key={districtId} coordinates={data.coords}>
+                  <text
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    style={{
+                      fill: colors.white,
+                      fontSize: "10px",
+                      fontWeight: "700",
+                      fontFamily: typography.fontFamily.primary,
+                      pointerEvents: "none",
+                      textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+                    }}
+                  >
+                    {data.num}
+                  </text>
+                </Marker>
+              ))}
+            </ZoomableGroup>
+          </ComposableMap>
+        </div>
+
+        {/* Legend */}
+        <div style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: spacing.lg,
+          marginTop: spacing.lg,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: spacing.xs }}>
+            <div style={{
+              width: "12px",
+              height: "12px",
+              borderRadius: "2px",
+              backgroundColor: colors.primary[400],
+            }} />
+            <span style={{
+              fontSize: typography.fontSize.xs,
+              fontFamily: typography.fontFamily.body,
+              color: colors.text.secondary,
+            }}>
+              Benefit
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: spacing.xs }}>
+            <div style={{
+              width: "12px",
+              height: "12px",
+              borderRadius: "2px",
+              backgroundColor: colors.gray[200],
+            }} />
+            <span style={{
+              fontSize: typography.fontSize.xs,
+              fontFamily: typography.fontFamily.body,
+              color: colors.text.secondary,
+            }}>
+              No change
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: spacing.xs }}>
+            <div style={{
+              width: "12px",
+              height: "12px",
+              borderRadius: "2px",
+              backgroundColor: colors.red[400],
+            }} />
+            <span style={{
+              fontSize: typography.fontSize.xs,
+              fontFamily: typography.fontFamily.body,
+              color: colors.text.secondary,
+            }}>
+              Cost
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Detail Panel - matches Utah style */}
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: spacing.lg,
+      }}>
+        {activeDistrict && activeImpact ? (
+          <GenericDistrictDetailCard
+            districtNum={activeDistrict.split("-")[1]}
+            impact={activeImpact}
+            maxBenefit={maxBenefit}
+            stateName={stateName}
+          />
+        ) : (
+          <div style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: spacing["2xl"],
+            backgroundColor: colors.background.secondary,
+            borderRadius: spacing.radius.xl,
+            border: `1px dashed ${colors.border.medium}`,
+          }}>
+            <div style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: spacing.radius.full,
+              backgroundColor: colors.primary[50],
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: spacing.md,
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={colors.primary[400]} strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+              </svg>
+            </div>
+            <p style={{
+              margin: 0,
+              color: colors.text.tertiary,
+              fontSize: typography.fontSize.sm,
+              fontFamily: typography.fontFamily.body,
+              textAlign: "center",
+            }}>
+              Click on a district<br />to see detailed impact data
+            </p>
+          </div>
+        )}
+
+        {/* District Summary Cards */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: spacing.md,
+        }}>
+          {geoData?.features?.map((feature) => {
+            const info = getDistrictInfo(feature);
+            if (!info) return null;
+
+            const impact = hasDistrictData
+              ? reformImpacts.districtImpacts[info.districtId]
+              : null;
+            const avgBenefit = impact?.avgBenefit || 0;
+            const isActive = activeDistrict === info.districtId;
+
+            return (
+              <button
+                key={info.districtId}
+                onClick={() => setSelectedDistrict(selectedDistrict === info.districtId ? null : info.districtId)}
+                style={{
+                  padding: spacing.md,
+                  backgroundColor: isActive ? colors.primary[50] : colors.white,
+                  borderRadius: spacing.radius.lg,
+                  border: `1px solid ${isActive ? colors.primary[300] : colors.border.light}`,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}>
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: spacing.sm,
+                  }}>
+                    <span style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "24px",
+                      height: "24px",
+                      borderRadius: spacing.radius.md,
+                      backgroundColor: getImpactColor(avgBenefit, maxBenefit),
+                      color: colors.white,
+                      fontSize: typography.fontSize.xs,
+                      fontWeight: typography.fontWeight.bold,
+                      fontFamily: typography.fontFamily.primary,
+                    }}>
+                      {info.districtNum}
+                    </span>
+                    <span style={{
+                      fontSize: typography.fontSize.sm,
+                      fontWeight: typography.fontWeight.medium,
+                      fontFamily: typography.fontFamily.body,
+                      color: colors.secondary[800],
+                    }}>
+                      District {info.districtNum}
+                    </span>
+                  </div>
+                  <span style={{
+                    fontSize: typography.fontSize.sm,
+                    fontWeight: typography.fontWeight.bold,
+                    fontFamily: typography.fontFamily.primary,
+                    color: avgBenefit > 0 ? colors.primary[600] : (avgBenefit < 0 ? colors.red[600] : colors.gray[500]),
+                  }}>
+                    {avgBenefit > 0 ? "+" : ""}{avgBenefit === 0 ? "$0" : `$${Math.abs(avgBenefit)}`}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function DistrictMap({ stateAbbr, reformId }) {
+  // Use generic map for all states
   return (
     <div style={{ height: "100%" }}>
       <div style={{
@@ -741,10 +1306,10 @@ export default function DistrictMap({ stateAbbr, reformId }) {
           fontFamily: typography.fontFamily.body,
           color: colors.text.secondary,
         }}>
-          Average household benefit under this reform
+          Click on a district to see detailed impact analysis
         </p>
       </div>
-      <CardBasedDistrictView stateAbbr={stateAbbr} reformId={reformId} />
+      <GenericStateDistrictMap stateAbbr={stateAbbr} reformId={reformId} />
     </div>
   );
 }

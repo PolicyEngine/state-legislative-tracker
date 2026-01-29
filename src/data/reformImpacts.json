@@ -47,38 +47,128 @@
     "districtImpacts": {
       "UT-1": {
         "districtName": "Congressional District 1",
-        "avgBenefit": 118,
-        "householdsAffected": 152340,
-        "totalBenefit": 17976120,
+        "avgBenefit": 74.0,
+        "householdsAffected": 272117.0,
+        "totalBenefit": 20130836.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.51
+        "winnersShare": 0.78
       },
       "UT-2": {
         "districtName": "Congressional District 2",
-        "avgBenefit": 142,
-        "householdsAffected": 161230,
-        "totalBenefit": 22894660,
+        "avgBenefit": 64.0,
+        "householdsAffected": 277773.0,
+        "totalBenefit": 17858666.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.55
+        "winnersShare": 0.72
       },
       "UT-3": {
         "districtName": "Congressional District 3",
-        "avgBenefit": 135,
-        "householdsAffected": 158412,
-        "totalBenefit": 21385620,
+        "avgBenefit": 82.0,
+        "householdsAffected": 257682.0,
+        "totalBenefit": 21176868.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.54
+        "winnersShare": 0.77
       },
       "UT-4": {
         "districtName": "Congressional District 4",
-        "avgBenefit": 123,
-        "householdsAffected": 152939,
-        "totalBenefit": 18811497,
+        "avgBenefit": 63.0,
+        "householdsAffected": 259838.0,
+        "totalBenefit": 16268901.0,
         "povertyChange": 0.0,
-        "winnersShare": 0.52
+        "winnersShare": 0.72
       }
     },
     "policyId": 95604,
     "state": "UT"
+  },
+  "ok-hb2229-eitc": {
+    "computed": true,
+    "computedAt": "2026-01-26 18:36:55",
+    "budgetaryImpact": {
+      "netCost": -34600092.84439087,
+      "stateRevenueImpact": -34600106.51481819,
+      "households": 1418814.8882009704
+    },
+    "povertyImpact": {
+      "baselineRate": 0.23350609161454272,
+      "reformRate": 0.2330936701309395,
+      "change": -0.0004124214836032092,
+      "percentChange": -0.1766212952953745
+    },
+    "childPovertyImpact": {
+      "baselineRate": 0.21183447993854312,
+      "reformRate": 0.21126647632073717,
+      "change": -0.0005680036178059567,
+      "percentChange": -0.26813558301308854
+    },
+    "winnersLosers": {
+      "gainMore5Pct": 0.0015597157618117492,
+      "gainLess5Pct": 0.18975114691343578,
+      "loseLess5Pct": 0.0,
+      "loseMore5Pct": 0.0,
+      "noChange": 0.8086891373247524
+    },
+    "decileImpact": {
+      "relative": {
+        "1": 17.688333992854133,
+        "2": 40.23028886850892,
+        "3": 53.94171971813732,
+        "4": 47.579035806469435,
+        "5": 19.492833466853238,
+        "6": 15.732003624976814,
+        "7": 17.77590249585477,
+        "8": 4.86471738495051,
+        "9": 3.305658593173951,
+        "10": 2.359544088503076
+      }
+    },
+    "inequality": {
+      "giniBaseline": 0.47519139359504386,
+      "giniReform": 0.4749439289528401
+    },
+    "policyId": 95796,
+    "state": "OK",
+    "districtImpacts": {
+      "OK-1": {
+        "districtName": "Congressional District 1",
+        "avgBenefit": 23.0,
+        "householdsAffected": 278459.0,
+        "totalBenefit": 6286153.0,
+        "povertyChange": 0.0,
+        "winnersShare": 0.17
+      },
+      "OK-2": {
+        "districtName": "Congressional District 2",
+        "avgBenefit": 28.0,
+        "householdsAffected": 297042.0,
+        "totalBenefit": 8209152.0,
+        "povertyChange": 0.0,
+        "winnersShare": 0.2
+      },
+      "OK-3": {
+        "districtName": "Congressional District 3",
+        "avgBenefit": 26.0,
+        "householdsAffected": 279013.0,
+        "totalBenefit": 7158787.0,
+        "povertyChange": 0.0,
+        "winnersShare": 0.19
+      },
+      "OK-4": {
+        "districtName": "Congressional District 4",
+        "avgBenefit": 23.0,
+        "householdsAffected": 282821.0,
+        "totalBenefit": 6571024.0,
+        "povertyChange": 0.0,
+        "winnersShare": 0.18
+      },
+      "OK-5": {
+        "districtName": "Congressional District 5",
+        "avgBenefit": 23.0,
+        "householdsAffected": 281481.0,
+        "totalBenefit": 6375144.0,
+        "povertyChange": 0.0,
+        "winnersShare": 0.18
+      }
+    }
   }
 }
