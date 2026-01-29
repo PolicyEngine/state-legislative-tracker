@@ -514,7 +514,7 @@ export const stateData = {
         bill: "H.3492",
         status: "Proposed",
         description: "Makes 25% of the excess of the state's nonrefundable EITC refundable",
-        url: "https://www.scstatehouse.gov/billsearch.php?billnumbers=3492&session=126",
+        url: "https://www.scstatehouse.gov/sess126_2025-2026/prever/3492_20241205.htm",
         reformConfig: {
           id: "sc-h3492-refundable-eitc",
           label: "SC H.3492 Partially Refundable EITC",
@@ -628,6 +628,15 @@ export const stateData = {
             },
             "gov.states.ut.tax.income.credits.retirement.phase_out.threshold.SINGLE": {
               "2026-01-01.2100-12-31": 16000.0
+            },
+            "gov.states.ut.tax.income.credits.taxpayer.phase_out.threshold.HEAD_OF_HOUSEHOLD": {
+              "2026-01-01.2100-12-31": 18625.8
+            },
+            "gov.states.ut.tax.income.credits.ss_benefits.phase_out.threshold.HEAD_OF_HOUSEHOLD": {
+              "2026-01-01.2100-12-31": 45000.0
+            },
+            "gov.states.ut.tax.income.credits.ss_benefits.phase_out.threshold.SINGLE": {
+              "2026-01-01.2100-12-31": 45000.0
             }
           }
         }

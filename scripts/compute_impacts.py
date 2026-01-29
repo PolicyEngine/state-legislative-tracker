@@ -37,6 +37,15 @@ CONGRESSIONAL_DISTRICTS = {
         2: "Congressional District 2",
         3: "Congressional District 3",
         4: "Congressional District 4",
+    },
+    "SC": {
+        1: "Congressional District 1",
+        2: "Congressional District 2",
+        3: "Congressional District 3",
+        4: "Congressional District 4",
+        5: "Congressional District 5",
+        6: "Congressional District 6",
+        7: "Congressional District 7",
     }
 }
 
@@ -49,6 +58,59 @@ REFORMS = [
         "reform": {
             "gov.states.ut.tax.income.rate": {
                 "2026-01-01.2100-12-31": 0.0445
+            }
+        }
+    },
+    {
+        "id": "ut-hb210-marriage-penalty-removal",
+        "state": "ut",
+        "label": "Utah HB210 Marriage Penalty Removal",
+        "reform": {
+            "gov.contrib.states.ut.hb210.in_effect": {
+                "2026-01-01.2100-12-31": True
+            },
+            "gov.contrib.states.ut.hb210.taxpayer_credit_add_on.amount.JOINT": {
+                "2026-01-01.2100-12-31": 66.0
+            },
+            "gov.contrib.states.ut.hb210.taxpayer_credit_add_on.amount.SEPARATE": {
+                "2026-01-01.2100-12-31": 33.0
+            },
+            "gov.contrib.states.ut.hb210.taxpayer_credit_add_on.amount.SURVIVING_SPOUSE": {
+                "2026-01-01.2100-12-31": 66.0
+            },
+            "gov.states.ut.tax.income.credits.ctc.reduction.start.HEAD_OF_HOUSEHOLD": {
+                "2026-01-01.2100-12-31": 27000.0
+            },
+            "gov.states.ut.tax.income.credits.ctc.reduction.start.SINGLE": {
+                "2026-01-01.2100-12-31": 27000.0
+            },
+            "gov.states.ut.tax.income.credits.earned_income.rate": {
+                "2026-01-01.2100-12-31": 0.0
+            },
+            "gov.states.ut.tax.income.credits.retirement.phase_out.threshold.HEAD_OF_HOUSEHOLD": {
+                "2026-01-01.2100-12-31": 16000.0
+            },
+            "gov.states.ut.tax.income.credits.retirement.phase_out.threshold.SINGLE": {
+                "2026-01-01.2100-12-31": 16000.0
+            },
+            "gov.states.ut.tax.income.credits.taxpayer.phase_out.threshold.HEAD_OF_HOUSEHOLD": {
+                "2026-01-01.2100-12-31": 18625.8
+            },
+            "gov.states.ut.tax.income.credits.ss_benefits.phase_out.threshold.HEAD_OF_HOUSEHOLD": {
+                "2026-01-01.2100-12-31": 45000.0
+            },
+            "gov.states.ut.tax.income.credits.ss_benefits.phase_out.threshold.SINGLE": {
+                "2026-01-01.2100-12-31": 45000.0
+            }
+        }
+    },
+    {
+        "id": "sc-h3492-refundable-eitc",
+        "state": "sc",
+        "label": "SC H.3492 Partially Refundable EITC",
+        "reform": {
+            "gov.contrib.states.sc.h3492.in_effect": {
+                "2026-01-01.2100-12-31": True
             }
         }
     }
@@ -195,7 +257,7 @@ def compute_district_impacts(state: str, reform_dict: dict, year: int = 2026) ->
 
     # Get state FIPS code for filtering
     STATE_FIPS = {
-        "UT": 49, "CA": 6, "NY": 36, "TX": 48, "FL": 12,
+        "UT": 49, "CA": 6, "NY": 36, "TX": 48, "FL": 12, "SC": 45,
         # Add more as needed
     }
 
