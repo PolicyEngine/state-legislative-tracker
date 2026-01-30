@@ -87,6 +87,15 @@ const STATE_DISTRICTS = {
     { id: "3", name: "District 3", region: "Central & Eastern Utah" },
     { id: "4", name: "District 4", region: "Salt Lake Suburbs" },
   ],
+  SC: [
+    { id: "1", name: "District 1", region: "Charleston & Coast" },
+    { id: "2", name: "District 2", region: "Columbia & Midlands" },
+    { id: "3", name: "District 3", region: "Upstate West" },
+    { id: "4", name: "District 4", region: "Greenville-Spartanburg" },
+    { id: "5", name: "District 5", region: "Rock Hill & North Central" },
+    { id: "6", name: "District 6", region: "Pee Dee & Rural East" },
+    { id: "7", name: "District 7", region: "Myrtle Beach & Northeast" },
+  ],
   OK: [
     { id: "1", name: "District 1", region: "Tulsa Area" },
     { id: "2", name: "District 2", region: "Eastern Oklahoma" },

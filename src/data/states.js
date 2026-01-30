@@ -526,6 +526,22 @@ export const stateData = {
         status: "Proposed",
         description: "Flat 3.99% tax proposal",
         url: "https://www.scstatehouse.gov/billsearch.php?billnumbers=4216&session=126"
+      },
+      {
+        bill: "H.3492",
+        status: "Proposed",
+        description: "Makes 25% of the excess of the state's nonrefundable EITC refundable",
+        url: "https://www.scstatehouse.gov/sess126_2025-2026/prever/3492_20241205.htm",
+        reformConfig: {
+          id: "sc-h3492-refundable-eitc",
+          label: "SC H.3492 Partially Refundable EITC",
+          description: "Makes 25% of the excess of South Carolina's nonrefundable EITC refundable",
+          reform: {
+            "gov.contrib.states.sc.h3492.in_effect": {
+              "2026-01-01.2100-12-31": true
+            }
+          }
+        }
       }
     ],
   },
@@ -581,6 +597,7 @@ export const stateData = {
         status: "Proposed",
         description: "Cut income tax rate from 4.5% to 4.45%",
         url: "https://le.utah.gov/~2026/bills/static/SB60.html",
+        analysisUrl: "https://www.policyengine.org/us/research/utah-sb60-income-tax-reduction",
         reformConfig: {
           id: "ut-sb60-rate-cut",
           label: "Utah Income Tax Rate Cut (SB60)",
@@ -588,6 +605,55 @@ export const stateData = {
           reform: {
             "gov.states.ut.tax.income.rate": {
               "2026": 0.0445
+            }
+          }
+        }
+      },
+      {
+        bill: "HB210 (S1)",
+        status: "Proposed",
+        description: "Removes marriage penalties from income tax credits by setting single/HOH/MFS phaseouts to half of joint filer amounts; repeals state EITC",
+        url: "https://le.utah.gov/~2026/bills/static/HB0210.html",
+        reformConfig: {
+          id: "ut-hb210-marriage-penalty-removal",
+          label: "Utah HB210 Marriage Penalty Removal",
+          description: "Removes marriage penalties from certain individual income tax credits and exemptions, increases taxpayer credit for married filers, and repeals the state EITC",
+          reform: {
+            "gov.contrib.states.ut.hb210.in_effect": {
+              "2026-01-01.2100-12-31": true
+            },
+            "gov.contrib.states.ut.hb210.taxpayer_credit_add_on.amount.JOINT": {
+              "2026-01-01.2100-12-31": 66.0
+            },
+            "gov.contrib.states.ut.hb210.taxpayer_credit_add_on.amount.SEPARATE": {
+              "2026-01-01.2100-12-31": 33.0
+            },
+            "gov.contrib.states.ut.hb210.taxpayer_credit_add_on.amount.SURVIVING_SPOUSE": {
+              "2026-01-01.2100-12-31": 66.0
+            },
+            "gov.states.ut.tax.income.credits.ctc.reduction.start.HEAD_OF_HOUSEHOLD": {
+              "2026-01-01.2100-12-31": 27000.0
+            },
+            "gov.states.ut.tax.income.credits.ctc.reduction.start.SINGLE": {
+              "2026-01-01.2100-12-31": 27000.0
+            },
+            "gov.states.ut.tax.income.credits.earned_income.rate": {
+              "2026-01-01.2100-12-31": 0.0
+            },
+            "gov.states.ut.tax.income.credits.retirement.phase_out.threshold.HEAD_OF_HOUSEHOLD": {
+              "2026-01-01.2100-12-31": 16000.0
+            },
+            "gov.states.ut.tax.income.credits.retirement.phase_out.threshold.SINGLE": {
+              "2026-01-01.2100-12-31": 16000.0
+            },
+            "gov.states.ut.tax.income.credits.taxpayer.phase_out.threshold.HEAD_OF_HOUSEHOLD": {
+              "2026-01-01.2100-12-31": 18625.8
+            },
+            "gov.states.ut.tax.income.credits.ss_benefits.phase_out.threshold.HEAD_OF_HOUSEHOLD": {
+              "2026-01-01.2100-12-31": 45000.0
+            },
+            "gov.states.ut.tax.income.credits.ss_benefits.phase_out.threshold.SINGLE": {
+              "2026-01-01.2100-12-31": 45000.0
             }
           }
         }
