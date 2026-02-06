@@ -1052,15 +1052,16 @@ Instead of client-side queries, we use build-time sync:
 - [x] No API keys exposed in the client bundle
 - [x] App works offline after build
 
-### Phase 6: Bill Encoder Agent
-- [ ] Define agent specification (`.claude/agents/bill-encoder.md`)
-- [ ] Build parameter mapping knowledge base
-- [ ] Implement bill text fetching
-- [ ] Implement external research (fiscal notes, think tanks)
-- [ ] Implement back-of-envelope calculations
-- [ ] Implement policy generation
-- [ ] Add iterative validation loop
-- [ ] Add human-in-the-loop checkpoint
+### Phase 6: Bill Encoder Agents [COMPLETE]
+- [x] Define orchestrator agent (`.claude/agents/encode-policy.md`)
+- [x] Define bill-researcher agent (`.claude/agents/bill-researcher.md`)
+- [x] Define fiscal-finder agent (`.claude/agents/fiscal-finder.md`)
+- [x] Define param-mapper agent (`.claude/agents/param-mapper.md`)
+- [x] Define impact-calculator agent (`.claude/agents/impact-calculator.md`)
+- [x] Define db-writer agent (`.claude/agents/db-writer.md`)
+- [x] Create supabase-tracker-skill for DB schema knowledge
+- [x] Create `/encode-bill` command to invoke workflow
+- [x] Add 2 human checkpoints (mapping review, results review)
 
 ---
 
