@@ -275,6 +275,22 @@ const StatePanel = memo(({ stateAbbr, onClose }) => {
                       </span>
                       {bill.description}
                     </p>
+                    {bill.reformConfig && (
+                      <p style={{
+                        margin: `${spacing.xs} 0 0`,
+                        color: colors.text.tertiary,
+                        fontSize: typography.fontSize.xs,
+                        fontFamily: typography.fontFamily.body,
+                        fontStyle: "italic",
+                      }}>
+                        Effective beginning in tax year {bill.reformConfig.year || (() => {
+                          // Extract year from first reform parameter key (e.g., "2026-01-01.2100-12-31" → 2026)
+                          const firstParam = Object.values(bill.reformConfig.reform || {})[0];
+                          const firstKey = firstParam ? Object.keys(firstParam)[0] : null;
+                          return firstKey ? firstKey.substring(0, 4) : "2026";
+                        })()}
+                      </p>
+                    )}
                     <div style={{ display: "flex", gap: spacing.sm, marginTop: spacing.sm, flexWrap: "wrap" }}>
                       {bill.analysisUrl && (
                         <a

@@ -465,6 +465,7 @@ export const stateData = {
           id: "ok-hb2229-eitc",
           label: "Oklahoma HB2229: Double State EITC",
           description: "Increases Oklahoma's EITC match from 5% to 10% of the federal credit",
+          year: 2026,
           reform: {
             "gov.states.ok.tax.income.credits.earned_income.eitc_fraction": {
               "2026": 0.10
@@ -494,6 +495,7 @@ export const stateData = {
           id: "or-sb1507-eitc-increase",
           label: "Oregon SB1507: EITC Match Rate Increase",
           description: "Increases Oregon's EITC match from 12% to 17% for families with young children and from 9% to 14% for others",
+          year: 2026,
           reform: {
             "gov.states.or.tax.income.credits.eitc.match.has_young_child": {
               "2026-01-01.2100-12-31": 0.17
@@ -556,6 +558,7 @@ export const stateData = {
           id: "sc-h3492-refundable-eitc",
           label: "SC H.3492 Partially Refundable EITC",
           description: "Makes 25% of the excess of South Carolina's nonrefundable EITC refundable",
+          year: 2026,
           reform: {
             "gov.contrib.states.sc.h3492.in_effect": {
               "2026-01-01.2100-12-31": true
@@ -622,6 +625,7 @@ export const stateData = {
           id: "ut-sb60-rate-cut",
           label: "Utah Income Tax Rate Cut (SB60)",
           description: "Reduces Utah's flat income tax rate from 4.5% to 4.45%",
+          year: 2026,
           reform: {
             "gov.states.ut.tax.income.rate": {
               "2026": 0.0445
@@ -638,6 +642,7 @@ export const stateData = {
           id: "ut-hb210-marriage-penalty-removal",
           label: "Utah HB210 Marriage Penalty Removal",
           description: "Removes marriage penalties from certain individual income tax credits and exemptions, increases taxpayer credit for married filers, and repeals the state EITC",
+          year: 2026,
           reform: {
             "gov.contrib.states.ut.hb210.in_effect": {
               "2026-01-01.2100-12-31": true
@@ -687,6 +692,7 @@ export const stateData = {
           id: "ut-hb290-ctc-threshold-increase",
           label: "Utah HB290: CTC Phaseout Threshold Increase",
           description: "Raises the income thresholds at which Utah's Child Tax Credit begins to phase out",
+          year: 2026,
           reform: {
             "gov.states.ut.tax.income.credits.ctc.reduction.start.SINGLE": {
               "2026-01-01.2100-12-31": 49000.0

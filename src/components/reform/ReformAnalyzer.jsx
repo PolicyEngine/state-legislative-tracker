@@ -182,6 +182,19 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, onClo
                 </>
               )}
             </p>
+            <p style={{
+              margin: `${spacing.xs} 0 0`,
+              fontSize: typography.fontSize.xs,
+              fontFamily: typography.fontFamily.body,
+              color: colors.text.tertiary,
+              fontStyle: "italic",
+            }}>
+              Effective beginning in tax year {reformConfig.year || (() => {
+                const firstParam = Object.values(reformConfig.reform || {})[0];
+                const firstKey = firstParam ? Object.keys(firstParam)[0] : null;
+                return firstKey ? firstKey.substring(0, 4) : "2026";
+              })()}
+            </p>
           </div>
           <button
             onClick={onClose}
