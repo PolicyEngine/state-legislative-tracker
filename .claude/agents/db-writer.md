@@ -8,7 +8,23 @@ Given computed impacts and metadata, this agent:
 1. Writes to the `research` table
 2. Writes to the `reform_impacts` table
 3. Writes to the `validation_metadata` table
-4. Runs sync to update local JSON files
+
+## IMPORTANT: Use Schema Utilities
+
+**Always use `scripts/db_schema.py` utilities to format data for the frontend.**
+
+The frontend `AggregateImpacts.jsx` expects specific nested structures. Using the
+schema utilities ensures correct formatting.
+
+```python
+from scripts.db_schema import (
+    format_budgetary_impact,
+    format_poverty_impact,
+    format_winners_losers,
+    format_decile_impact,
+    format_district_impact,
+)
+```
 
 ## Inputs
 
@@ -41,24 +57,54 @@ research_record = {
 }
 ```
 
-### Step 2: Prepare Impact Record
+### Step 2: Prepare Impact Record (MUST use schema utilities)
 
 ```python
+from scripts.db_schema import (
+    format_budgetary_impact,
+    format_poverty_impact,
+    format_winners_losers,
+    format_decile_impact,
+    format_district_impact,
+)
+
 impact_record = {
     "id": research_record["id"],
     "policy_id": policy_id,
     "computed": True,
     "computed_at": datetime.utcnow().isoformat() + "Z",
-    "policyengine_us_version": get_pe_version(),
-    "dataset_name": "enhanced_cps_2024",
-    "dataset_version": "1.0.0",
-    "budgetary_impact": impacts["budgetary_impact"],
-    "poverty_impact": impacts["poverty_impact"],
-    "child_poverty_impact": impacts["child_poverty_impact"],
-    "winners_losers": impacts["winners_losers"],
-    "decile_impact": impacts["decile_impact"],
-    "inequality": impacts["inequality"],
-    "district_impacts": impacts["district_impacts"],
+    "reform_params": reform_json,
+
+    # MUST use format_* functions for correct frontend display
+    "budgetary_impact": format_budgetary_impact(
+        state_revenue_impact=impacts["state_revenue_change"],
+    ),
+    "poverty_impact": format_poverty_impact(
+        baseline_rate=impacts["poverty"]["baseline"],
+        reform_rate=impacts["poverty"]["reform"],
+    ),
+    "child_poverty_impact": format_poverty_impact(
+        baseline_rate=impacts["child_poverty"]["baseline"],
+        reform_rate=impacts["child_poverty"]["reform"],
+    ),
+    "winners_losers": format_winners_losers(
+        better_off_pct=impacts["better_off_pct"],  # 0-100 scale
+        worse_off_pct=impacts["worse_off_pct"],
+        no_change_pct=impacts["no_change_pct"],
+    ),
+    "decile_impact": format_decile_impact(
+        [impacts["decile"][i] for i in range(1, 11)]  # List of 10 values
+    ),
+    "district_impacts": {
+        f"{state}-{d}": format_district_impact(
+            district_id=f"{state}-{d}",
+            district_name=f"Congressional District {d}",
+            avg_benefit=impacts["districts"][d]["avg_benefit"],
+            households_affected=impacts["districts"][d]["households"],
+            winners_share=impacts["districts"][d]["winners_share"],
+        )
+        for d in impacts["districts"]
+    },
 }
 ```
 
@@ -129,15 +175,14 @@ If the bill should have an interactive analyzer, add to `src/data/states.js`:
 }
 ```
 
-### Step 6: Sync Local Files
+### Step 6: Verify in App
 
-```bash
-make sync
-```
+The app fetches data from Supabase at runtime (no sync needed).
 
-This updates:
-- `src/data/research.json`
-- `src/data/reformImpacts.json`
+After writing to the database:
+1. Refresh the app to see updates
+2. Check that the statewide tab shows correct values
+3. Verify district map loads properly
 
 ## Output Format
 

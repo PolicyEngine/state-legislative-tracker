@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import { stateData } from "../data/states";
-import { getStateResearch } from "../data/research";
+import { useData } from "../context/DataContext";
 import ResearchCard from "./ResearchCard";
 import ReformAnalyzer from "./reform/ReformAnalyzer";
 import { colors, typography, spacing } from "../designTokens";
@@ -56,10 +56,14 @@ function SectionHeader({ children }) {
 
 const StatePanel = memo(({ stateAbbr, onClose }) => {
   const state = stateData[stateAbbr];
-  const research = getStateResearch(stateAbbr);
+  const { getBillsForState, getResearchForState, loading } = useData();
   const [activeBill, setActiveBill] = useState(null);
 
   if (!state) return null;
+
+  // Get bills and research from Supabase
+  const bills = getBillsForState(stateAbbr);
+  const research = getResearchForState(stateAbbr);
 
   // Separate research by status
   const published = research.filter((r) => r.status === "published");
@@ -158,7 +162,7 @@ const StatePanel = memo(({ stateAbbr, onClose }) => {
       <div style={{ padding: spacing["2xl"], maxHeight: "70vh", overflowY: "auto" }}>
 
         {/* 2026 Legislative Activity */}
-        {(state.activeBills?.length > 0 || state.taxChanges?.length > 0) && (
+        {(bills.length > 0 || state.taxChanges?.length > 0) && (
           <div style={{ marginBottom: spacing["2xl"] }}>
             <SectionHeader>2026 Legislative Activity</SectionHeader>
             <div style={{ display: "flex", flexDirection: "column", gap: spacing.sm }}>
@@ -214,7 +218,7 @@ const StatePanel = memo(({ stateAbbr, onClose }) => {
                   <LinkIcon />
                 </a>
               ))}
-              {state.activeBills?.map((bill, i) => (
+              {bills.map((bill, i) => (
                 <a
                   key={i}
                   href={bill.url}
@@ -389,7 +393,7 @@ const StatePanel = memo(({ stateAbbr, onClose }) => {
         )}
 
         {/* No activity message */}
-        {stateSpecific.length === 0 && inProgress.length === 0 && !state.taxChanges?.length && !state.activeBills?.length && (
+        {stateSpecific.length === 0 && inProgress.length === 0 && !state.taxChanges?.length && bills.length === 0 && (
           <div style={{ textAlign: "center", padding: spacing["2xl"] }}>
             <p style={{
               margin: 0,

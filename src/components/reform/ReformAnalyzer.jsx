@@ -3,11 +3,11 @@ import { createPortal } from "react-dom";
 import { colors, typography, spacing } from "../../designTokens";
 import { usePolicyEngineAPI } from "../../hooks/usePolicyEngineAPI";
 import { buildHousehold } from "../../utils/householdBuilder";
+import { useData } from "../../context/DataContext";
 import HouseholdForm from "./HouseholdForm";
 import ResultsDisplay from "./ResultsDisplay";
 import AggregateImpacts from "./AggregateImpacts";
 import DistrictMap from "./DistrictMap";
-import reformImpactsData from "../../data/reformImpacts.json";
 
 const CloseIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -75,10 +75,11 @@ const TABS = [
 
 export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, onClose }) {
   const { compareReform, loading, error } = usePolicyEngineAPI();
+  const { getImpact } = useData();
   const [activeTab, setActiveTab] = useState("statewide");
 
   // Get pre-computed aggregate impacts
-  const aggregateImpacts = reformImpactsData[reformConfig.id] || null;
+  const aggregateImpacts = getImpact(reformConfig.id);
 
   const [householdInputs, setHouseholdInputs] = useState({
     headAge: 35,

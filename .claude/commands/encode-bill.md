@@ -59,6 +59,7 @@ No further action needed unless PE-US has been updated.
                                     ▼
                     ┌───────────────────────────────┐
                     │  PHASE 1: PARALLEL RESEARCH   │
+                    │  (Task agents)                │
                     └───────────────────────────────┘
                                     │
           ┌─────────────────────────┴─────────────────────────┐
@@ -66,75 +67,50 @@ No further action needed unless PE-US has been updated.
           ▼                                                   ▼
 ┌───────────────────┐                             ┌───────────────────┐
 │  bill-researcher  │                             │  fiscal-finder    │
-│                   │                             │                   │
-│  • Fetch bill     │                             │  • Find fiscal    │
-│  • Parse text     │                             │    note           │
-│  • ID provisions  │                             │  • Find external  │
-│                   │                             │    analyses       │
 └─────────┬─────────┘                             └─────────┬─────────┘
-          │                                                 │
           └─────────────────────┬───────────────────────────┘
                                 │
                                 ▼
                     ┌───────────────────────────────┐
                     │  PHASE 2: PARAMETER MAPPING   │
+                    │  (param-mapper agent)         │
                     └───────────────────────────────┘
-                                │
-                                ▼
-                      ┌───────────────────┐
-                      │   param-mapper    │
-                      │                   │
-                      │  • Map bill →     │
-                      │    PE params      │
-                      │  • Generate       │
-                      │    reform JSON    │
-                      └─────────┬─────────┘
                                 │
                                 ▼
                     ┌───────────────────────────────┐
                     │   CHECKPOINT #1: REVIEW MAP   │
+                    └───────────────────────────────┘
+                                │
+                                ▼
+                    ┌───────────────────────────────┐
+                    │  PHASE 3: WRITE TO DATABASE   │
+                    │  (research + reform_params)   │
+                    └───────────────────────────────┘
+                                │
+                                ▼
+                    ┌───────────────────────────────┐
+                    │  PHASE 4: RUN SCRIPT          │
                     │                               │
-                    │   You approve the parameter   │
-                    │   mapping before computation  │
-                    └───────────────────────────────┘
-                                │
-                                ▼
-                    ┌───────────────────────────────┐
-                    │  PHASE 3: IMPACT COMPUTATION  │
-                    └───────────────────────────────┘
-                                │
-                                ▼
-                      ┌───────────────────┐
-                      │ impact-calculator │
-                      │                   │
-                      │  • Call PE API    │
-                      │  • Get budgetary  │
-                      │  • Get poverty    │
-                      │  • Get districts  │
-                      └─────────┬─────────┘
-                                │
-                                ▼
-                    ┌───────────────────────────────┐
-                    │  CHECKPOINT #2: REVIEW RESULTS│
+                    │  python compute_impacts.py    │
+                    │    --reform-id {id}           │
                     │                               │
-                    │   Compare PE vs fiscal note   │
-                    │   You approve before DB write │
+                    │  Script handles:              │
+                    │  • PE API calls               │
+                    │  • District microsimulation   │
+                    │  • Schema formatting          │
+                    │  • Database writes            │
                     └───────────────────────────────┘
                                 │
                                 ▼
                     ┌───────────────────────────────┐
-                    │   PHASE 4: DATABASE WRITE     │
+                    │  CHECKPOINT #2: REVIEW        │
+                    │  Compare results to fiscal    │
                     └───────────────────────────────┘
                                 │
                                 ▼
-                      ┌───────────────────┐
-                      │    db-writer      │
-                      │                   │
-                      │  • research table │
-                      │  • reform_impacts │
-                      │  • validation_    │
-                      │    metadata       │
-                      └─────────┬─────────┘
+                    ┌───────────────────────────────┐
+                    │  PHASE 5: VERIFY IN APP       │
+                    └───────────────────────────────┘
                                 │
                                 ▼
                           ┌───────────┐
@@ -213,71 +189,101 @@ Use `AskUserQuestion` to confirm:
 - Does this mapping look correct?
 - Options: Yes / No, adjust / Cancel
 
-## Phase 3: Impact Computation
+## Phase 3: Write Reform Config to Database
 
-Spawn impact-calculator agent:
+**IMPORTANT**: Before computing impacts, write the reform config to the database.
+This ensures the reform is tracked and can be re-computed if needed.
+
+```bash
+export $(grep -v '^#' .env | xargs) && python3 << 'EOF'
+from supabase import create_client
+import os
+
+supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
+
+# 1. Upsert research record
+research = {
+    "id": "{state}-{bill}".lower(),
+    "state": "{STATE}",
+    "type": "bill",
+    "status": "in_progress",
+    "title": "{BILL_TITLE}",
+    "description": "{DESCRIPTION}",
+    "url": "{BILL_URL}",
+    "key_findings": ["{provision_1}", "{provision_2}"],
+}
+supabase.table("research").upsert(research).execute()
+
+# 2. Upsert reform_impacts with reform_params (impacts will be computed by script)
+reform_impacts = {
+    "id": "{state}-{bill}".lower(),
+    "computed": False,
+    "reform_params": {REFORM_JSON},
+}
+supabase.table("reform_impacts").upsert(reform_impacts).execute()
+
+print("Reform config written to database")
+EOF
 ```
-Task: impact-calculator
-Prompt: Compute PolicyEngine impacts for this reform:
-{reform JSON}
 
-State: {STATE}
-Year: 2026
+## Phase 4: Compute Impacts (via script)
 
-Return budgetary impact, poverty impact, decile impacts, and district impacts.
+**Run the compute_impacts.py script** - this is the ONLY way to compute impacts:
+
+```bash
+export $(grep -v '^#' .env | xargs) && python scripts/compute_impacts.py --reform-id {state}-{bill}
 ```
+
+The script will:
+1. Read reform_params from database
+2. Call PolicyEngine API to create policy
+3. Fetch economy-wide impacts (budgetary, poverty, winners/losers)
+4. Run local Microsimulation for district-level impacts
+5. Write results back to database using proper schema
+
+**DO NOT compute impacts inline or with ad-hoc code.** All computation goes through the script for:
+- Reproducibility
+- Auditability
+- Consistent schema formatting
 
 ## Checkpoint #2: Results Review
 
-Present results and validation:
+After the script completes, review the output and compare to fiscal note:
 
 ```
 ═══════════════════════════════════════════════════════════════════════════
 RESULTS REVIEW
 ═══════════════════════════════════════════════════════════════════════════
 
+SCRIPT OUTPUT:
+  Policy ID: {policy_id}
+  Revenue impact: ${amount}
+
 VALIDATION
   PolicyEngine estimate: -$68.6M
   Fiscal note estimate:  -$83.6M
   Difference: 17.9%  ⚠️ (within acceptable range)
 
-BUDGETARY IMPACT
-  State revenue change: -$69.9M
-  Households affected: 1,058,820
-
-POVERTY IMPACT
-  Overall: -0.06 pp (-0.37%)
-  Child: -0.05 pp (-0.36%)
-
-WINNERS & LOSERS
-  Better off: 44.5%
-  No change: 55.5%
-  Worse off: 0.0%
-
-INCOME DISTRIBUTION (avg $ benefit by decile)
-  D1: $6   D2: $15  D3: $24  D4: $30  D5: $36
-  D6: $45  D7: $54  D8: $64  D9: $95  D10: $430
-
 ═══════════════════════════════════════════════════════════════════════════
 ```
 
 Use `AskUserQuestion`:
-- Write to database?
-- Options: Yes / Re-compute / Cancel
+- Results look correct?
+- Options: Yes, update status to computed / Re-compute with --force / Cancel
 
-## Phase 4: Database Write
+## Phase 5: Verify and Finalize
 
-Spawn db-writer agent:
-```
-Task: db-writer
-Prompt: Write these results to Supabase:
+1. **Check the app** - refresh to see the bill with computed impacts
+2. **Update status** if everything looks good:
 
-Bill info: {bill_info}
-Impacts: {impacts}
-Validation: {validation}
-Reform: {reform}
-
-Tables: research, reform_impacts, validation_metadata
+```bash
+export $(grep -v '^#' .env | xargs) && python3 << 'EOF'
+from supabase import create_client
+import os
+supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
+supabase.table("research").update({"status": "in_progress"}).eq("id", "{state}-{bill}").execute()
+print("Status updated")
+EOF
 ```
 
 ## Final Output
@@ -287,15 +293,15 @@ Tables: research, reform_impacts, validation_metadata
 COMPLETE: {STATE} {BILL_NUMBER}
 ═══════════════════════════════════════════════════════════════════════════
 
-RECORDS WRITTEN:
-  ✓ research: {id}
-  ✓ reform_impacts: {id}
-  ✓ validation_metadata: {id}
+RECORDS IN DATABASE:
+  ✓ research: {id} (status: in_progress, type: bill)
+  ✓ reform_impacts: {id} (computed: true)
 
-NEXT STEPS:
-  1. Run: make sync
-  2. Add reformConfig to src/data/states.js (if needed)
-  3. Commit and push
+APP DISPLAY:
+  ✓ Bill appears in state panel
+  ✓ Statewide impacts tab shows data
+  ✓ District map displays (if available)
+  ✓ Household calculator works
 
 VIEW IN SUPABASE:
   https://supabase.com/dashboard/project/ffgngqlgfsvqartilful/editor
@@ -319,28 +325,27 @@ VIEW IN SUPABASE:
 | bill-researcher | Fetch and parse bill text | `.claude/agents/bill-researcher.md` |
 | fiscal-finder | Find fiscal notes and analyses | `.claude/agents/fiscal-finder.md` |
 | param-mapper | Map to PolicyEngine parameters | `.claude/agents/param-mapper.md` |
-| impact-calculator | Compute PE impacts | `.claude/agents/impact-calculator.md` |
-| db-writer | Write to Supabase | `.claude/agents/db-writer.md` |
 
-## Skills Used
+## Scripts Used
 
-| Skill | Purpose |
-|-------|---------|
-| policyengine-us-skill | PE parameter knowledge |
-| supabase-tracker-skill | Database schema knowledge |
+| Script | Purpose |
+|--------|---------|
+| `scripts/compute_impacts.py` | Compute and store impacts (PE API + Microsimulation) |
+| `scripts/db_schema.py` | Schema utilities for consistent data formatting |
 
 ## Prerequisites
 
 - `.env` file with SUPABASE_URL and SUPABASE_KEY
-- Internet access for bill fetching and PE API
-- PolicyEngine API access
+- PolicyEngine-US installed (for district microsimulation)
+- HuggingFace Hub access (for state datasets)
 
-## Comparison with /score-bill
+## Key Principle: All Computation via Script
 
-| Feature | /score-bill | /encode-bill |
-|---------|-------------|--------------|
-| Stores in database | No | Yes (Supabase) |
-| Human checkpoints | 1 | 2 |
-| Parallel research | No | Yes |
-| Validation tracking | No | Yes |
-| Fiscal note comparison | Manual | Automatic |
+**NEVER compute impacts inline.** Always use `compute_impacts.py` because:
+
+1. **Reproducibility**: Same code runs every time
+2. **Auditability**: Changes are tracked in git
+3. **Schema consistency**: Uses `db_schema.py` utilities
+4. **Testability**: Script can be tested independently
+
+The agents research and generate reform JSON. The script does computation.

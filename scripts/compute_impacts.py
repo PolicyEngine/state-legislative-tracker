@@ -8,14 +8,28 @@ This script creates policies and fetches economy-wide impacts including:
 - Child poverty rate change
 - District-level impacts (using Microsimulation)
 
-Results are saved to a JSON file for use in the frontend.
+Results can be saved to:
+- JSON file (legacy, for local development)
+- Supabase (production, via --supabase flag)
 """
 
 import json
+import os
 import time
 import requests
 import argparse
 from pathlib import Path
+from datetime import datetime
+
+# Import schema utilities
+from db_schema import (
+    format_budgetary_impact,
+    format_poverty_impact,
+    format_winners_losers,
+    format_decile_impact,
+    format_district_impact,
+    format_reform_impacts_record,
+)
 
 # Try to import PolicyEngine for district-level calculations
 try:
@@ -38,6 +52,63 @@ except ImportError:
     print("Warning: huggingface_hub not installed. Will use default dataset.")
 
 API_BASE = "https://api.policyengine.org"
+
+
+def get_supabase_client():
+    """Get Supabase client."""
+    try:
+        from supabase import create_client
+        url = os.environ.get("SUPABASE_URL")
+        key = os.environ.get("SUPABASE_KEY")
+        if url and key:
+            return create_client(url, key)
+    except ImportError:
+        pass
+    return None
+
+
+def load_reforms_from_db(supabase, reform_id=None):
+    """
+    Load reform configs from database.
+
+    Reads from reform_impacts table (reform_params column) joined with research table.
+    """
+    # Query research + reform_impacts
+    query = supabase.table("research").select(
+        "id, state, title, description, url, reform_impacts(reform_params, computed)"
+    ).eq("type", "bill")
+
+    if reform_id:
+        query = query.eq("id", reform_id)
+
+    result = query.execute()
+
+    reforms = []
+    for r in result.data:
+        impact_data = r.get("reform_impacts")
+        if not impact_data:
+            continue
+
+        # Handle both single object and array responses
+        if isinstance(impact_data, list):
+            impact_data = impact_data[0] if impact_data else {}
+
+        reform_params = impact_data.get("reform_params")
+        if not reform_params:
+            continue
+
+        reforms.append({
+            "id": r["id"],
+            "state": r["state"].lower(),
+            "label": r["title"],
+            "reform": reform_params,
+            "description": r.get("description", ""),
+            "bill_url": r.get("url"),
+            "computed": impact_data.get("computed", False),
+        })
+
+    return reforms
+
 
 # Congressional district names by state
 CONGRESSIONAL_DISTRICTS = {
@@ -65,82 +136,6 @@ CONGRESSIONAL_DISTRICTS = {
     }
 }
 
-# Define reforms to compute
-REFORMS = [
-    {
-        "id": "ut-sb60-rate-cut",
-        "state": "ut",
-        "label": "Utah Income Tax Rate Cut (SB60)",
-        "reform": {
-            "gov.states.ut.tax.income.rate": {
-                "2026-01-01.2100-12-31": 0.0445
-            }
-        }
-    },
-    {
-        "id": "ut-hb210-marriage-penalty-removal",
-        "state": "ut",
-        "label": "Utah HB210 Marriage Penalty Removal",
-        "reform": {
-            "gov.contrib.states.ut.hb210.in_effect": {
-                "2026-01-01.2100-12-31": True
-            },
-            "gov.contrib.states.ut.hb210.taxpayer_credit_add_on.amount.JOINT": {
-                "2026-01-01.2100-12-31": 66.0
-            },
-            "gov.contrib.states.ut.hb210.taxpayer_credit_add_on.amount.SEPARATE": {
-                "2026-01-01.2100-12-31": 33.0
-            },
-            "gov.contrib.states.ut.hb210.taxpayer_credit_add_on.amount.SURVIVING_SPOUSE": {
-                "2026-01-01.2100-12-31": 66.0
-            },
-            "gov.states.ut.tax.income.credits.ctc.reduction.start.HEAD_OF_HOUSEHOLD": {
-                "2026-01-01.2100-12-31": 27000.0
-            },
-            "gov.states.ut.tax.income.credits.ctc.reduction.start.SINGLE": {
-                "2026-01-01.2100-12-31": 27000.0
-            },
-            "gov.states.ut.tax.income.credits.earned_income.rate": {
-                "2026-01-01.2100-12-31": 0.0
-            },
-            "gov.states.ut.tax.income.credits.retirement.phase_out.threshold.HEAD_OF_HOUSEHOLD": {
-                "2026-01-01.2100-12-31": 16000.0
-            },
-            "gov.states.ut.tax.income.credits.retirement.phase_out.threshold.SINGLE": {
-                "2026-01-01.2100-12-31": 16000.0
-            },
-            "gov.states.ut.tax.income.credits.taxpayer.phase_out.threshold.HEAD_OF_HOUSEHOLD": {
-                "2026-01-01.2100-12-31": 18625.8
-            },
-            "gov.states.ut.tax.income.credits.ss_benefits.phase_out.threshold.HEAD_OF_HOUSEHOLD": {
-                "2026-01-01.2100-12-31": 45000.0
-            },
-            "gov.states.ut.tax.income.credits.ss_benefits.phase_out.threshold.SINGLE": {
-                "2026-01-01.2100-12-31": 45000.0
-            }
-        }
-    },
-    {
-        "id": "sc-h3492-refundable-eitc",
-        "state": "sc",
-        "label": "SC H.3492 Partially Refundable EITC",
-        "reform": {
-            "gov.contrib.states.sc.h3492.in_effect": {
-                "2026-01-01.2100-12-31": True
-            }
-        }
-    },
-    {
-        "id": "ok-hb2229-eitc",
-        "state": "ok",
-        "label": "Oklahoma HB2229: Double State EITC (5% to 10%)",
-        "reform": {
-            "gov.states.ok.tax.income.credits.earned_income.eitc_fraction": {
-                "2026-01-01.2100-12-31": 0.10
-            }
-        }
-    }
-]
 
 
 def create_policy(reform_data: dict) -> int:
@@ -181,91 +176,92 @@ def get_economy_impact(policy_id: int, region: str, baseline_id: int = 2, time_p
 
 
 def extract_impacts(economy_data: dict) -> dict:
-    """Extract key impact metrics from economy API response."""
-    impacts = {
-        "computed": True,
-        "computedAt": time.strftime("%Y-%m-%d %H:%M:%S"),
-    }
+    """
+    Extract key impact metrics from economy API response.
 
-    # Budget impact - budgetary_impact is a float (negative = revenue loss)
+    Returns data in the format expected by the frontend, using schema utilities.
+    """
+    # Budget impact
+    budgetary_impact = None
     if "budget" in economy_data:
         budget = economy_data["budget"]
-        budgetary_impact = budget.get("budgetary_impact", 0)
-        impacts["budgetaryImpact"] = {
-            "netCost": budgetary_impact,  # Negative = state loses revenue
-            "stateRevenueImpact": budget.get("state_tax_revenue_impact", 0),
-            "households": budget.get("households", 0),
-        }
+        budgetary_impact = format_budgetary_impact(
+            state_revenue_impact=budget.get("state_tax_revenue_impact", budget.get("budgetary_impact", 0)),
+            net_cost=budget.get("budgetary_impact", 0),
+            households=budget.get("households"),
+        )
 
     # Poverty impact
+    poverty_impact = None
+    child_poverty_impact = None
     if "poverty" in economy_data:
         poverty_data = economy_data["poverty"].get("poverty", {})
 
-        # Overall poverty
         if "all" in poverty_data:
             all_pov = poverty_data["all"]
-            baseline = all_pov.get("baseline", 0)
-            reform = all_pov.get("reform", 0)
-            impacts["povertyImpact"] = {
-                "baselineRate": baseline,
-                "reformRate": reform,
-                "change": reform - baseline,
-                "percentChange": ((reform - baseline) / baseline * 100) if baseline > 0 else 0,
-            }
+            poverty_impact = format_poverty_impact(
+                baseline_rate=all_pov.get("baseline", 0),
+                reform_rate=all_pov.get("reform", 0),
+            )
 
-        # Child poverty
         if "child" in poverty_data:
             child_pov = poverty_data["child"]
-            baseline = child_pov.get("baseline", 0)
-            reform = child_pov.get("reform", 0)
-            impacts["childPovertyImpact"] = {
-                "baselineRate": baseline,
-                "reformRate": reform,
-                "change": reform - baseline,
-                "percentChange": ((reform - baseline) / baseline * 100) if baseline > 0 else 0,
-            }
+            child_poverty_impact = format_poverty_impact(
+                baseline_rate=child_pov.get("baseline", 0),
+                reform_rate=child_pov.get("reform", 0),
+            )
 
     # Winners/Losers from intra_decile
+    winners_losers = None
     if "intra_decile" in economy_data:
         intra = economy_data["intra_decile"].get("all", {})
-        impacts["winnersLosers"] = {
-            "gainMore5Pct": intra.get("Gain more than 5%", 0),
-            "gainLess5Pct": intra.get("Gain less than 5%", 0),
-            "loseLess5Pct": intra.get("Lose less than 5%", 0),
-            "loseMore5Pct": intra.get("Lose more than 5%", 0),
-            "noChange": intra.get("No change", 0),
-        }
+        winners_losers = format_winners_losers(
+            gain_more_5pct=intra.get("Gain more than 5%", 0),
+            gain_less_5pct=intra.get("Gain less than 5%", 0),
+            no_change=intra.get("No change", 0),
+            lose_less_5pct=intra.get("Lose less than 5%", 0),
+            lose_more_5pct=intra.get("Lose more than 5%", 0),
+        )
 
     # Decile impact - average change per income decile
+    decile_impact = None
     if "decile" in economy_data:
         decile_data = economy_data["decile"]
-        # Average income change by decile (relative)
+        relative = {}
+        absolute = {}
+
         if "average" in decile_data:
             avg = decile_data["average"]
-            impacts["decileImpact"] = {
-                "relative": {
-                    str(i): avg.get(str(i), 0) for i in range(1, 11)
-                }
-            }
-        # Absolute income change by decile
+            relative = {str(i): avg.get(str(i), 0) for i in range(1, 11)}
+
         if "income" in decile_data:
             income = decile_data["income"]
-            if "decileImpact" not in impacts:
-                impacts["decileImpact"] = {}
-            impacts["decileImpact"]["absolute"] = {
-                str(i): income.get(str(i), 0) for i in range(1, 11)
-            }
+            absolute = {str(i): income.get(str(i), 0) for i in range(1, 11)}
+
+        if relative or absolute:
+            decile_impact = {"relative": relative, "absolute": absolute}
 
     # Inequality metrics
+    inequality = None
     if "inequality" in economy_data:
         ineq = economy_data["inequality"]
         gini = ineq.get("gini", {})
-        impacts["inequality"] = {
+        inequality = {
             "giniBaseline": gini.get("baseline", 0),
             "giniReform": gini.get("reform", 0),
         }
 
-    return impacts
+    # Return in format compatible with both JSON and Supabase
+    return {
+        "computed": True,
+        "computedAt": datetime.utcnow().isoformat(),
+        "budgetaryImpact": budgetary_impact,
+        "povertyImpact": poverty_impact,
+        "childPovertyImpact": child_poverty_impact,
+        "winnersLosers": winners_losers,
+        "decileImpact": decile_impact,
+        "inequality": inequality,
+    }
 
 
 def get_state_dataset(state: str) -> str:
@@ -465,34 +461,105 @@ def compute_district_impacts(state: str, reform_dict: dict, year: int = 2026) ->
         return {}
 
 
+def get_supabase_client():
+    """Get Supabase client if available."""
+    try:
+        from supabase import create_client
+        url = os.environ.get("SUPABASE_URL")
+        key = os.environ.get("SUPABASE_KEY")
+        if url and key:
+            return create_client(url, key)
+    except ImportError:
+        pass
+    return None
+
+
+def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: dict):
+    """Write impacts to Supabase reform_impacts table."""
+    # Convert camelCase to snake_case for Supabase columns
+    record = {
+        "id": reform_id,
+        "computed": impacts.get("computed", True),
+        "computed_at": impacts.get("computedAt"),
+        "policy_id": impacts.get("policyId"),
+        "budgetary_impact": impacts.get("budgetaryImpact"),
+        "poverty_impact": impacts.get("povertyImpact"),
+        "child_poverty_impact": impacts.get("childPovertyImpact"),
+        "winners_losers": impacts.get("winnersLosers"),
+        "decile_impact": impacts.get("decileImpact"),
+        "inequality": impacts.get("inequality"),
+        "district_impacts": impacts.get("districtImpacts"),
+        "reform_params": reform_params,
+    }
+
+    # Upsert to handle both insert and update
+    result = supabase.table("reform_impacts").upsert(record).execute()
+    return result
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Compute aggregate impacts for reforms")
-    parser.add_argument("--force", action="store_true", help="Force recomputation of all impacts")
-    parser.add_argument("--districts-only", action="store_true", help="Only compute district impacts for existing reforms")
+    parser = argparse.ArgumentParser(
+        description="Compute aggregate impacts for reforms stored in Supabase"
+    )
+    parser.add_argument("--force", action="store_true", help="Force recomputation even if already computed")
+    parser.add_argument("--districts-only", action="store_true", help="Only compute district impacts")
+    parser.add_argument("--reform-id", type=str, help="Only process a specific reform ID")
+    parser.add_argument("--list", action="store_true", help="List available reforms and exit")
     args = parser.parse_args()
 
-    output_path = Path(__file__).parent.parent / "src" / "data" / "reformImpacts.json"
+    # Always require Supabase - reforms are stored there
+    supabase = get_supabase_client()
+    if not supabase:
+        print("Error: SUPABASE_URL/SUPABASE_KEY not set")
+        print("Run: source .env")
+        return
 
-    # Load existing impacts if any
-    impacts = {}
-    if output_path.exists():
-        with open(output_path) as f:
-            impacts = json.load(f)
+    print("=" * 60)
+    print("PolicyEngine Impact Calculator")
+    print("=" * 60)
 
-    print("Computing aggregate impacts for reforms...")
-    print("=" * 50)
+    # Load reforms from database
+    reforms_to_process = load_reforms_from_db(supabase, args.reform_id)
 
-    for reform_config in REFORMS:
+    if not reforms_to_process:
+        if args.reform_id:
+            print(f"Error: Reform '{args.reform_id}' not found or has no reform_params")
+        else:
+            print("No reforms found with type='bill' and reform_params set")
+        return
+
+    # List mode - just show what's available
+    if args.list:
+        print(f"\nFound {len(reforms_to_process)} reforms:\n")
+        for r in reforms_to_process:
+            status = "computed" if r.get("computed") else "pending"
+            print(f"  {r['id']:30} [{r['state'].upper()}] ({status})")
+        return
+
+    print(f"\nProcessing {len(reforms_to_process)} reform(s)...")
+
+    results = {}
+
+    for reform_config in reforms_to_process:
         reform_id = reform_config["id"]
         state = reform_config["state"]
 
-        print(f"\nProcessing: {reform_config['label']}")
-        print(f"  State: {state.upper()}")
+        print(f"\n{'─' * 60}")
+        print(f"Reform: {reform_config['label']}")
+        print(f"ID: {reform_id} | State: {state.upper()}")
+        print(f"{'─' * 60}")
 
-        # Districts-only mode: just update district impacts for existing data
+        # Skip if already computed (unless forced)
+        if not args.force and reform_config.get("computed"):
+            print("  Already computed, skipping (use --force to recompute)")
+            results[reform_id] = "skipped"
+            continue
+
+        # Districts-only mode: just update district impacts
         if args.districts_only:
-            if reform_id not in impacts or not impacts[reform_id].get("computed"):
+            if not reform_config.get("computed"):
                 print("  Not yet computed, skipping district-only update...")
+                results[reform_id] = "skipped"
                 continue
             print("  Computing district impacts only...")
             district_impacts = compute_district_impacts(
@@ -500,59 +567,61 @@ def main():
                 reform_dict=reform_config["reform"],
             )
             if district_impacts:
-                impacts[reform_id]["districtImpacts"] = district_impacts
-                print(f"  Done! District impacts updated.")
+                # Update just the district_impacts in Supabase
+                supabase.table("reform_impacts").update({
+                    "district_impacts": district_impacts
+                }).eq("id", reform_id).execute()
+                print("  District impacts updated in Supabase")
+                results[reform_id] = "districts_updated"
             else:
-                print("  Keeping existing district data (if any).")
-            continue
-
-        # Skip if already computed (unless forced)
-        if not args.force and reform_id in impacts and impacts[reform_id].get("computed"):
-            print("  Already computed, skipping...")
+                results[reform_id] = "no_districts"
             continue
 
         try:
-            # Create policy
-            print("  Creating policy...")
+            # Step 1: Create policy in PolicyEngine
+            print("  [1/4] Creating policy in PolicyEngine API...")
             policy_id = create_policy(reform_config["reform"])
-            print(f"  Policy ID: {policy_id}")
+            print(f"        Policy ID: {policy_id}")
 
-            # Get economy impact
-            print("  Fetching economy impact (this may take a few minutes)...")
+            # Step 2: Get economy impact
+            print("  [2/4] Fetching economy impact (this may take a few minutes)...")
             economy_data = get_economy_impact(policy_id, state)
 
-            # Extract and save impacts
-            impacts[reform_id] = extract_impacts(economy_data)
-            impacts[reform_id]["policyId"] = policy_id
-            impacts[reform_id]["state"] = state.upper()
+            # Step 3: Extract impacts using schema utilities
+            print("  [3/4] Processing results...")
+            impacts = extract_impacts(economy_data)
+            impacts["policyId"] = policy_id
 
-            # Compute district-level impacts
+            # Step 4: Compute district-level impacts (local microsimulation)
+            print("  [4/4] Computing district impacts...")
             district_impacts = compute_district_impacts(
                 state=state,
                 reform_dict=reform_config["reform"],
             )
             if district_impacts:
-                impacts[reform_id]["districtImpacts"] = district_impacts
+                impacts["districtImpacts"] = district_impacts
 
-            print(f"  Done! Impacts computed.")
+            # Write to Supabase
+            print("  Writing to Supabase...")
+            write_to_supabase(supabase, reform_id, impacts, reform_config["reform"])
+
+            # Show summary
+            budgetary = impacts.get("budgetaryImpact", {}).get("stateRevenueImpact", 0)
+            print(f"\n  ✓ Complete!")
+            print(f"    Revenue impact: ${budgetary:,.0f}")
+            print(f"    Policy ID: {policy_id}")
+
+            results[reform_id] = "computed"
 
         except Exception as e:
-            print(f"  Error: {e}")
-            impacts[reform_id] = {
-                "computed": False,
-                "error": str(e),
-                "state": state.upper(),
-            }
+            print(f"  ✗ Error: {e}")
+            results[reform_id] = f"error: {e}"
 
-    # Save results
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w") as f:
-        json.dump(impacts, f, indent=2)
-
-    print(f"\nResults saved to: {output_path}")
-    print("\nSummary:")
-    for reform_id, data in impacts.items():
-        status = "Computed" if data.get("computed") else "Failed"
+    # Summary
+    print(f"\n{'=' * 60}")
+    print("Summary")
+    print(f"{'=' * 60}")
+    for reform_id, status in results.items():
         print(f"  {reform_id}: {status}")
 
 

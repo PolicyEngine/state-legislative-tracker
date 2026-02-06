@@ -9,7 +9,7 @@ import {
 } from "react-simple-maps";
 import { geoCentroid } from "d3-geo";
 import { colors, typography, spacing } from "../../designTokens";
-import reformImpactsData from "../../data/reformImpacts.json";
+import { useData } from "../../context/DataContext";
 
 // ArcGIS REST API for 118th Congressional Districts
 const getCongressionalDistrictsUrl = (stateAbbr) =>
@@ -150,7 +150,8 @@ function getImpactHoverColor(avgBenefit, maxBenefit) {
 
 function UtahDistrictMap({ reformId }) {
   const [selectedDistrict, setSelectedDistrict] = useState(null);
-  const reformImpacts = reformImpactsData[reformId];
+  const { getImpact } = useData();
+  const reformImpacts = getImpact(reformId);
   const hasDistrictData = reformImpacts?.districtImpacts;
 
   // Calculate max benefit for color scaling
@@ -582,7 +583,8 @@ function StatBox({ label, value, color }) {
 // Fallback card-based view for states without SVG maps
 function CardBasedDistrictView({ stateAbbr, reformId }) {
   const districts = STATE_DISTRICTS[stateAbbr];
-  const reformImpacts = reformImpactsData[reformId];
+  const { getImpact } = useData();
+  const reformImpacts = getImpact(reformId);
   const hasDistrictData = reformImpacts?.districtImpacts;
 
   if (!districts) {
@@ -882,7 +884,8 @@ function GenericStateDistrictMap({ stateAbbr, reformId }) {
   const [geoData, setGeoData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const reformImpacts = reformImpactsData[reformId];
+  const { getImpact } = useData();
+  const reformImpacts = getImpact(reformId);
   const hasDistrictData = reformImpacts?.districtImpacts;
 
   useEffect(() => {
