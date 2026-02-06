@@ -674,5 +674,34 @@
     "federal_tool_order": null,
     "created_at": "2026-02-06T18:11:48.938703+00:00",
     "updated_at": "2026-02-06T18:11:48.938703+00:00"
+  },
+  {
+    "id": "ok-sb367",
+    "legiscan_bill_id": null,
+    "state": "OK",
+    "type": "blog",
+    "status": "not_modelable",
+    "title": "Oklahoma SB367: Unfreezing the State EITC",
+    "url": null,
+    "description": "Would restore federal conformity for Oklahoma's EITC, allowing the credit to grow with annual federal inflation adjustments starting in tax year 2026",
+    "date": null,
+    "author": null,
+    "key_findings": [
+      "STRUCTURAL REFORM REQUIRED: Bill changes EITC calculation methodology (frozen 2020 \u2192 current federal rules)",
+      "PolicyEngine-US models unfrozen behavior as baseline - cannot show reform impact",
+      "Would need: frozen_federal_year parameter + ok_eitc variable code changes",
+      "Fiscal note: $8.7M annual cost (additional credits to taxpayers)",
+      "Rate stays at 5% of federal EITC - only the reference year changes"
+    ],
+    "tags": [
+      "eitc",
+      "structural-reform-needed",
+      "federal-conformity",
+      "internal-only"
+    ],
+    "relevant_states": null,
+    "federal_tool_order": null,
+    "created_at": "2026-02-06T19:37:50.71625+00:00",
+    "updated_at": "2026-02-06T19:42:35.34964+00:00"
   }
 ]

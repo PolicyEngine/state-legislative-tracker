@@ -7,6 +7,48 @@ This is the database-integrated version of `/score-bill`. Results are stored in 
 ## Arguments
 - `$ARGUMENTS` - State and bill number (e.g., "UT SB60", "SC H3492")
 
+## Phase 0: Check Database First
+
+**BEFORE doing any research**, check if this bill already exists in the database:
+
+```bash
+source .env && python3 << EOF
+from supabase import create_client
+import os
+supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
+result = supabase.table("research").select("*").eq("id", "{state}-{bill}".lower()).execute()
+if result.data:
+    item = result.data[0]
+    print(f"FOUND IN DATABASE: {item['id']}")
+    print(f"  Status: {item['status']}")
+    print(f"  Key findings: {item['key_findings']}")
+else:
+    print("NOT FOUND - proceed with research")
+EOF
+```
+
+**If status is `not_modelable`**: Stop and show the cached findings. Don't re-research.
+
+```
+═══════════════════════════════════════════════════════════════════════════
+BILL ALREADY ANALYZED: {id}
+═══════════════════════════════════════════════════════════════════════════
+
+Status: not_modelable
+
+Reason: {key_findings from database}
+
+This bill was previously researched and determined to require structural
+changes to PolicyEngine-US before it can be modeled.
+
+No further action needed unless PE-US has been updated.
+═══════════════════════════════════════════════════════════════════════════
+```
+
+**If found with `computed: true`**: Show existing results, ask if re-computation needed.
+
+**If not found**: Proceed with Phase 1 (research).
+
 ## Workflow Overview
 
 ```
