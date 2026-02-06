@@ -83,6 +83,26 @@ CONGRESSIONAL_DISTRICTS = {
         9: "Congressional District 9",
         10: "Congressional District 10",
         11: "Congressional District 11",
+    },
+    "RI": {
+        1: "Congressional District 1",
+        2: "Congressional District 2",
+    },
+    "GA": {
+        1: "Congressional District 1",
+        2: "Congressional District 2",
+        3: "Congressional District 3",
+        4: "Congressional District 4",
+        5: "Congressional District 5",
+        6: "Congressional District 6",
+        7: "Congressional District 7",
+        8: "Congressional District 8",
+        9: "Congressional District 9",
+        10: "Congressional District 10",
+        11: "Congressional District 11",
+        12: "Congressional District 12",
+        13: "Congressional District 13",
+        14: "Congressional District 14",
     }
 }
 
@@ -222,6 +242,7 @@ REFORMS = [
             }
         }
     }
+    # Georgia HB111 temporarily removed - bracket parameter format needs debugging with PolicyEngine API team
 ]
 
 
@@ -389,7 +410,7 @@ def compute_district_impacts(state: str, reform_dict: dict, year: int = 2026) ->
 
     # Get state FIPS code for filtering
     STATE_FIPS = {
-        "UT": 49, "CA": 6, "NY": 36, "TX": 48, "FL": 12, "SC": 45, "OK": 40, "OR": 41, "VA": 51,
+        "UT": 49, "CA": 6, "NY": 36, "TX": 48, "FL": 12, "SC": 45, "OK": 40, "OR": 41, "VA": 51, "RI": 44, "GA": 13,
         # Add more as needed
     }
 

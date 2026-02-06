@@ -264,15 +264,6 @@ export const research = [
     tags: ["tips", "tax-exemption", "planned"],
   },
   {
-    id: "ga-hb111",
-    state: "GA",
-    type: "blog",
-    status: "planned",
-    title: "Georgia HB 111 Acceleration Analysis",
-    description: "Analysis of accelerated path to 5.19% flat rate",
-    tags: ["flat-tax", "planned"],
-  },
-  {
     id: "sc-flat-tax",
     state: "SC",
     type: "blog",

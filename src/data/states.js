@@ -118,12 +118,19 @@ export const stateData = {
     abbr: "GA",
     session: { status: "active", dates: "Jan 12 - Apr 6, 2026", carryover: true },
     policyLevers: {
-      incomeTax: { available: true, type: "flat", topRate: "5.19%" },
+      incomeTax: { available: true, type: "flat", topRate: "5.09%" },
       stateEITC: { available: false },
       stateCTC: { available: false },
     },
     legislativeActivity: "high",
-    activeBills: [],
+    activeBills: [
+      {
+        bill: "HB111",
+        status: "Proposed",
+        description: "Reduces flat income tax rate from 5.09% to 4.99% (accelerates scheduled 2027 cut)",
+        url: "https://www.legis.ga.gov/legislation/72294",
+      }
+    ],
   },
   HI: {
     name: "Hawaii",
@@ -529,8 +536,21 @@ export const stateData = {
       stateEITC: { available: true, match: "15%" },
       stateCTC: { available: false, note: "Proposed" },
     },
-    legislativeActivity: "low",
-    activeBills: [],
+    legislativeActivity: "high",
+    activeBills: [
+      {
+        bill: "Governor McKee FY2027 Budget: High Earner Tax",
+        status: "Proposed",
+        description: "Adds 8.99% tax bracket on income over $648,398",
+        url: "https://omb.ri.gov/budget/current-budget",
+      },
+      {
+        bill: "Governor McKee FY2027 Budget: Social Security Exemption",
+        status: "Proposed",
+        description: "Eliminates state income tax on Social Security benefits",
+        url: "https://omb.ri.gov/budget/current-budget",
+      }
+    ],
   },
   SC: {
     name: "South Carolina",
