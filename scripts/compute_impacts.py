@@ -93,7 +93,7 @@ def load_reforms_from_db(supabase, reform_id=None):
     """Load reform configs from database."""
     query = supabase.table("research").select(
         "id, state, title, description, url, reform_impacts(reform_params, computed)"
-    ).eq("type", "bill")
+    ).in_("type", ["bill", "blog"])
 
     if reform_id:
         query = query.eq("id", reform_id)
