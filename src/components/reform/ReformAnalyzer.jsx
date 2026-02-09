@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { colors, typography, spacing } from "../../designTokens";
 import { usePolicyEngineAPI } from "../../hooks/usePolicyEngineAPI";
@@ -89,6 +89,20 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
 
   // Get pre-computed aggregate impacts
   const aggregateImpacts = getImpact(reformConfig.id);
+
+  // Pre-fetch district GeoJSON on modal open so it's ready when user clicks Districts tab
+  const [cachedGeoData, setCachedGeoData] = useState(null);
+  useEffect(() => {
+    const url = `https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_118th_Congressional_Districts/FeatureServer/0/query?where=${encodeURIComponent(`STATE_ABBR='${stateAbbr}'`)}&outFields=*&f=geojson`;
+    let cancelled = false;
+    fetch(url)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (!cancelled && data?.features?.length > 0) setCachedGeoData(data);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [stateAbbr]);
 
   const [householdInputs, setHouseholdInputs] = useState({
     headAge: 35,
@@ -248,6 +262,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
               <DistrictMap
                 stateAbbr={stateAbbr}
                 reformId={reformConfig.id}
+                prefetchedGeoData={cachedGeoData}
               />
             </div>
           )}

@@ -154,27 +154,25 @@ def format_winners_losers(
     return result
 
 
-def format_decile_impact(decile_values: list) -> dict:
+def format_decile_impact(relative: dict, average: dict) -> dict:
     """
     Format decile impact for the reform_impacts table.
 
+    Matches API decile_impact() output format:
+    - relative: weighted sum of change / weighted sum of baseline income (fractions)
+    - average: weighted sum of change / weighted count (dollar amounts)
+
     Args:
-        decile_values: List of 10 values (average $ benefit per decile)
+        relative: Dict of {decile_int: relative_change_fraction}
+        average: Dict of {decile_int: average_dollar_change}
 
     Returns:
-        Dict with relative and absolute impacts by decile string key.
-        Note: DecileChart.jsx checks 'relative' first, so we put values there.
+        Dict with 'relative' and 'average' keys, each mapping
+        string decile keys to values.
     """
-    if not decile_values or len(decile_values) != 10:
-        return {}
-
-    # DecileChart uses: const data = decileData.relative || decileData.absolute
-    # So we put values in 'relative' to ensure they display
-    values_dict = {str(i): decile_values[i-1] for i in range(1, 11)}
-
     return {
-        "relative": values_dict,  # Used by DecileChart for display
-        "absolute": values_dict,  # Same values, kept for compatibility
+        "relative": {str(k): v for k, v in relative.items()},
+        "average": {str(k): v for k, v in average.items()},
     }
 
 
@@ -185,7 +183,9 @@ def format_district_impact(
     households_affected: int,
     total_benefit: Optional[float] = None,
     winners_share: float = 0,
-    poverty_change: float = 0,
+    losers_share: float = 0,
+    poverty_pct_change: float = 0,
+    child_poverty_pct_change: float = 0,
 ) -> dict:
     """
     Format a single district impact.
@@ -197,7 +197,9 @@ def format_district_impact(
         households_affected: Number of households
         total_benefit: Total $ benefit (computed if not provided)
         winners_share: Fraction of households that benefit (0-1)
-        poverty_change: Change in poverty rate
+        losers_share: Fraction of households that lose (0-1)
+        poverty_pct_change: Relative % change in poverty rate
+        child_poverty_pct_change: Relative % change in child poverty rate
 
     Returns:
         Dict matching frontend DistrictMap.jsx expectations
@@ -211,7 +213,9 @@ def format_district_impact(
         "householdsAffected": round(households_affected, 0),
         "totalBenefit": round(total_benefit, 0),
         "winnersShare": round(winners_share, 2),
-        "povertyChange": poverty_change,
+        "losersShare": round(losers_share, 2),
+        "povertyPctChange": round(poverty_pct_change, 2),
+        "childPovertyPctChange": round(child_poverty_pct_change, 2),
     }
 
 
@@ -297,7 +301,10 @@ record = format_reform_impacts_record(
         worse_off_pct=2.97,
         no_change_pct=46.72,
     ),
-    decile_impact=format_decile_impact([1.85, 39.5, 76.06, 160.45, 276.01, 323.94, 447.23, 631.84, 807.12, 3393.84]),
+    decile_impact=format_decile_impact(
+        relative={1: 0.01, 2: 0.02, 3: 0.03, 4: 0.04, 5: 0.05, 6: 0.05, 7: 0.06, 8: 0.07, 9: 0.08, 10: 0.10},
+        average={1: 1.85, 2: 39.5, 3: 76.06, 4: 160.45, 5: 276.01, 6: 323.94, 7: 447.23, 8: 631.84, 9: 807.12, 10: 3393.84},
+    ),
     district_impacts={
         "SC-1": format_district_impact("SC-1", "Congressional District 1", 779, 271928, winners_share=0.62),
         # ... more districts

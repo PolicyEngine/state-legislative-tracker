@@ -526,23 +526,49 @@ function DistrictDetailCard({ districtId, districtInfo, impact, maxBenefit }) {
       <div style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr 1fr",
-        gap: spacing.md,
+        gap: spacing.sm,
       }}>
+        {/* Winners / Losers unified */}
+        <div style={{
+          padding: spacing.sm,
+          backgroundColor: colors.background.secondary,
+          borderRadius: spacing.radius.lg,
+          textAlign: "center",
+        }}>
+          <p style={{
+            margin: 0,
+            fontSize: "10px",
+            fontFamily: typography.fontFamily.body,
+            color: colors.text.tertiary,
+            textTransform: "uppercase",
+            letterSpacing: "0.3px",
+          }}>
+            Winners / Losers
+          </p>
+          <p style={{
+            margin: `${spacing.xs} 0 0`,
+            fontSize: typography.fontSize.sm,
+            fontWeight: typography.fontWeight.bold,
+            fontFamily: typography.fontFamily.primary,
+          }}>
+            <span style={{ color: colors.primary[600] }}>{impact.winnersShare ? `${(impact.winnersShare * 100).toFixed(0)}%` : "0%"}</span>
+            <span style={{ color: colors.text.tertiary }}>{" / "}</span>
+            <span style={{ color: colors.red[600] }}>{impact.losersShare ? `${(impact.losersShare * 100).toFixed(0)}%` : "0%"}</span>
+          </p>
+        </div>
         <StatBox
-          label="Households"
-          value={impact.householdsAffected?.toLocaleString() || "—"}
+          label="Poverty"
+          value={impact.povertyPctChange == null || impact.povertyPctChange === 0
+            ? "No change"
+            : `${impact.povertyPctChange > 0 ? "+" : ""}${impact.povertyPctChange.toFixed(1)}%`}
+          color={impact.povertyPctChange < 0 ? colors.primary[600] : (impact.povertyPctChange > 0 ? colors.red[600] : colors.gray[500])}
         />
         <StatBox
-          label="Winners"
-          value={impact.winnersShare ? `${(impact.winnersShare * 100).toFixed(0)}%` : "—"}
-          color={colors.primary[600]}
-        />
-        <StatBox
-          label="Poverty Δ"
-          value={impact.povertyChange === 0
-            ? "None"
-            : `${impact.povertyChange > 0 ? "+" : ""}${(impact.povertyChange * 100).toFixed(2)}pp`}
-          color={impact.povertyChange < 0 ? colors.primary[600] : (impact.povertyChange > 0 ? colors.red[600] : colors.gray[500])}
+          label="Child Poverty"
+          value={impact.childPovertyPctChange == null || impact.childPovertyPctChange === 0
+            ? "No change"
+            : `${impact.childPovertyPctChange > 0 ? "+" : ""}${impact.childPovertyPctChange.toFixed(1)}%`}
+          color={impact.childPovertyPctChange < 0 ? colors.primary[600] : (impact.childPovertyPctChange > 0 ? colors.red[600] : colors.gray[500])}
         />
       </div>
     </div>
@@ -854,23 +880,49 @@ function GenericDistrictDetailCard({ districtNum, impact, maxBenefit, stateName 
       <div style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr 1fr",
-        gap: spacing.md,
+        gap: spacing.sm,
       }}>
+        {/* Winners / Losers unified */}
+        <div style={{
+          padding: spacing.sm,
+          backgroundColor: colors.background.secondary,
+          borderRadius: spacing.radius.lg,
+          textAlign: "center",
+        }}>
+          <p style={{
+            margin: 0,
+            fontSize: "10px",
+            fontFamily: typography.fontFamily.body,
+            color: colors.text.tertiary,
+            textTransform: "uppercase",
+            letterSpacing: "0.3px",
+          }}>
+            Winners / Losers
+          </p>
+          <p style={{
+            margin: `${spacing.xs} 0 0`,
+            fontSize: typography.fontSize.sm,
+            fontWeight: typography.fontWeight.bold,
+            fontFamily: typography.fontFamily.primary,
+          }}>
+            <span style={{ color: colors.primary[600] }}>{impact.winnersShare ? `${(impact.winnersShare * 100).toFixed(0)}%` : "0%"}</span>
+            <span style={{ color: colors.text.tertiary }}>{" / "}</span>
+            <span style={{ color: colors.red[600] }}>{impact.losersShare ? `${(impact.losersShare * 100).toFixed(0)}%` : "0%"}</span>
+          </p>
+        </div>
         <StatBox
-          label="Households"
-          value={impact.householdsAffected?.toLocaleString() || "—"}
+          label="Poverty"
+          value={impact.povertyPctChange == null || impact.povertyPctChange === 0
+            ? "No change"
+            : `${impact.povertyPctChange > 0 ? "+" : ""}${impact.povertyPctChange.toFixed(1)}%`}
+          color={impact.povertyPctChange < 0 ? colors.primary[600] : (impact.povertyPctChange > 0 ? colors.red[600] : colors.gray[500])}
         />
         <StatBox
-          label="Winners"
-          value={impact.winnersShare ? `${(impact.winnersShare * 100).toFixed(0)}%` : "—"}
-          color={colors.primary[600]}
-        />
-        <StatBox
-          label="Poverty Δ"
-          value={impact.povertyChange === 0
-            ? "None"
-            : `${impact.povertyChange > 0 ? "+" : ""}${(impact.povertyChange * 100).toFixed(2)}pp`}
-          color={impact.povertyChange < 0 ? colors.primary[600] : (impact.povertyChange > 0 ? colors.red[600] : colors.gray[500])}
+          label="Child Poverty"
+          value={impact.childPovertyPctChange == null || impact.childPovertyPctChange === 0
+            ? "No change"
+            : `${impact.childPovertyPctChange > 0 ? "+" : ""}${impact.childPovertyPctChange.toFixed(1)}%`}
+          color={impact.childPovertyPctChange < 0 ? colors.primary[600] : (impact.childPovertyPctChange > 0 ? colors.red[600] : colors.gray[500])}
         />
       </div>
     </div>
@@ -879,16 +931,26 @@ function GenericDistrictDetailCard({ districtNum, impact, maxBenefit, stateName 
 
 // Generic state district map using react-simple-maps with ArcGIS GeoJSON
 // Matches Utah map styling with district labels and same color scheme
-function GenericStateDistrictMap({ stateAbbr, reformId }) {
+function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData }) {
   const [selectedDistrict, setSelectedDistrict] = useState(null);
-  const [geoData, setGeoData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [geoData, setGeoData] = useState(prefetchedGeoData || null);
+  const [loading, setLoading] = useState(!prefetchedGeoData);
   const [error, setError] = useState(null);
   const { getImpact } = useData();
   const reformImpacts = getImpact(reformId);
   const hasDistrictData = reformImpacts?.districtImpacts;
 
+  // Use prefetched data if it arrives after mount
   useEffect(() => {
+    if (prefetchedGeoData && !geoData) {
+      setGeoData(prefetchedGeoData);
+      setLoading(false);
+    }
+  }, [prefetchedGeoData]);
+
+  // Only fetch if no prefetched data available
+  useEffect(() => {
+    if (prefetchedGeoData) return;
     let cancelled = false;
 
     const fetchDistricts = async () => {
@@ -919,7 +981,7 @@ function GenericStateDistrictMap({ stateAbbr, reformId }) {
     fetchDistricts();
 
     return () => { cancelled = true; };
-  }, [stateAbbr]);
+  }, [stateAbbr, prefetchedGeoData]);
 
   // Calculate centroids for district labels
   const districtCentroids = useMemo(() => {
@@ -1296,7 +1358,7 @@ function GenericStateDistrictMap({ stateAbbr, reformId }) {
   );
 }
 
-export default function DistrictMap({ stateAbbr, reformId }) {
+export default function DistrictMap({ stateAbbr, reformId, prefetchedGeoData }) {
   // Use generic map for all states
   return (
     <div style={{ height: "100%" }}>
@@ -1321,7 +1383,7 @@ export default function DistrictMap({ stateAbbr, reformId }) {
           Click on a district to see detailed impact analysis
         </p>
       </div>
-      <GenericStateDistrictMap stateAbbr={stateAbbr} reformId={reformId} />
+      <GenericStateDistrictMap stateAbbr={stateAbbr} reformId={reformId} prefetchedGeoData={prefetchedGeoData} />
     </div>
   );
 }

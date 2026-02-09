@@ -22,10 +22,10 @@ const formatPercent = (value, decimals = 1) => {
   return `${(value * 100).toFixed(decimals)}%`;
 };
 
-const formatChange = (value, decimals = 2) => {
+const formatPctChange = (value, decimals = 1) => {
   if (value === null || value === undefined) return "N/A";
   const sign = value > 0 ? "+" : "";
-  return `${sign}${(value * 100).toFixed(decimals)}pp`;
+  return `${sign}${value.toFixed(decimals)}%`;
 };
 
 export default function AggregateImpacts({ impacts }) {
@@ -145,9 +145,9 @@ export default function AggregateImpacts({ impacts }) {
             fontSize: typography.fontSize.xl,
             fontWeight: typography.fontWeight.bold,
             fontFamily: typography.fontFamily.primary,
-            color: povertyImpact?.change < 0 ? colors.primary[600] : (povertyImpact?.change > 0 ? colors.red[600] : colors.secondary[900]),
+            color: povertyImpact?.percentChange < 0 ? colors.primary[600] : (povertyImpact?.percentChange > 0 ? colors.red[600] : colors.secondary[900]),
           }}>
-            {povertyImpact?.change !== 0 ? formatChange(povertyImpact?.change) : "no change"}
+            {povertyImpact?.percentChange !== 0 ? formatPctChange(povertyImpact?.percentChange) : "no change"}
           </span>
         </div>
         <div style={{
@@ -167,9 +167,9 @@ export default function AggregateImpacts({ impacts }) {
             fontSize: typography.fontSize.xl,
             fontWeight: typography.fontWeight.bold,
             fontFamily: typography.fontFamily.primary,
-            color: childPovertyImpact?.change < 0 ? colors.primary[600] : (childPovertyImpact?.change > 0 ? colors.red[600] : colors.secondary[900]),
+            color: childPovertyImpact?.percentChange < 0 ? colors.primary[600] : (childPovertyImpact?.percentChange > 0 ? colors.red[600] : colors.secondary[900]),
           }}>
-            {childPovertyImpact?.change !== 0 ? formatChange(childPovertyImpact?.change) : "no change"}
+            {childPovertyImpact?.percentChange !== 0 ? formatPctChange(childPovertyImpact?.percentChange) : "no change"}
           </span>
         </div>
       </div>

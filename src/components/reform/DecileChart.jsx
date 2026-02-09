@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { colors, typography, spacing } from "../../designTokens";
 
 const DECILE_LABELS = [
@@ -7,12 +6,10 @@ const DECILE_LABELS = [
 ];
 
 export default function DecileChart({ decileData }) {
-  const [hoveredIndex, setHoveredIndex] = useState(null);
-
   if (!decileData) return null;
 
-  // Use relative (which contains absolute $ values from API) or absolute if available
-  const data = decileData.relative || decileData.absolute;
+  // Use average ($ amounts, matching API decile_impact output), fallback for compatibility
+  const data = decileData.average || decileData.relative || decileData.absolute;
   if (!data) return null;
 
   // Get values as array
@@ -24,19 +21,13 @@ export default function DecileChart({ decileData }) {
   const hasNegative = maxNegative < 0;
   const hasPositive = maxPositive > 0;
 
-  // Calculate total range and proportions
-  const totalRange = maxPositive - maxNegative;
-  const positiveRatio = totalRange > 0 ? maxPositive / totalRange : 0.5;
-  const negativeRatio = totalRange > 0 ? Math.abs(maxNegative) / totalRange : 0.5;
-
-  const formatValue = (val) => {
-    const sign = val >= 0 ? "+" : "-";
-    return `${sign}$${Math.round(Math.abs(val)).toLocaleString()}`;
+  // Compact format for bar labels (no sign, bar color shows direction)
+  const formatCompact = (val) => {
+    const abs = Math.abs(val);
+    if (abs >= 10000) return `$${(abs / 1000).toFixed(0)}K`;
+    if (abs >= 1000) return `$${(abs / 1000).toFixed(1)}K`;
+    return `$${Math.round(abs)}`;
   };
-
-  // If all values are positive or all negative, use simpler layout
-  const allPositive = !hasNegative;
-  const allNegative = !hasPositive;
 
   // Generate y-axis ticks that extend one increment beyond the data
   const generateTicks = () => {
@@ -54,7 +45,6 @@ export default function DecileChart({ decileData }) {
     let tickMin = 0;
 
     if (hasPositive) {
-      // Go one step beyond the max value
       for (let v = step; v <= maxPositive + step; v += step) {
         ticks.push(Math.round(v));
       }
@@ -74,7 +64,6 @@ export default function DecileChart({ decileData }) {
 
   const { ticks: yTicks, tickMax, tickMin } = generateTicks();
 
-  // Use tick range for positioning (not data range)
   const tickRange = tickMax - tickMin;
   const tickPositiveRatio = tickRange > 0 ? tickMax / tickRange : 0.5;
   const tickNegativeRatio = tickRange > 0 ? Math.abs(tickMin) / tickRange : 0.5;
@@ -98,7 +87,7 @@ export default function DecileChart({ decileData }) {
   return (
     <div>
       {/* Chart with y-axis */}
-      <div style={{ display: "flex", height: "120px" }}>
+      <div style={{ display: "flex", height: "160px" }}>
         {/* Y-axis labels */}
         <div style={{
           width: "48px",
@@ -134,9 +123,7 @@ export default function DecileChart({ decileData }) {
         }}>
         {values.map((value, index) => {
           const isPositive = value >= 0;
-          const isHovered = hoveredIndex === index;
 
-          // Calculate bar height as percentage of total tick range
           let barHeightPercent;
           if (tickRange > 0) {
             barHeightPercent = (Math.abs(value) / tickRange) * 100;
@@ -154,38 +141,25 @@ export default function DecileChart({ decileData }) {
                 height: "100%",
                 position: "relative",
               }}
-              onMouseEnter={() => setHoveredIndex(index)}
-              onMouseLeave={() => setHoveredIndex(null)}
             >
-              {/* Tooltip */}
-              {isHovered && (
-                <div style={{
-                  position: "absolute",
-                  top: tickMin === 0 ? "auto" : (isPositive ? `calc(${(1 - tickPositiveRatio) * 100}% - ${barHeightPercent / tickPositiveRatio}% - 40px)` : "auto"),
-                  bottom: tickMax === 0 ? `calc(${barHeightPercent}% + 8px)` : (!isPositive && tickMin < 0 ? `calc(${tickNegativeRatio * 100}% - ${barHeightPercent / tickNegativeRatio}% - 40px)` : "auto"),
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  backgroundColor: colors.secondary[900],
-                  color: colors.white,
-                  padding: `${spacing.xs} ${spacing.sm}`,
-                  borderRadius: spacing.radius.md,
-                  fontSize: typography.fontSize.xs,
-                  fontWeight: typography.fontWeight.semibold,
-                  fontFamily: typography.fontFamily.primary,
-                  whiteSpace: "nowrap",
-                  zIndex: 10,
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                }}>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ color: colors.gray[400], marginBottom: "2px" }}>
-                      {DECILE_LABELS[index]} decile
-                    </div>
-                    <div style={{ color: isPositive ? colors.primary[300] : colors.red[300] }}>
-                      {formatValue(value)}
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Value label - absolutely positioned above/below bar */}
+              <span style={{
+                position: "absolute",
+                top: isPositive
+                  ? `calc(${tickPosition(value)}% - 13px)`
+                  : `calc(${tickPosition(value)}% + 2px)`,
+                left: "50%",
+                transform: "translateX(-50%)",
+                fontSize: "9px",
+                fontWeight: typography.fontWeight.semibold,
+                fontFamily: typography.fontFamily.primary,
+                color: isPositive ? colors.primary[600] : colors.red[600],
+                whiteSpace: "nowrap",
+                lineHeight: 1,
+                zIndex: 1,
+              }}>
+                {formatCompact(value)}
+              </span>
 
               {/* Positive section (top) */}
               {tickMax > 0 && (
@@ -201,11 +175,9 @@ export default function DecileChart({ decileData }) {
                       style={{
                         width: "100%",
                         height: `${Math.max(barHeightPercent / tickPositiveRatio, 2)}%`,
-                        backgroundColor: isHovered ? colors.primary[600] : colors.primary[500],
+                        backgroundColor: colors.primary[500],
                         borderRadius: "2px 2px 0 0",
-                        transition: "background-color 0.15s ease",
                         minHeight: "2px",
-                        cursor: "pointer",
                       }}
                     />
                   )}
@@ -236,11 +208,9 @@ export default function DecileChart({ decileData }) {
                       style={{
                         width: "100%",
                         height: `${Math.max(barHeightPercent / tickNegativeRatio, 2)}%`,
-                        backgroundColor: isHovered ? colors.red[600] : colors.red[500],
+                        backgroundColor: colors.red[500],
                         borderRadius: "0 0 2px 2px",
-                        transition: "background-color 0.15s ease",
                         minHeight: "2px",
-                        cursor: "pointer",
                       }}
                     />
                   )}

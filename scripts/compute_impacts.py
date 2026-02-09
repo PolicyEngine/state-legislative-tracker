@@ -61,12 +61,10 @@ STATE_DISTRICTS = {
     "DC": 0,
 }
 
-# Winners/losers bucket thresholds (from policyengine-api test_compare.py)
-# These match the API methodology exactly
-GAIN_MORE_5PCT_THRESHOLD = 0.05      # > 5%
-GAIN_LESS_5PCT_THRESHOLD = 0.001     # > 0.1%
-NO_CHANGE_THRESHOLD = -0.001         # > -0.1%
-LOSE_LESS_5PCT_THRESHOLD = -0.05     # > -5%
+# Winners/losers thresholds for district-level classification
+# (Statewide uses BOUNDS/LABELS matching API intra_decile_impact)
+GAIN_LESS_5PCT_THRESHOLD = 0.001     # > 0.1% = winner
+NO_CHANGE_THRESHOLD = -0.001         # <= -0.1% = loser
 
 
 # =============================================================================
@@ -223,10 +221,11 @@ def compute_budgetary_impact(baseline, reformed, state: str, year: int = 2026) -
     """
     Compute state revenue impact.
 
-    Methodology: Sum of state_income_tax change, weighted by tax_unit_weight.
+    Matches API budgetary_impact() approach:
+    - Weighted sums for revenue
+    - sum(household_weight) for household count
 
-    Note: Since we use state-specific datasets (e.g., SC.h5), all tax units
-    in the dataset are already from the target state. No additional filtering needed.
+    Note: State-specific datasets already filtered to target state.
     """
     from microdf import MicroSeries
 
@@ -235,17 +234,15 @@ def compute_budgetary_impact(baseline, reformed, state: str, year: int = 2026) -
     reform_tax = reformed.calculate("state_income_tax", year).values
     tax_unit_weight = baseline.calculate("tax_unit_weight", year).values
 
-    # Compute weighted sum of tax change (state dataset already filtered)
+    # Compute weighted sum of tax change
     baseline_revenue = MicroSeries(baseline_tax, weights=tax_unit_weight).sum()
     reform_revenue = MicroSeries(reform_tax, weights=tax_unit_weight).sum()
 
     revenue_change = float(reform_revenue - baseline_revenue)
 
-    # Count affected households
+    # Household count: sum(household_weight) matching API approach
     household_weight = baseline.calculate("household_weight", year).values
-    hh_state_code = baseline.calculate("state_code_str", year).values
-    in_state_hh = hh_state_code == state.upper()
-    total_households = int(np.sum(household_weight[in_state_hh]))
+    total_households = int(np.sum(household_weight))
 
     return format_budgetary_impact(
         state_revenue_impact=revenue_change,
@@ -257,33 +254,31 @@ def compute_poverty_impact(baseline, reformed, state: str, year: int = 2026, chi
     """
     Compute poverty rate change.
 
-    Methodology from policyengine.py/outputs/poverty.py:
-    - Variable: spm_unit_is_in_spm_poverty (mapped to person level)
+    Matches API poverty_impact() exactly:
+    - Variable: person_in_poverty (person-level)
     - Weighted by person_weight
-    - Optional filter by is_child for child poverty
-
-    Note: Since we use state-specific datasets, no additional state filtering needed.
+    - Child filter: age < 18 (matching API)
     """
     from microdf import MicroSeries
 
-    # Get poverty status (SPM unit level, mapped to person level)
-    baseline_poverty = baseline.calculate("spm_unit_is_in_spm_poverty", year, map_to="person").values
-    reform_poverty = reformed.calculate("spm_unit_is_in_spm_poverty", year, map_to="person").values
-    person_weight = baseline.calculate("person_weight", year).values
+    # API uses person_in_poverty (person-level variable)
+    baseline_poverty = MicroSeries(
+        baseline.calculate("person_in_poverty", year).values.astype(float),
+        weights=baseline.calculate("person_weight", year).values,
+    )
+    reform_poverty = MicroSeries(
+        reformed.calculate("person_in_poverty", year).values.astype(float),
+        weights=baseline_poverty.weights,
+    )
 
-    # Optional child filter (state dataset already filtered to state)
     if child_only:
-        is_child = baseline.calculate("is_child", year).values
-        mask = is_child
+        # API uses age < 18, not is_child
+        age = MicroSeries(baseline.calculate("age", year).values)
+        baseline_rate = float(baseline_poverty[age < 18].mean())
+        reform_rate = float(reform_poverty[age < 18].mean())
     else:
-        mask = np.ones(len(person_weight), dtype=bool)
-
-    # Compute weighted poverty rates
-    baseline_poor = MicroSeries(baseline_poverty[mask].astype(float), weights=person_weight[mask])
-    reform_poor = MicroSeries(reform_poverty[mask].astype(float), weights=person_weight[mask])
-
-    baseline_rate = float(baseline_poor.mean())
-    reform_rate = float(reform_poor.mean())
+        baseline_rate = float(baseline_poverty.mean())
+        reform_rate = float(reform_poverty.mean())
 
     return format_poverty_impact(
         baseline_rate=baseline_rate,
@@ -293,87 +288,83 @@ def compute_poverty_impact(baseline, reformed, state: str, year: int = 2026, chi
 
 def compute_winners_losers(baseline, reformed, state: str, year: int = 2026) -> dict:
     """
-    Compute winners/losers breakdown using 5% threshold buckets.
+    Compute winners/losers breakdown.
 
-    Methodology from policyengine-api/tests/unit/endpoints/economy/test_compare.py:
-    - percent_change > 0.05 → "Gain more than 5%"
-    - percent_change > 0.001 → "Gain less than 5%"
-    - percent_change > -0.001 → "No change"
-    - percent_change > -0.05 → "Lose less than 5%"
-    - else → "Lose more than 5%"
-
-    Computed per decile, then averaged (matching intra_decile methodology).
+    Matches API intra_decile_impact() exactly:
+    - BOUNDS/LABELS loop with (income_change > lower) & (income_change <= upper)
+    - Single people MicroSeries for all households
+    - people[in_both].sum() / people[in_decile].sum() proportions
+    - "all" = arithmetic mean of 10 decile proportions
     """
     from microdf import MicroSeries
 
-    # Get household income (state dataset already filtered)
-    baseline_income = baseline.calculate("household_net_income", year).values
-    reform_income = reformed.calculate("household_net_income", year).values
-    household_weight = baseline.calculate("household_weight", year).values
-    household_count_people = baseline.calculate("household_count_people", year).values
-    household_income_decile = baseline.calculate("household_income_decile", year).values
+    # Create MicroSeries exactly as API does
+    baseline_income = MicroSeries(
+        baseline.calculate("household_net_income", year).values,
+        weights=baseline.calculate("household_weight", year).values,
+    )
+    reform_income = MicroSeries(
+        reformed.calculate("household_net_income", year).values,
+        weights=baseline_income.weights,
+    )
+    people = MicroSeries(
+        baseline.calculate("household_count_people", year).values,
+        weights=baseline_income.weights,
+    )
+    decile = MicroSeries(
+        baseline.calculate("household_income_decile", year).values,
+    ).values
 
-    # Compute relative income change (matching API compare.py exactly)
-    absolute_change = reform_income - baseline_income
-    capped_baseline = np.maximum(baseline_income, 1)
-    capped_reform = np.maximum(reform_income, 1) + absolute_change
-    relative_change = (capped_reform - capped_baseline) / capped_baseline
+    # Relative change formula (matching API exactly)
+    absolute_change = (reform_income - baseline_income).values
+    capped_baseline_income = np.maximum(baseline_income.values, 1)
+    capped_reform_income = np.maximum(reform_income.values, 1) + absolute_change
+    income_change = (capped_reform_income - capped_baseline_income) / capped_baseline_income
 
-    # Assign to buckets
-    gain_more_5pct = relative_change > GAIN_MORE_5PCT_THRESHOLD
-    gain_less_5pct = (relative_change > GAIN_LESS_5PCT_THRESHOLD) & ~gain_more_5pct
-    no_change = (relative_change > NO_CHANGE_THRESHOLD) & (relative_change <= GAIN_LESS_5PCT_THRESHOLD)
-    lose_less_5pct = (relative_change > LOSE_LESS_5PCT_THRESHOLD) & (relative_change <= NO_CHANGE_THRESHOLD)
-    lose_more_5pct = relative_change <= LOSE_LESS_5PCT_THRESHOLD
+    # BOUNDS/LABELS approach matching API intra_decile_impact()
+    outcome_groups = {}
+    all_outcomes = {}
+    BOUNDS = [-np.inf, -0.05, -1e-3, 1e-3, 0.05, np.inf]
+    LABELS = [
+        "Lose more than 5%",
+        "Lose less than 5%",
+        "No change",
+        "Gain less than 5%",
+        "Gain more than 5%",
+    ]
+    for lower, upper, label in zip(BOUNDS[:-1], BOUNDS[1:], LABELS):
+        outcome_groups[label] = []
+        for i in range(1, 11):
+            in_decile = decile == i
+            in_group = (income_change > lower) & (income_change <= upper)
+            in_both = in_decile & in_group
 
-    # Compute proportions per decile, then average (matching intra_decile methodology)
-    decile_results = {
-        "gain_more_5pct": [],
-        "gain_less_5pct": [],
-        "no_change": [],
-        "lose_less_5pct": [],
-        "lose_more_5pct": [],
-    }
+            people_in_both = people[in_both].sum()
+            people_in_decile = people[in_decile].sum()
 
-    for decile in range(1, 11):
-        in_decile = household_income_decile == decile
-        if not np.any(in_decile):
-            for key in decile_results:
-                decile_results[key].append(0.0)
-            continue
+            if people_in_decile == 0 and people_in_both == 0:
+                people_in_proportion = 0.0
+            else:
+                people_in_proportion = float(people_in_both / people_in_decile)
 
-        people = MicroSeries(household_count_people[in_decile], weights=household_weight[in_decile])
-        total_people = float(people.sum())
+            outcome_groups[label].append(people_in_proportion)
 
-        if total_people == 0:
-            for key in decile_results:
-                decile_results[key].append(0.0)
-            continue
+        all_outcomes[label] = sum(outcome_groups[label]) / 10
 
-        decile_results["gain_more_5pct"].append(
-            float(people[gain_more_5pct[in_decile]].sum()) / total_people
-        )
-        decile_results["gain_less_5pct"].append(
-            float(people[gain_less_5pct[in_decile]].sum()) / total_people
-        )
-        decile_results["no_change"].append(
-            float(people[no_change[in_decile]].sum()) / total_people
-        )
-        decile_results["lose_less_5pct"].append(
-            float(people[lose_less_5pct[in_decile]].sum()) / total_people
-        )
-        decile_results["lose_more_5pct"].append(
-            float(people[lose_more_5pct[in_decile]].sum()) / total_people
-        )
-
-    # Average across deciles (matching API's intra_decile "all" calculation)
+    # Map API labels to our frontend camelCase format
     return format_winners_losers(
-        gain_more_5pct=sum(decile_results["gain_more_5pct"]) / 10,
-        gain_less_5pct=sum(decile_results["gain_less_5pct"]) / 10,
-        no_change=sum(decile_results["no_change"]) / 10,
-        lose_less_5pct=sum(decile_results["lose_less_5pct"]) / 10,
-        lose_more_5pct=sum(decile_results["lose_more_5pct"]) / 10,
-        decile_breakdown=decile_results,
+        gain_more_5pct=all_outcomes["Gain more than 5%"],
+        gain_less_5pct=all_outcomes["Gain less than 5%"],
+        no_change=all_outcomes["No change"],
+        lose_less_5pct=all_outcomes["Lose less than 5%"],
+        lose_more_5pct=all_outcomes["Lose more than 5%"],
+        decile_breakdown={
+            "gain_more_5pct": outcome_groups["Gain more than 5%"],
+            "gain_less_5pct": outcome_groups["Gain less than 5%"],
+            "no_change": outcome_groups["No change"],
+            "lose_less_5pct": outcome_groups["Lose less than 5%"],
+            "lose_more_5pct": outcome_groups["Lose more than 5%"],
+        },
     )
 
 
@@ -381,39 +372,59 @@ def compute_decile_impact(baseline, reformed, state: str, year: int = 2026) -> d
     """
     Compute average income change by decile.
 
-    Methodology from policyengine.py/outputs/decile_impact.py:
-    - Group households by baseline income decile
-    - Compute mean income change per decile
-
-    Note: Since we use state-specific datasets, no additional state filtering needed.
+    Matches API decile_impact() exactly:
+    - MicroSeries + groupby approach
+    - Filter out negative decile values (decile >= 0)
+    - Compute both relative and average keys
     """
     from microdf import MicroSeries
 
-    baseline_income = baseline.calculate("household_net_income", year).values
-    reform_income = reformed.calculate("household_net_income", year).values
-    household_weight = baseline.calculate("household_weight", year).values
-    household_income_decile = baseline.calculate("household_income_decile", year).values
+    baseline_income = MicroSeries(
+        baseline.calculate("household_net_income", year).values,
+        weights=baseline.calculate("household_weight", year).values,
+    )
+    reform_income = MicroSeries(
+        reformed.calculate("household_net_income", year).values,
+        weights=baseline_income.weights,
+    )
 
-    income_change = reform_income - baseline_income
+    # Filter out negative decile values (matching API)
+    decile = MicroSeries(baseline.calculate("household_income_decile", year).values)
+    baseline_income_filtered = baseline_income[decile >= 0]
+    reform_income_filtered = reform_income[decile >= 0]
 
-    decile_values = []
-    for decile in range(1, 11):
-        in_decile = household_income_decile == decile
-        if not np.any(in_decile):
-            decile_values.append(0.0)
-            continue
+    income_change = reform_income_filtered - baseline_income_filtered
 
-        change_series = MicroSeries(income_change[in_decile], weights=household_weight[in_decile])
-        decile_values.append(float(change_series.mean()))
+    # Relative: weighted sum of change / weighted sum of baseline income
+    rel_income_change_by_decile = (
+        income_change.groupby(decile).sum()
+        / baseline_income_filtered.groupby(decile).sum()
+    )
 
-    return format_decile_impact(decile_values)
+    # Average: weighted sum of change / weighted count (sum of weights)
+    avg_income_change_by_decile = (
+        income_change.groupby(decile).sum()
+        / baseline_income_filtered.groupby(decile).count()
+    )
+
+    rel_decile_dict = rel_income_change_by_decile.to_dict()
+    avg_decile_dict = avg_income_change_by_decile.to_dict()
+
+    return format_decile_impact(
+        relative={int(k): v for k, v in rel_decile_dict.items()},
+        average={int(k): v for k, v in avg_decile_dict.items()},
+    )
 
 
 def compute_district_impacts(baseline, reformed, state: str, year: int = 2026) -> dict:
     """
     Compute impacts by congressional district.
 
-    Uses same methodology as state-level but filtered by district.
+    Matches API approach:
+    - MicroSeries for avg benefit: (reform.sum() - baseline.sum()) / baseline.count()
+    - person_in_poverty (person-level variable, matching API poverty_impact)
+    - age < 18 for child filter (matching API)
+    - Winners/losers per decile using same BOUNDS pattern as intra_decile_impact
     """
     from microdf import MicroSeries
 
@@ -430,14 +441,20 @@ def compute_district_impacts(baseline, reformed, state: str, year: int = 2026) -
 
     state_fips = STATE_FIPS[state_upper]
 
-    # Get variables (state dataset already filtered to state)
+    # Get household-level variables
     baseline_income = baseline.calculate("household_net_income", year).values
     reform_income = reformed.calculate("household_net_income", year).values
-    income_change = reform_income - baseline_income
     household_weight = baseline.calculate("household_weight", year).values
     household_count_people = baseline.calculate("household_count_people", year).values
     household_income_decile = baseline.calculate("household_income_decile", year).values
     cd_geoid = baseline.calculate("congressional_district_geoid", year).values
+
+    # Person-level variables for poverty (matching API: person_in_poverty, age < 18)
+    baseline_poverty_person = baseline.calculate("person_in_poverty", year).values.astype(float)
+    reform_poverty_person = reformed.calculate("person_in_poverty", year).values.astype(float)
+    person_weight = baseline.calculate("person_weight", year).values
+    person_age = baseline.calculate("age", year).values
+    person_cd_geoid = baseline.calculate("congressional_district_geoid", year, map_to="person").values
 
     # Check if congressional district data is available
     unique_geoids = np.unique(cd_geoid)
@@ -445,9 +462,11 @@ def compute_district_impacts(baseline, reformed, state: str, year: int = 2026) -
         print("    Warning: Congressional district data not available")
         return {}
 
-    # Compute relative change for winners calculation
+    # Compute relative change for winners calculation (matching API intra_decile_impact)
+    absolute_change = reform_income - baseline_income
     capped_baseline = np.maximum(baseline_income, 1)
-    relative_change = income_change / capped_baseline
+    capped_reform = np.maximum(reform_income, 1) + absolute_change
+    relative_change = (capped_reform - capped_baseline) / capped_baseline
 
     district_impacts = {}
 
@@ -458,36 +477,78 @@ def compute_district_impacts(baseline, reformed, state: str, year: int = 2026) -
         if not np.any(in_district):
             continue
 
-        district_weights = household_weight[in_district]
-        district_income_change = income_change[in_district]
-
-        # Basic metrics
-        total_households = float(np.sum(district_weights))
-        total_benefit = float(np.sum(district_income_change * district_weights))
+        # Average benefit using MicroSeries (matching API district approach)
+        baseline_district_income = MicroSeries(
+            baseline_income[in_district], weights=household_weight[in_district],
+        )
+        reform_district_income = MicroSeries(
+            reform_income[in_district], weights=household_weight[in_district],
+        )
+        # API: (reform.sum() - baseline.sum()) / baseline.count()
+        total_benefit = float(reform_district_income.sum() - baseline_district_income.sum())
+        total_households = float(baseline_district_income.count())
         avg_benefit = total_benefit / total_households if total_households > 0 else 0
 
-        # Winners share (matching API methodology: > 0.1% = winner)
+        # Winners/losers using same pattern as intra_decile_impact
         district_people = MicroSeries(
             household_count_people[in_district],
-            weights=district_weights
+            weights=household_weight[in_district],
         )
         district_decile = household_income_decile[in_district]
         district_relative = relative_change[in_district]
-        is_winner = district_relative > GAIN_LESS_5PCT_THRESHOLD  # > 0.1%
+        is_winner = district_relative > GAIN_LESS_5PCT_THRESHOLD
+        is_loser = district_relative <= NO_CHANGE_THRESHOLD
 
-        # Calculate per decile, then average
-        decile_proportions = []
+        winner_proportions = []
+        loser_proportions = []
         for decile in range(1, 11):
             in_decile = district_decile == decile
             if not np.any(in_decile):
-                decile_proportions.append(0.0)
+                winner_proportions.append(0.0)
+                loser_proportions.append(0.0)
                 continue
-            people_in_decile = float(district_people[in_decile].sum())
-            winners_in_decile = float(district_people[in_decile & is_winner].sum())
-            proportion = winners_in_decile / people_in_decile if people_in_decile > 0 else 0.0
-            decile_proportions.append(proportion)
+            people_in_decile = district_people[in_decile].sum()
+            winners_in_decile = district_people[in_decile & is_winner].sum()
+            losers_in_decile = district_people[in_decile & is_loser].sum()
+            if people_in_decile == 0 and winners_in_decile == 0:
+                winner_proportions.append(0.0)
+            else:
+                winner_proportions.append(float(winners_in_decile / people_in_decile))
+            if people_in_decile == 0 and losers_in_decile == 0:
+                loser_proportions.append(0.0)
+            else:
+                loser_proportions.append(float(losers_in_decile / people_in_decile))
 
-        winners_share = sum(decile_proportions) / 10
+        winners_share = sum(winner_proportions) / 10
+        losers_share = sum(loser_proportions) / 10
+
+        # Poverty using person_in_poverty and age < 18 (matching API poverty_impact)
+        in_district_person = person_cd_geoid == district_geoid
+        district_person_weight = person_weight[in_district_person]
+        district_baseline_poverty = baseline_poverty_person[in_district_person]
+        district_reform_poverty = reform_poverty_person[in_district_person]
+
+        if np.sum(district_person_weight) > 0:
+            bp = MicroSeries(district_baseline_poverty, weights=district_person_weight)
+            rp = MicroSeries(district_reform_poverty, weights=district_person_weight)
+            poverty_baseline = float(bp.mean())
+            poverty_reform = float(rp.mean())
+            poverty_pct_change = ((poverty_reform - poverty_baseline) / poverty_baseline * 100) if poverty_baseline > 0 else 0
+
+            # Child poverty: age < 18 (matching API)
+            district_age = person_age[in_district_person]
+            child_mask = district_age < 18
+            if np.any(child_mask):
+                bp_child = MicroSeries(district_baseline_poverty[child_mask], weights=district_person_weight[child_mask])
+                rp_child = MicroSeries(district_reform_poverty[child_mask], weights=district_person_weight[child_mask])
+                child_poverty_baseline = float(bp_child.mean())
+                child_poverty_reform = float(rp_child.mean())
+                child_poverty_pct_change = ((child_poverty_reform - child_poverty_baseline) / child_poverty_baseline * 100) if child_poverty_baseline > 0 else 0
+            else:
+                child_poverty_pct_change = 0
+        else:
+            poverty_pct_change = 0
+            child_poverty_pct_change = 0
 
         district_id = f"{state_upper}-{district_num}"
         district_impacts[district_id] = format_district_impact(
@@ -497,9 +558,12 @@ def compute_district_impacts(baseline, reformed, state: str, year: int = 2026) -
             households_affected=int(total_households),
             total_benefit=total_benefit,
             winners_share=winners_share,
+            losers_share=losers_share,
+            poverty_pct_change=poverty_pct_change,
+            child_poverty_pct_change=child_poverty_pct_change,
         )
 
-        print(f"    District {district_num}: ${avg_benefit:.0f} avg, {winners_share:.1%} winners")
+        print(f"    District {district_num}: ${avg_benefit:.0f} avg, {winners_share:.1%} winners, {losers_share:.1%} losers")
 
     return district_impacts
 
