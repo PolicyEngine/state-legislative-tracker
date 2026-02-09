@@ -38,16 +38,88 @@ export default function DecileChart({ decileData }) {
   const allPositive = !hasNegative;
   const allNegative = !hasPositive;
 
+  // Generate y-axis ticks
+  const generateTicks = () => {
+    const absMax = Math.max(Math.abs(maxPositive), Math.abs(maxNegative));
+    if (absMax === 0) return [0];
+
+    // Pick a nice round step
+    const rawStep = absMax / 3;
+    const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+    const niceSteps = [1, 2, 5, 10];
+    const step = niceSteps.find(s => s * magnitude >= rawStep) * magnitude;
+
+    const ticks = [];
+    if (hasPositive) {
+      for (let v = step; v <= maxPositive + step * 0.1; v += step) {
+        ticks.push(Math.round(v));
+      }
+    }
+    ticks.push(0);
+    if (hasNegative) {
+      for (let v = -step; v >= maxNegative - step * 0.1; v -= step) {
+        ticks.push(Math.round(v));
+      }
+    }
+    return ticks.sort((a, b) => b - a);
+  };
+
+  const yTicks = generateTicks();
+
+  const tickPosition = (val) => {
+    if (allPositive) return ((maxPositive - val) / maxPositive) * 100;
+    if (allNegative) return ((val - maxNegative) / Math.abs(maxNegative)) * 100;
+    // Mixed: positive part takes positiveRatio of space, negative takes rest
+    if (val >= 0) {
+      return maxPositive > 0 ? ((maxPositive - val) / maxPositive) * positiveRatio * 100 : 0;
+    }
+    return positiveRatio * 100 + (Math.abs(val) / Math.abs(maxNegative)) * negativeRatio * 100;
+  };
+
+  const formatTick = (val) => {
+    const sign = val > 0 ? "+" : val < 0 ? "-" : "";
+    const abs = Math.abs(val);
+    if (abs >= 1000) return `${sign}$${(abs / 1000).toFixed(abs % 1000 === 0 ? 0 : 1)}K`;
+    return `${sign}$${abs}`;
+  };
+
   return (
     <div>
-      {/* Chart */}
-      <div style={{
-        display: "flex",
-        gap: "2px",
-        height: "120px",
-        padding: `0 ${spacing.xs}`,
-        position: "relative",
-      }}>
+      {/* Chart with y-axis */}
+      <div style={{ display: "flex", height: "120px" }}>
+        {/* Y-axis labels */}
+        <div style={{
+          width: "48px",
+          position: "relative",
+          flexShrink: 0,
+          marginRight: spacing.xs,
+        }}>
+          {yTicks.map((tick) => (
+            <span
+              key={tick}
+              style={{
+                position: "absolute",
+                top: `${tickPosition(tick)}%`,
+                right: 0,
+                transform: "translateY(-50%)",
+                fontSize: "10px",
+                fontFamily: typography.fontFamily.body,
+                color: colors.text.tertiary,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {formatTick(tick)}
+            </span>
+          ))}
+        </div>
+
+        {/* Bars */}
+        <div style={{
+          display: "flex",
+          gap: "2px",
+          flex: 1,
+          position: "relative",
+        }}>
         {values.map((value, index) => {
           const isPositive = value >= 0;
           const isHovered = hoveredIndex === index;
@@ -171,13 +243,15 @@ export default function DecileChart({ decileData }) {
             </div>
           );
         })}
+        </div>
       </div>
 
       {/* X-axis labels */}
       <div style={{
         display: "flex",
         gap: "2px",
-        padding: `${spacing.xs} ${spacing.xs} 0`,
+        marginLeft: "52px",
+        padding: `${spacing.xs} 0 0`,
         marginTop: spacing.sm,
         borderTop: `1px solid ${colors.border.light}`,
       }}>
