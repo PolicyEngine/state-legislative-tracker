@@ -4,6 +4,7 @@ import {
   Geographies,
   Geography,
   ZoomableGroup,
+  Annotation,
 } from "react-simple-maps";
 import { stateData } from "../data/states";
 import { colors, mapColors } from "../designTokens";
@@ -37,7 +38,7 @@ const parseSessionDates = (dateStr) => {
     return null;
   }
 
-  // Match patterns like "Jan 13 - Mar 27, 2026" or "Dec 1, 2025 - Feb 27, 2026"
+  // Match patterns like "Jan 13 - Mar 27, 2026" or "Jan 2, 2025 - Dec 31, 2026"
   const match = dateStr.match(/(\w+)\s+(\d+),?\s*(\d{4})?\s*-\s*(\w+)\s+(\d+),?\s*(\d{4})/);
   if (!match) return null;
 
@@ -191,6 +192,42 @@ const USMap = memo(({ selectedState, onStateSelect }) => {
               })
             }
           </Geographies>
+
+          {/* DC callout - too small to see/click on the map */}
+          <Annotation
+            subject={[-77.04, 38.9]}
+            dx={50}
+            dy={-30}
+            connectorProps={{
+              stroke: colors.gray[400],
+              strokeWidth: 1,
+            }}
+          >
+            <rect
+              x={-2}
+              y={-12}
+              width={28}
+              height={16}
+              rx={3}
+              fill={getStateColor("DC")}
+              stroke={selectedState === "DC" ? colors.primary[700] : colors.white}
+              strokeWidth={selectedState === "DC" ? 2 : 0.5}
+              onClick={() => onStateSelect("DC")}
+              style={{ cursor: "pointer" }}
+              className="state-path"
+            />
+            <text
+              x={12}
+              y={0}
+              textAnchor="middle"
+              fontSize={8}
+              fontWeight={600}
+              fill={colors.white}
+              style={{ pointerEvents: "none" }}
+            >
+              DC
+            </text>
+          </Annotation>
         </ZoomableGroup>
       </ComposableMap>
     </div>

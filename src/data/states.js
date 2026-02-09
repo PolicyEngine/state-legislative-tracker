@@ -644,7 +644,7 @@ export const stateData = {
   DC: {
     name: "District of Columbia",
     abbr: "DC",
-    session: { status: "active", dates: "Year-round", carryover: true },
+    session: { status: "active", dates: "Jan 2, 2025 - Dec 31, 2026", carryover: true },
     policyLevers: {
       incomeTax: { available: true, type: "graduated", topRate: "10.75%", brackets: 7 },
       stateEITC: { available: true, match: "70%", note: "Highest in nation" },
