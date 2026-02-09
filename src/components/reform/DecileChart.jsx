@@ -39,25 +39,7 @@ export default function DecileChart({ decileData }) {
   const allNegative = !hasPositive;
 
   return (
-    <div style={{ display: "flex", gap: spacing.sm }}>
-      {/* Y-axis title */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        writingMode: "vertical-rl",
-        transform: "rotate(180deg)",
-        fontSize: typography.fontSize.xs,
-        fontFamily: typography.fontFamily.body,
-        color: colors.text.secondary,
-        fontWeight: typography.fontWeight.medium,
-        flexShrink: 0,
-      }}>
-        Average benefit
-      </div>
-
-      {/* Chart container */}
-      <div style={{ flex: 1 }}>
+    <div>
       {/* Chart */}
       <div style={{
         display: "flex",
@@ -214,18 +196,6 @@ export default function DecileChart({ decileData }) {
         ))}
       </div>
 
-      {/* X-axis title */}
-      <div style={{
-        textAlign: "center",
-        marginTop: spacing.sm,
-        fontSize: typography.fontSize.xs,
-        fontFamily: typography.fontFamily.body,
-        color: colors.text.secondary,
-        fontWeight: typography.fontWeight.medium,
-      }}>
-        Income decile
-      </div>
-      </div>
     </div>
   );
 }
