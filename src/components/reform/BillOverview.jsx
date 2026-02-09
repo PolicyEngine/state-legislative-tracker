@@ -40,7 +40,93 @@ const StatusBadge = ({ status }) => {
   );
 };
 
+const ChangeRow = ({ label, baseline, reform, compact }) => (
+  <div style={{
+    display: "flex",
+    alignItems: "center",
+    gap: compact ? spacing.sm : spacing.lg,
+    padding: compact ? `${spacing.sm} ${spacing.md}` : spacing.lg,
+    backgroundColor: colors.background.secondary,
+    borderRadius: spacing.radius.lg,
+  }}>
+    <div style={{ textAlign: compact ? "left" : "center", flex: 1 }}>
+      {!compact && (
+        <p style={{
+          margin: `0 0 ${spacing.xs}`,
+          fontSize: typography.fontSize.xs,
+          fontFamily: typography.fontFamily.body,
+          color: colors.text.tertiary,
+          textTransform: "uppercase",
+          letterSpacing: "0.5px",
+        }}>
+          Current
+        </p>
+      )}
+      {compact && label && (
+        <p style={{
+          margin: `0 0 2px`,
+          fontSize: typography.fontSize.xs,
+          fontFamily: typography.fontFamily.body,
+          color: colors.text.tertiary,
+        }}>
+          {label}
+        </p>
+      )}
+      <p style={{
+        margin: 0,
+        fontSize: compact ? typography.fontSize.sm : typography.fontSize.lg,
+        fontWeight: typography.fontWeight.semibold,
+        fontFamily: typography.fontFamily.primary,
+        color: colors.text.secondary,
+      }}>
+        {baseline}
+      </p>
+    </div>
+
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: compact ? 28 : 40,
+      height: compact ? 28 : 40,
+      borderRadius: "50%",
+      backgroundColor: colors.primary[50],
+      flexShrink: 0,
+    }}>
+      <ArrowIcon />
+    </div>
+
+    <div style={{ textAlign: compact ? "left" : "center", flex: 1 }}>
+      {!compact && (
+        <p style={{
+          margin: `0 0 ${spacing.xs}`,
+          fontSize: typography.fontSize.xs,
+          fontFamily: typography.fontFamily.body,
+          color: colors.text.tertiary,
+          textTransform: "uppercase",
+          letterSpacing: "0.5px",
+        }}>
+          Proposed
+        </p>
+      )}
+      {compact && <div style={{ height: label ? "calc(1em + 2px)" : 0 }} />}
+      <p style={{
+        margin: 0,
+        fontSize: compact ? typography.fontSize.sm : typography.fontSize.lg,
+        fontWeight: typography.fontWeight.bold,
+        fontFamily: typography.fontFamily.primary,
+        color: colors.primary[600],
+      }}>
+        {reform}
+      </p>
+    </div>
+  </div>
+);
+
 const ProvisionCard = ({ provision }) => {
+  const changes = provision.changes || [];
+  const hasMultipleChanges = changes.length > 0;
+
   return (
     <div style={{
       backgroundColor: colors.white,
@@ -60,76 +146,30 @@ const ProvisionCard = ({ provision }) => {
         {provision.label}
       </h4>
 
-      {/* Current → Proposed */}
+      {/* Single change (backward compatible) or multiple changes */}
       <div style={{
         display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: spacing.lg,
-        padding: spacing.lg,
-        backgroundColor: colors.background.secondary,
-        borderRadius: spacing.radius.lg,
-        marginBottom: spacing.md,
+        flexDirection: "column",
+        gap: spacing.xs,
+        marginBottom: provision.explanation ? spacing.md : 0,
       }}>
-        {/* Current */}
-        <div style={{ textAlign: "center", flex: 1 }}>
-          <p style={{
-            margin: `0 0 ${spacing.xs}`,
-            fontSize: typography.fontSize.xs,
-            fontFamily: typography.fontFamily.body,
-            color: colors.text.tertiary,
-            textTransform: "uppercase",
-            letterSpacing: "0.5px",
-          }}>
-            Current
-          </p>
-          <p style={{
-            margin: 0,
-            fontSize: typography.fontSize.lg,
-            fontWeight: typography.fontWeight.semibold,
-            fontFamily: typography.fontFamily.primary,
-            color: colors.text.secondary,
-          }}>
-            {provision.baseline}
-          </p>
-        </div>
-
-        {/* Arrow */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: 40,
-          height: 40,
-          borderRadius: "50%",
-          backgroundColor: colors.primary[50],
-          flexShrink: 0,
-        }}>
-          <ArrowIcon />
-        </div>
-
-        {/* Proposed */}
-        <div style={{ textAlign: "center", flex: 1 }}>
-          <p style={{
-            margin: `0 0 ${spacing.xs}`,
-            fontSize: typography.fontSize.xs,
-            fontFamily: typography.fontFamily.body,
-            color: colors.text.tertiary,
-            textTransform: "uppercase",
-            letterSpacing: "0.5px",
-          }}>
-            Proposed
-          </p>
-          <p style={{
-            margin: 0,
-            fontSize: typography.fontSize.lg,
-            fontWeight: typography.fontWeight.bold,
-            fontFamily: typography.fontFamily.primary,
-            color: colors.primary[600],
-          }}>
-            {provision.reform}
-          </p>
-        </div>
+        {hasMultipleChanges ? (
+          changes.map((change, i) => (
+            <ChangeRow
+              key={i}
+              label={change.label}
+              baseline={change.baseline}
+              reform={change.reform}
+              compact={true}
+            />
+          ))
+        ) : (
+          <ChangeRow
+            baseline={provision.baseline}
+            reform={provision.reform}
+            compact={false}
+          />
+        )}
       </div>
 
       {/* Explanation */}

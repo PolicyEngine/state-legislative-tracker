@@ -1,5 +1,6 @@
 import { colors, typography, spacing } from "../../designTokens";
 import DecileChart from "./DecileChart";
+import WinnersLosersChart from "./WinnersLosersChart";
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return "N/A";
@@ -56,11 +57,6 @@ export default function AggregateImpacts({ impacts }) {
   const stateIncomeTaxImpact = budgetaryImpact?.stateRevenueImpact ?? budgetaryImpact?.netCost;
   const isRevenueLoss = stateIncomeTaxImpact < 0;
   const householdsGain = isRevenueLoss; // Tax cut = households benefit
-
-  // Calculate total winners and losers
-  const totalGain = winnersLosers ? (winnersLosers.gainMore5Pct + winnersLosers.gainLess5Pct) : 0;
-  const totalLose = winnersLosers ? (winnersLosers.loseLess5Pct + winnersLosers.loseMore5Pct) : 0;
-  const noChange = winnersLosers?.noChange || 0;
 
   return (
     <div style={{
@@ -196,70 +192,13 @@ export default function AggregateImpacts({ impacts }) {
         </div>
       </div>
 
-      {/* Winners/Losers Bar */}
+      {/* Winners/Losers Chart */}
       {winnersLosers && (
         <div style={{
           padding: spacing.lg,
           borderBottom: decileImpact ? `1px solid ${colors.border.light}` : "none",
         }}>
-          <div style={{
-            display: "flex",
-            height: "8px",
-            borderRadius: "4px",
-            overflow: "hidden",
-            marginBottom: spacing.sm,
-          }}>
-            {totalGain > 0 && (
-              <div style={{
-                width: `${totalGain * 100}%`,
-                backgroundColor: colors.primary[500],
-              }} />
-            )}
-            {noChange > 0 && (
-              <div style={{
-                width: `${noChange * 100}%`,
-                backgroundColor: colors.gray[300],
-              }} />
-            )}
-            {totalLose > 0 && (
-              <div style={{
-                width: `${totalLose * 100}%`,
-                backgroundColor: colors.red[500],
-              }} />
-            )}
-          </div>
-          <div style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: spacing.lg,
-            fontSize: typography.fontSize.sm,
-            fontFamily: typography.fontFamily.body,
-          }}>
-            <span>
-              <span style={{ color: colors.primary[600], fontWeight: typography.fontWeight.semibold }}>
-                {formatPercent(totalGain, 0)}
-              </span>
-              <span style={{ color: colors.text.tertiary }}> gain</span>
-            </span>
-            <span style={{ color: colors.text.tertiary }}>·</span>
-            <span>
-              <span style={{ color: colors.gray[600], fontWeight: typography.fontWeight.semibold }}>
-                {formatPercent(noChange, 0)}
-              </span>
-              <span style={{ color: colors.text.tertiary }}> neutral</span>
-            </span>
-            {totalLose > 0 && (
-              <>
-                <span style={{ color: colors.text.tertiary }}>·</span>
-                <span>
-                  <span style={{ color: colors.red[600], fontWeight: typography.fontWeight.semibold }}>
-                    {formatPercent(totalLose, 0)}
-                  </span>
-                  <span style={{ color: colors.text.tertiary }}> lose</span>
-                </span>
-              </>
-            )}
-          </div>
+          <WinnersLosersChart winnersLosers={winnersLosers} />
         </div>
       )}
 

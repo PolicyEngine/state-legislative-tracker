@@ -73,11 +73,14 @@ def format_winners_losers(
     better_off_pct: Optional[float] = None,
     worse_off_pct: Optional[float] = None,
     no_change_pct: Optional[float] = None,
+    # Per-decile breakdown (lists of 10 floats each)
+    decile_breakdown: Optional[dict] = None,
 ) -> dict:
     """
     Format winners/losers for the reform_impacts table.
 
     Can accept either detailed breakdown (5% threshold) or simple percentages.
+    Optionally includes per-decile breakdown for the stacked bar chart.
 
     Args:
         gain_more_5pct: Fraction gaining more than 5% income (0-1)
@@ -91,9 +94,14 @@ def format_winners_losers(
         worse_off_pct: Percentage worse off (0-100 scale)
         no_change_pct: Percentage unchanged (0-100 scale)
 
+        decile_breakdown: Dict with keys matching category names, each a list
+            of 10 floats (one per decile). If provided, output includes
+            per-decile data for the WinnersLosersChart.
+
     Returns:
-        Dict matching frontend AggregateImpacts.jsx expectations:
-        {gainMore5Pct, gainLess5Pct, noChange, loseLess5Pct, loseMore5Pct}
+        Dict with top-level aggregate fields plus optional intra_decile:
+        {gainMore5Pct, gainLess5Pct, noChange, loseLess5Pct, loseMore5Pct,
+         intraDecile?: {all: {...}, deciles: {1: {...}, ...}}}
     """
     # If simple format provided, convert to detailed format
     if better_off_pct is not None:
@@ -112,13 +120,38 @@ def format_winners_losers(
 
         no_change = no_change_frac
 
-    return {
+    result = {
         "gainMore5Pct": gain_more_5pct,
         "gainLess5Pct": gain_less_5pct,
         "noChange": no_change,
         "loseLess5Pct": lose_less_5pct,
         "loseMore5Pct": lose_more_5pct,
     }
+
+    # Add per-decile breakdown if provided
+    if decile_breakdown is not None:
+        all_row = {
+            "gainMore5Pct": gain_more_5pct,
+            "gainLess5Pct": gain_less_5pct,
+            "noChange": no_change,
+            "loseLess5Pct": lose_less_5pct,
+            "loseMore5Pct": lose_more_5pct,
+        }
+        deciles = {}
+        for i in range(10):
+            deciles[str(i + 1)] = {
+                "gainMore5Pct": decile_breakdown["gain_more_5pct"][i],
+                "gainLess5Pct": decile_breakdown["gain_less_5pct"][i],
+                "noChange": decile_breakdown["no_change"][i],
+                "loseLess5Pct": decile_breakdown["lose_less_5pct"][i],
+                "loseMore5Pct": decile_breakdown["lose_more_5pct"][i],
+            }
+        result["intraDecile"] = {
+            "all": all_row,
+            "deciles": deciles,
+        }
+
+    return result
 
 
 def format_decile_impact(decile_values: list) -> dict:

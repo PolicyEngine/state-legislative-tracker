@@ -371,6 +371,7 @@ def compute_winners_losers(baseline, reformed, state: str, year: int = 2026) -> 
         no_change=sum(decile_results["no_change"]) / 10,
         lose_less_5pct=sum(decile_results["lose_less_5pct"]) / 10,
         lose_more_5pct=sum(decile_results["lose_more_5pct"]) / 10,
+        decile_breakdown=decile_results,
     )
 
 

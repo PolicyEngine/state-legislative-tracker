@@ -168,30 +168,6 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
             }}>
               {reformConfig.label}
             </h2>
-            <p style={{
-              margin: `${spacing.xs} 0 0`,
-              fontSize: typography.fontSize.sm,
-              fontFamily: typography.fontFamily.body,
-              color: colors.text.secondary,
-            }}>
-              {reformConfig.description || "Analyze policy impact"}
-              {billUrl && (
-                <>
-                  {" · "}
-                  <a
-                    href={billUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: colors.primary[600],
-                      textDecoration: "none",
-                    }}
-                  >
-                    View bill →
-                  </a>
-                </>
-              )}
-            </p>
           </div>
           <button
             onClick={onClose}

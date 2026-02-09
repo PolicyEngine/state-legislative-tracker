@@ -285,7 +285,9 @@ const StatePanel = memo(({ stateAbbr, onClose }) => {
                       }}>
                         {bill.status}
                       </span>
-                      {bill.description}
+                      {bill.description && bill.description.length > 120
+                        ? bill.description.slice(0, bill.description.lastIndexOf(' ', 120)) + '...'
+                        : bill.description}
                     </p>
                     {bill.analysisUrl && (
                       <div style={{ marginTop: spacing.sm }}>

@@ -45,7 +45,7 @@ research_record = {
     "status": "published",  # or "in_progress", "planned"
     "title": f"{state} {bill_number}: {short_title}",
     "url": None,  # Set when blog post is published
-    "description": bill_summary,
+    "description": bill_summary,  # Facts only: what programs change and how. No adjectives, judgments, or predictions.
     "date": datetime.now().strftime("%Y-%m-%d"),
     "author": "PolicyEngine",
     "key_findings": [
@@ -162,7 +162,7 @@ If the bill should have an interactive analyzer, add to `src/data/states.js`:
 {
   bill: "SB60",
   status: "Proposed",
-  description: "Cut income tax rate from 4.5% to 4.45%",
+  description: "Changes the flat income tax rate from 4.5% to 4.45%",
   url: "https://le.utah.gov/~2026/bills/static/SB60.html",
   reformConfig: {
     id: "ut-sb60",  // Must match database ID
