@@ -600,8 +600,31 @@ _PE_US_REPO = _PROJECT_ROOT / "policyengine-us"
 _PE_US_DATA_REPO = _PROJECT_ROOT / "policyengine-us-data"
 
 
-def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: dict):
+def get_effective_year_from_params(reform_params: dict) -> int:
+    """Extract the earliest effective year from reform params."""
+    earliest_year = 2100
+    for param_path, values in reform_params.items():
+        for period_str in values.keys():
+            # Parse period string like "2027-01-01.2100-12-31" or "2027-01-01"
+            if "." in period_str and len(period_str) > 10:
+                start_str = period_str.split(".")[0]
+            else:
+                start_str = period_str if "-" in period_str else f"{period_str}-01-01"
+            try:
+                year = int(start_str.split("-")[0])
+                if year < earliest_year:
+                    earliest_year = year
+            except (ValueError, IndexError):
+                continue
+    return earliest_year if earliest_year < 2100 else 2026
+
+
+def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: dict, analysis_year: int):
     """Write impacts to Supabase reform_impacts table."""
+    model_notes = {
+        "analysis_year": analysis_year,
+    }
+
     record = {
         "id": reform_id,
         "computed": True,
@@ -613,6 +636,7 @@ def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: di
         "decile_impact": impacts["decileImpact"],
         "district_impacts": impacts.get("districtImpacts"),
         "reform_params": reform_params,
+        "model_notes": model_notes,
         "policyengine_us_version": get_changelog_version(str(_PE_US_REPO)),
         "dataset_name": "policyengine-us-data",
         "dataset_version": get_changelog_version(str(_PE_US_DATA_REPO)),
@@ -660,8 +684,8 @@ Examples:
     parser.add_argument(
         "--year",
         type=int,
-        default=2026,
-        help="Simulation year (default: 2026)"
+        default=None,
+        help="Simulation year (auto-detects from reform params if not specified)"
     )
     args = parser.parse_args()
 
@@ -714,31 +738,38 @@ Examples:
             continue
 
         try:
+            # Determine simulation year: use --year if provided, otherwise detect from reform params
+            if args.year:
+                sim_year = args.year
+            else:
+                sim_year = get_effective_year_from_params(reform["reform"])
+            print(f"  Analysis year: {sim_year}")
+
             # Run simulations
             print("  [1/6] Running microsimulations...")
-            baseline, reformed = run_simulations(state, reform["reform"], args.year)
+            baseline, reformed = run_simulations(state, reform["reform"], sim_year)
 
             # Compute all impacts
             print("  [2/6] Computing budgetary impact...")
-            budgetary_impact = compute_budgetary_impact(baseline, reformed, state, args.year)
+            budgetary_impact = compute_budgetary_impact(baseline, reformed, state, sim_year)
             print(f"        Revenue change: ${budgetary_impact['stateRevenueImpact']:,.0f}")
 
             print("  [3/6] Computing poverty impact...")
-            poverty_impact = compute_poverty_impact(baseline, reformed, state, args.year)
+            poverty_impact = compute_poverty_impact(baseline, reformed, state, sim_year)
             print(f"        Baseline: {poverty_impact['baselineRate']:.2%} → Reform: {poverty_impact['reformRate']:.2%}")
 
             print("  [4/6] Computing child poverty impact...")
-            child_poverty_impact = compute_poverty_impact(baseline, reformed, state, args.year, child_only=True)
+            child_poverty_impact = compute_poverty_impact(baseline, reformed, state, sim_year, child_only=True)
 
             print("  [5/6] Computing winners/losers...")
-            winners_losers = compute_winners_losers(baseline, reformed, state, args.year)
+            winners_losers = compute_winners_losers(baseline, reformed, state, sim_year)
             gain_total = winners_losers['gainMore5Pct'] + winners_losers['gainLess5Pct']
             lose_total = winners_losers['loseLess5Pct'] + winners_losers['loseMore5Pct']
             print(f"        Winners: {gain_total:.1%} | No change: {winners_losers['noChange']:.1%} | Losers: {lose_total:.1%}")
 
             print("  [6/6] Computing decile and district impacts...")
-            decile_impact = compute_decile_impact(baseline, reformed, state, args.year)
-            district_impacts = compute_district_impacts(baseline, reformed, state, args.year)
+            decile_impact = compute_decile_impact(baseline, reformed, state, sim_year)
+            district_impacts = compute_district_impacts(baseline, reformed, state, sim_year)
 
             # Assemble results
             impacts = {
@@ -755,7 +786,7 @@ Examples:
 
             # Write to database
             print("  Writing to Supabase...")
-            write_to_supabase(supabase, reform_id, impacts, reform["reform"])
+            write_to_supabase(supabase, reform_id, impacts, reform["reform"], sim_year)
 
             print(f"\n  ✓ Complete!")
             results[reform_id] = "computed"

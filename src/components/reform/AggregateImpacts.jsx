@@ -50,7 +50,7 @@ export default function AggregateImpacts({ impacts }) {
     );
   }
 
-  const { budgetaryImpact, povertyImpact, childPovertyImpact, winnersLosers, decileImpact } = impacts;
+  const { budgetaryImpact, povertyImpact, childPovertyImpact, winnersLosers, decileImpact, analysisYear } = impacts;
 
   // Use state income tax revenue impact for display
   // Note: For tax cuts, this is negative (state loses revenue, but households gain)
@@ -71,6 +71,9 @@ export default function AggregateImpacts({ impacts }) {
         padding: `${spacing.md} ${spacing.xl}`,
         borderBottom: `1px solid ${colors.border.light}`,
         backgroundColor: colors.background.secondary,
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
       }}>
         <h3 style={{
           margin: 0,
@@ -83,6 +86,19 @@ export default function AggregateImpacts({ impacts }) {
         }}>
           Reform Impact Summary
         </h3>
+        {analysisYear && (
+          <span style={{
+            fontSize: typography.fontSize.xs,
+            fontWeight: typography.fontWeight.medium,
+            fontFamily: typography.fontFamily.body,
+            color: colors.primary[600],
+            backgroundColor: colors.primary[50],
+            padding: `${spacing.xs} ${spacing.sm}`,
+            borderRadius: spacing.radius.md,
+          }}>
+            {analysisYear} Analysis
+          </span>
+        )}
       </div>
 
       {/* Budgetary Impact */}

@@ -286,8 +286,10 @@ const StatePanel = memo(({ stateAbbr, onClose }) => {
                         marginRight: spacing.sm,
                         fontSize: typography.fontSize.xs,
                         fontWeight: typography.fontWeight.medium,
-                        backgroundColor: bill.status === 'enacted' ? `${colors.primary[600]}20` : `${colors.warning}20`,
-                        color: bill.status === 'enacted' ? colors.primary[700] : "#B45309",
+                        backgroundColor: bill.status === 'enacted' ? `${colors.primary[600]}20` :
+                                         bill.status === 'Published' ? colors.green[100] : `${colors.warning}20`,
+                        color: bill.status === 'enacted' ? colors.primary[700] :
+                               bill.status === 'Published' ? colors.green[700] : "#B45309",
                       }}>
                         {bill.status}
                       </span>

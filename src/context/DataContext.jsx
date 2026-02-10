@@ -45,6 +45,7 @@ export function DataProvider({ children }) {
             reformParams: item.reform_params,
             provisions: item.provisions,
             modelNotes: item.model_notes,
+            analysisYear: item.model_notes?.analysis_year,
             policyengineUsVersion: item.policyengine_us_version,
             datasetVersion: item.dataset_version,
           };
@@ -138,8 +139,15 @@ export function useData() {
 }
 
 function extractBillNumber(id, title) {
-  const titleMatch = title?.match(/\b([A-Z]{1,3}\.?\s*\d+)/i);
+  // Match bill patterns like HB290, SB1507, H.3492 but exclude FY (fiscal year)
+  const titleMatch = title?.match(/\b(?!FY)([A-Z]{1,3}\.?\s*\d+)/i);
   if (titleMatch) return titleMatch[1].replace(/\s+/g, '').replace('.', '').toUpperCase();
+  // For budget proposals and items without bill numbers, use a clean version of the title
+  if (title && !title.match(/\b[A-Z]{1,2}\d+\b/)) {
+    // Extract first part before colon or parenthesis as the "bill" name
+    const cleanTitle = title.split(/[:(]/)[0].trim();
+    if (cleanTitle.length <= 40) return cleanTitle;
+  }
   const parts = id.split('-');
   if (parts.length >= 2) return parts.slice(1).join('-').toUpperCase();
   return id.toUpperCase();
