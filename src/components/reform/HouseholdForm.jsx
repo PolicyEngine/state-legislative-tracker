@@ -1,5 +1,13 @@
 import { colors, typography, spacing } from "../../designTokens";
 
+function formatWithCommas(n) {
+  return Number(n).toLocaleString("en-US");
+}
+
+function parseDollar(str) {
+  return parseInt(String(str).replace(/,/g, ""), 10) || 0;
+}
+
 const inputStyle = {
   width: "100%",
   padding: `${spacing.sm} ${spacing.md}`,
@@ -27,6 +35,118 @@ const smallInputStyle = {
   width: "80px",
   textAlign: "center",
 };
+
+const INCOME_SOURCE_OPTIONS = [
+  { key: "capital_gains", label: "Capital Gains" },
+  { key: "self_employment_income", label: "Self-Employment Income" },
+  { key: "taxable_social_security", label: "Social Security" },
+  { key: "taxable_pension_income", label: "Pension Income" },
+  { key: "dividend_income", label: "Dividend Income" },
+  { key: "taxable_interest_income", label: "Taxable Interest" },
+  { key: "taxable_retirement_distributions", label: "Retirement Distributions" },
+];
+
+const EXPENSE_OPTIONS = [
+  { key: "childcare_expenses", label: "Childcare Expenses" },
+  { key: "pre_subsidy_rent", label: "Rent (Pre-Subsidy)" },
+];
+
+const TAX_YEARS = ["2026", "2027", "2028", "2029"];
+
+function AddableSection({ title, options, activeItems, onAdd, onRemove, onChangeValue }) {
+  const availableOptions = options.filter((opt) => !(opt.key in activeItems));
+
+  return (
+    <div>
+      <label style={{ ...labelStyle, marginBottom: spacing.sm }}>{title}</label>
+      <div style={{ display: "flex", flexDirection: "column", gap: spacing.sm }}>
+        {Object.entries(activeItems).map(([key, value]) => {
+          const option = options.find((o) => o.key === key);
+          return (
+            <div
+              key={key}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: spacing.xs,
+                padding: spacing.sm,
+                backgroundColor: colors.background.secondary,
+                borderRadius: spacing.radius.lg,
+              }}
+            >
+              <span style={{
+                flex: 1,
+                fontSize: typography.fontSize.xs,
+                fontFamily: typography.fontFamily.body,
+                color: colors.text.secondary,
+                minWidth: 0,
+              }}>
+                {option?.label || key}
+              </span>
+              <div style={{ position: "relative", width: "100px", flexShrink: 0 }}>
+                <span style={{
+                  position: "absolute",
+                  left: spacing.sm,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: colors.text.tertiary,
+                  fontSize: typography.fontSize.xs,
+                }}>$</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={formatWithCommas(value)}
+                  onChange={(e) => onChangeValue(key, parseDollar(e.target.value))}
+                  style={{
+                    ...inputStyle,
+                    width: "100px",
+                    paddingLeft: spacing.lg,
+                    fontSize: typography.fontSize.xs,
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => onRemove(key)}
+                style={{
+                  padding: "2px 6px",
+                  border: "none",
+                  borderRadius: spacing.radius.md,
+                  backgroundColor: "transparent",
+                  color: colors.text.tertiary,
+                  cursor: "pointer",
+                  fontSize: typography.fontSize.sm,
+                  lineHeight: 1,
+                  flexShrink: 0,
+                }}
+                title="Remove"
+              >
+                ×
+              </button>
+            </div>
+          );
+        })}
+        {availableOptions.length > 0 && (
+          <select
+            value=""
+            onChange={(e) => { if (e.target.value) onAdd(e.target.value); }}
+            style={{
+              ...inputStyle,
+              cursor: "pointer",
+              color: colors.primary[600],
+              fontSize: typography.fontSize.xs,
+            }}
+          >
+            <option value="" disabled>+ Add {title.toLowerCase().replace(/s$/, "")}</option>
+            {availableOptions.map((opt) => (
+              <option key={opt.key} value={opt.key}>{opt.label}</option>
+            ))}
+          </select>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function HouseholdForm({
   values,
@@ -60,6 +180,32 @@ export default function HouseholdForm({
   const removeChild = (index) => {
     const newChildrenAges = values.childrenAges.filter((_, i) => i !== index);
     onChange({ ...values, childrenAges: newChildrenAges });
+  };
+
+  const handleAddIncomeSource = (key) => {
+    onChange({ ...values, incomeSources: { ...values.incomeSources, [key]: 0 } });
+  };
+
+  const handleRemoveIncomeSource = (key) => {
+    const { [key]: _, ...rest } = values.incomeSources;
+    onChange({ ...values, incomeSources: rest });
+  };
+
+  const handleIncomeSourceChange = (key, value) => {
+    onChange({ ...values, incomeSources: { ...values.incomeSources, [key]: value } });
+  };
+
+  const handleAddExpense = (key) => {
+    onChange({ ...values, expenses: { ...values.expenses, [key]: 0 } });
+  };
+
+  const handleRemoveExpense = (key) => {
+    const { [key]: _, ...rest } = values.expenses;
+    onChange({ ...values, expenses: rest });
+  };
+
+  const handleExpenseChange = (key, value) => {
+    onChange({ ...values, expenses: { ...values.expenses, [key]: value } });
   };
 
   return (
@@ -127,28 +273,81 @@ export default function HouseholdForm({
       </div>
 
       {/* Income */}
-      <div>
-        <label style={labelStyle}>Annual Household Employment Income</label>
-        <div style={{ position: "relative" }}>
-          <span style={{
-            position: "absolute",
-            left: spacing.md,
-            top: "50%",
-            transform: "translateY(-50%)",
-            color: colors.text.tertiary,
-            fontSize: typography.fontSize.sm,
-          }}>$</span>
-          <input
-            type="number"
-            value={values.income}
-            onChange={handleChange("income")}
-            min={0}
-            max={10000000}
-            step={1000}
-            style={{ ...inputStyle, paddingLeft: spacing["2xl"] }}
-            placeholder="50000"
-          />
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: values.isMarried ? "1fr 1fr" : "1fr",
+        gap: spacing.md,
+      }}>
+        <div>
+          <label style={labelStyle}>
+            {values.isMarried ? "Your Employment Income" : "Annual Household Employment Income"}
+          </label>
+          <div style={{ position: "relative" }}>
+            <span style={{
+              position: "absolute",
+              left: spacing.md,
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: colors.text.tertiary,
+              fontSize: typography.fontSize.sm,
+            }}>$</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={formatWithCommas(values.income)}
+              onChange={(e) => onChange({ ...values, income: parseDollar(e.target.value) })}
+              style={{ ...inputStyle, paddingLeft: spacing["2xl"] }}
+              placeholder="50,000"
+            />
+          </div>
         </div>
+        {values.isMarried && (
+          <div>
+            <label style={labelStyle}>Spouse Employment Income</label>
+            <div style={{ position: "relative" }}>
+              <span style={{
+                position: "absolute",
+                left: spacing.md,
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: colors.text.tertiary,
+                fontSize: typography.fontSize.sm,
+              }}>$</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={formatWithCommas(values.spouseIncome)}
+                onChange={(e) => onChange({ ...values, spouseIncome: parseDollar(e.target.value) })}
+                style={{ ...inputStyle, paddingLeft: spacing["2xl"] }}
+                placeholder="0"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Additional Income Sources & Expenses — side by side */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: spacing.md,
+      }}>
+        <AddableSection
+          title="Income sources"
+          options={INCOME_SOURCE_OPTIONS}
+          activeItems={values.incomeSources}
+          onAdd={handleAddIncomeSource}
+          onRemove={handleRemoveIncomeSource}
+          onChangeValue={handleIncomeSourceChange}
+        />
+        <AddableSection
+          title="Expenses"
+          options={EXPENSE_OPTIONS}
+          activeItems={values.expenses}
+          onAdd={handleAddExpense}
+          onRemove={handleRemoveExpense}
+          onChangeValue={handleExpenseChange}
+        />
       </div>
 
       {/* Children */}
@@ -259,6 +458,20 @@ export default function HouseholdForm({
             cursor: "not-allowed"
           }}
         />
+      </div>
+
+      {/* Tax Year */}
+      <div>
+        <label style={labelStyle}>Tax Year</label>
+        <select
+          value={values.year}
+          onChange={handleChange("year")}
+          style={{ ...inputStyle, cursor: "pointer" }}
+        >
+          {TAX_YEARS.map((y) => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
       </div>
 
       {/* Submit */}

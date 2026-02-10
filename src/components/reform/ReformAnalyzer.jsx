@@ -4,6 +4,7 @@ import { colors, typography, spacing } from "../../designTokens";
 import { usePolicyEngineAPI } from "../../hooks/usePolicyEngineAPI";
 import { buildHousehold } from "../../utils/householdBuilder";
 import { useData } from "../../context/DataContext";
+import { track } from "../../lib/analytics";
 import HouseholdForm from "./HouseholdForm";
 import ResultsDisplay from "./ResultsDisplay";
 import AggregateImpacts from "./AggregateImpacts";
@@ -87,6 +88,10 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
   const { getImpact } = useData();
   const [activeTab, setActiveTab] = useState("overview");
 
+  useEffect(() => {
+    track("reform_analyzer_opened", { state_abbr: stateAbbr, reform_id: reformConfig.id, bill_label: reformConfig.label });
+  }, [stateAbbr, reformConfig.id, reformConfig.label]);
+
   // Get pre-computed aggregate impacts
   const aggregateImpacts = getImpact(reformConfig.id);
 
@@ -109,18 +114,29 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
     isMarried: false,
     spouseAge: 35,
     income: 50000,
+    spouseIncome: 0,
     childrenAges: [],
+    year: "2026",
+    incomeSources: {},
+    expenses: {},
   });
 
   const [results, setResults] = useState(null);
   const [hasCalculated, setHasCalculated] = useState(false);
 
   const handleCalculate = async () => {
+    track("household_calculated", {
+      state_abbr: stateAbbr,
+      reform_id: reformConfig.id,
+      income: householdInputs.income,
+      is_married: householdInputs.isMarried,
+      num_children: householdInputs.childrenAges.length,
+      year: householdInputs.year,
+    });
     try {
       const household = buildHousehold({
         ...householdInputs,
         state: stateAbbr,
-        year: "2026",
       });
 
       const { baseline, reform } = await compareReform(
@@ -215,7 +231,10 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  track("tab_switched", { tab_id: tab.id, reform_id: reformConfig.id, state_abbr: stateAbbr });
+                }}
                 style={{
                   display: "flex",
                   alignItems: "center",

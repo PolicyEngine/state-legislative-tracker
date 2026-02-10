@@ -10,6 +10,7 @@ import {
 import { geoCentroid } from "d3-geo";
 import { colors, typography, spacing } from "../../designTokens";
 import { useData } from "../../context/DataContext";
+import { track } from "../../lib/analytics";
 
 // ArcGIS REST API for 118th Congressional Districts
 const getCongressionalDistrictsUrl = (stateAbbr) =>
@@ -232,7 +233,11 @@ function UtahDistrictMap({ reformId }) {
                       cursor: "pointer",
                       transition: "fill 0.2s ease, stroke-width 0.2s ease",
                     }}
-                    onClick={() => setSelectedDistrict(selectedDistrict === districtId ? null : districtId)}
+                    onClick={() => {
+                      const next = selectedDistrict === districtId ? null : districtId;
+                      setSelectedDistrict(next);
+                      if (next) track("district_selected", { state_abbr: "UT", district_id: `UT-${districtId}` });
+                    }}
                   />
                   {/* District label */}
                   <text
@@ -518,7 +523,7 @@ function DistrictDetailCard({ districtId, districtInfo, impact, maxBenefit }) {
           fontFamily: typography.fontFamily.body,
           color: colors.text.tertiary,
         }}>
-          /household avg
+          average household impact
         </span>
       </div>
 
@@ -530,14 +535,14 @@ function DistrictDetailCard({ districtId, districtInfo, impact, maxBenefit }) {
       }}>
         {/* Winners / Losers unified */}
         <div style={{
-          padding: spacing.sm,
+          padding: spacing.md,
           backgroundColor: colors.background.secondary,
           borderRadius: spacing.radius.lg,
           textAlign: "center",
         }}>
           <p style={{
             margin: 0,
-            fontSize: "10px",
+            fontSize: typography.fontSize.xs,
             fontFamily: typography.fontFamily.body,
             color: colors.text.tertiary,
             textTransform: "uppercase",
@@ -546,8 +551,8 @@ function DistrictDetailCard({ districtId, districtInfo, impact, maxBenefit }) {
             Winners / Losers
           </p>
           <p style={{
-            margin: `${spacing.xs} 0 0`,
-            fontSize: typography.fontSize.sm,
+            margin: `${spacing.sm} 0 0`,
+            fontSize: typography.fontSize.base,
             fontWeight: typography.fontWeight.bold,
             fontFamily: typography.fontFamily.primary,
           }}>
@@ -872,7 +877,7 @@ function GenericDistrictDetailCard({ districtNum, impact, maxBenefit, stateName 
           fontFamily: typography.fontFamily.body,
           color: colors.text.tertiary,
         }}>
-          /household avg
+          average household impact
         </span>
       </div>
 
@@ -884,14 +889,14 @@ function GenericDistrictDetailCard({ districtNum, impact, maxBenefit, stateName 
       }}>
         {/* Winners / Losers unified */}
         <div style={{
-          padding: spacing.sm,
+          padding: spacing.md,
           backgroundColor: colors.background.secondary,
           borderRadius: spacing.radius.lg,
           textAlign: "center",
         }}>
           <p style={{
             margin: 0,
-            fontSize: "10px",
+            fontSize: typography.fontSize.xs,
             fontFamily: typography.fontFamily.body,
             color: colors.text.tertiary,
             textTransform: "uppercase",
@@ -900,8 +905,8 @@ function GenericDistrictDetailCard({ districtNum, impact, maxBenefit, stateName 
             Winners / Losers
           </p>
           <p style={{
-            margin: `${spacing.xs} 0 0`,
-            fontSize: typography.fontSize.sm,
+            margin: `${spacing.sm} 0 0`,
+            fontSize: typography.fontSize.base,
             fontWeight: typography.fontWeight.bold,
             fontFamily: typography.fontFamily.primary,
           }}>
@@ -1116,9 +1121,11 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData }) {
                       <Geography
                         key={geo.rsmKey || info.districtId}
                         geography={geo}
-                        onClick={() => setSelectedDistrict(
-                          selectedDistrict === info.districtId ? null : info.districtId
-                        )}
+                        onClick={() => {
+                          const next = selectedDistrict === info.districtId ? null : info.districtId;
+                          setSelectedDistrict(next);
+                          if (next) track("district_selected", { state_abbr: stateAbbr, district_id: info.districtId });
+                        }}
                         style={{
                           default: {
                             fill: fillColor,

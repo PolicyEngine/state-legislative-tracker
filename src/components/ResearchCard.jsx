@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { colors, typography, spacing } from "../designTokens";
+import { track } from "../lib/analytics";
 
 // Icon components
 const DashboardIcon = () => (
@@ -192,6 +193,7 @@ const DashboardCard = memo(({ item }) => (
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => track("research_link_clicked", { title: item.title, url: item.url, type: item.type })}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -309,6 +311,7 @@ const StandardCard = memo(({ item }) => (
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => track("research_link_clicked", { title: item.title, url: item.url, type: item.type })}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -452,6 +455,7 @@ const PlannedCard = memo(({ item }) => (
             href={item.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => track("research_link_clicked", { title: item.title, url: item.sourceUrl, type: item.type })}
             style={{
               display: "inline-flex",
               alignItems: "center",

@@ -4,6 +4,7 @@ import { useData } from "../context/DataContext";
 import ResearchCard from "./ResearchCard";
 import ReformAnalyzer from "./reform/ReformAnalyzer";
 import { colors, typography, spacing } from "../designTokens";
+import { track } from "../lib/analytics";
 
 const CloseIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -221,7 +222,12 @@ const StatePanel = memo(({ stateAbbr, onClose }) => {
               {bills.map((bill, i) => (
                 <div
                   key={i}
-                  onClick={() => bill.reformConfig && setActiveBill(bill)}
+                  onClick={() => {
+                    if (bill.reformConfig) {
+                      track("bill_clicked", { state_abbr: stateAbbr, bill_id: bill.bill, has_reform: true });
+                      setActiveBill(bill);
+                    }
+                  }}
                   style={{
                     display: "flex",
                     alignItems: "flex-start",

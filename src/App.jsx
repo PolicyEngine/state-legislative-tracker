@@ -3,9 +3,17 @@ import USMap from "./components/USMap";
 import StatePanel from "./components/StatePanel";
 import { stateData } from "./data/states";
 import { colors, mapColors, typography, spacing } from "./designTokens";
+import { track } from "./lib/analytics";
 
 function App() {
   const [selectedState, setSelectedState] = useState(null);
+
+  const handleStateSelect = (abbr) => {
+    setSelectedState(abbr);
+    if (abbr) {
+      track("state_selected", { state_abbr: abbr, state_name: stateData[abbr]?.name });
+    }
+  };
 
   return (
     <div style={{ minHeight: "100vh" }}>
@@ -95,7 +103,7 @@ function App() {
           >
             <USMap
               selectedState={selectedState}
-              onStateSelect={setSelectedState}
+              onStateSelect={handleStateSelect}
             />
             {/* Legend */}
             <div style={{
@@ -187,7 +195,7 @@ function App() {
                       .map(([abbr, state]) => (
                         <button
                           key={abbr}
-                          onClick={() => setSelectedState(abbr)}
+                          onClick={() => handleStateSelect(abbr)}
                           style={{
                             display: "flex",
                             alignItems: "center",
@@ -317,6 +325,7 @@ function QuickLinkCard({ href, title, description }) {
       href={href}
       target={href.startsWith("mailto") ? undefined : "_blank"}
       rel={href.startsWith("mailto") ? undefined : "noopener noreferrer"}
+      onClick={() => track("external_link_clicked", { href, title })}
       className="card-hover"
       style={{
         display: "block",

@@ -27,9 +27,12 @@ export function buildHousehold({
   isMarried = false,
   spouseAge = 35,
   income = 50000,
+  spouseIncome = 0,
   childrenAges = [],
   state = "NY",
   year = "2026",
+  incomeSources = {},
+  expenses = {},
 }) {
   const people = {};
   const memberList = [];
@@ -42,13 +45,31 @@ export function buildHousehold({
     age: { [year]: headAge },
     employment_income: { [year]: income },
   };
+
+  // Variables that belong on spm_units rather than people
+  const spmUnitExpenseKeys = new Set(["childcare_expenses"]);
+
+  // Spread additional income sources onto the adult person
+  for (const [key, value] of Object.entries(incomeSources)) {
+    if (value > 0) {
+      people.adult[key] = { [year]: value };
+    }
+  }
+
+  // Spread person-level expenses onto the adult person
+  for (const [key, value] of Object.entries(expenses)) {
+    if (value > 0 && !spmUnitExpenseKeys.has(key)) {
+      people.adult[key] = { [year]: value };
+    }
+  }
+
   memberList.push("adult");
 
   // Add spouse if married
   if (isMarried) {
     people.spouse = {
       age: { [year]: spouseAge },
-      employment_income: { [year]: 0 },
+      employment_income: { [year]: spouseIncome },
     };
     memberList.push("spouse");
   }
@@ -63,23 +84,12 @@ export function buildHousehold({
     memberList.push(childId);
   });
 
-  // Build marital units
-  const maritalUnits = {};
-  if (isMarried) {
-    maritalUnits.marital_unit = {
-      members: ["adult", "spouse"],
-    };
-  } else {
-    maritalUnits.marital_unit = {
-      members: ["adult"],
-    };
-  }
-  // Each child gets their own marital unit
-  childrenAges.forEach((_, i) => {
-    maritalUnits[`child${i + 1}_marital_unit`] = {
-      members: [`child${i + 1}`],
-    };
-  });
+  // Build marital units — one unit containing all members
+  const maritalUnits = {
+    marital_unit: {
+      members: memberList,
+    },
+  };
 
   // Build state-specific tax variable name (e.g., "ut_income_tax" for UT)
   const stateTaxVar = `${stateCode.toLowerCase()}_income_tax`;
@@ -103,6 +113,12 @@ export function buildHousehold({
     spm_units: {
       spm_unit: {
         members: memberList,
+        // Spread spm_unit-level expenses (e.g. childcare_expenses)
+        ...Object.fromEntries(
+          Object.entries(expenses)
+            .filter(([key, value]) => spmUnitExpenseKeys.has(key) && value > 0)
+            .map(([key, value]) => [key, { [year]: value }])
+        ),
       },
     },
     households: {
