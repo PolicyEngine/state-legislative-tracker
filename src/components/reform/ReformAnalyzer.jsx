@@ -114,7 +114,11 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
     isMarried: false,
     spouseAge: 35,
     income: 50000,
+    spouseIncome: 0,
     childrenAges: [],
+    year: "2026",
+    incomeSources: {},
+    expenses: {},
   });
 
   const [results, setResults] = useState(null);
@@ -127,12 +131,12 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
       income: householdInputs.income,
       is_married: householdInputs.isMarried,
       num_children: householdInputs.childrenAges.length,
+      year: householdInputs.year,
     });
     try {
       const household = buildHousehold({
         ...householdInputs,
         state: stateAbbr,
-        year: "2026",
       });
 
       const { baseline, reform } = await compareReform(

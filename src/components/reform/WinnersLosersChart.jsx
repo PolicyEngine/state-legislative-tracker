@@ -150,7 +150,7 @@ export default function WinnersLosersChart({ winnersLosers }) {
       {/* Title */}
       <p style={{
         margin: `0 0 ${spacing.md}`,
-        fontSize: typography.fontSize.sm,
+        fontSize: typography.fontSize.base,
         fontFamily: typography.fontFamily.body,
         color: colors.text.secondary,
         lineHeight: "1.4",
