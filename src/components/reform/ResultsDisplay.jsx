@@ -141,7 +141,7 @@ export default function ResultsDisplay({ baseline, reform, error }) {
             letterSpacing: "0.5px",
             color: isNeutral ? colors.gray[600] : (isBenefit ? colors.green[700] : colors.red[700]),
           }}>
-            {isNeutral ? "No Change" : (isBenefit ? "You Benefit" : "You Pay More")}
+            Change in Household Net Income
           </span>
         </div>
         <p style={{
@@ -158,14 +158,6 @@ export default function ResultsDisplay({ baseline, reform, error }) {
             color: isNeutral ? colors.gray[500] : (isBenefit ? colors.green[600] : colors.red[600]),
             marginLeft: spacing.xs,
           }}>/year</span>
-        </p>
-        <p style={{
-          margin: `${spacing.xs} 0 0`,
-          fontSize: typography.fontSize.xs,
-          fontFamily: typography.fontFamily.body,
-          color: colors.text.secondary,
-        }}>
-          Change in household net income
         </p>
       </div>
 

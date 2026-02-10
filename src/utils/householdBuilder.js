@@ -84,23 +84,12 @@ export function buildHousehold({
     memberList.push(childId);
   });
 
-  // Build marital units
-  const maritalUnits = {};
-  if (isMarried) {
-    maritalUnits.marital_unit = {
-      members: ["adult", "spouse"],
-    };
-  } else {
-    maritalUnits.marital_unit = {
-      members: ["adult"],
-    };
-  }
-  // Each child gets their own marital unit
-  childrenAges.forEach((_, i) => {
-    maritalUnits[`child${i + 1}_marital_unit`] = {
-      members: [`child${i + 1}`],
-    };
-  });
+  // Build marital units — one unit containing all members
+  const maritalUnits = {
+    marital_unit: {
+      members: memberList,
+    },
+  };
 
   // Build state-specific tax variable name (e.g., "ut_income_tax" for UT)
   const stateTaxVar = `${stateCode.toLowerCase()}_income_tax`;

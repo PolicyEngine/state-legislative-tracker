@@ -133,7 +133,8 @@ export default function AggregateImpacts({ impacts }) {
         }}>
           <p style={{
             margin: `0 0 ${spacing.xs}`,
-            fontSize: typography.fontSize.xs,
+            fontSize: typography.fontSize.sm,
+            fontWeight: typography.fontWeight.semibold,
             fontFamily: typography.fontFamily.body,
             color: colors.text.tertiary,
             textTransform: "uppercase",
@@ -142,12 +143,12 @@ export default function AggregateImpacts({ impacts }) {
             Poverty Rate
           </p>
           <span style={{
-            fontSize: typography.fontSize.xl,
+            fontSize: typography.fontSize.base,
             fontWeight: typography.fontWeight.bold,
             fontFamily: typography.fontFamily.primary,
             color: povertyImpact?.percentChange < 0 ? colors.primary[600] : (povertyImpact?.percentChange > 0 ? colors.red[600] : colors.secondary[900]),
           }}>
-            {povertyImpact?.percentChange !== 0 ? formatPctChange(povertyImpact?.percentChange) : "no change"}
+            {povertyImpact?.percentChange !== 0 ? formatPctChange(povertyImpact?.percentChange) : "No change"}
           </span>
         </div>
         <div style={{
@@ -155,7 +156,8 @@ export default function AggregateImpacts({ impacts }) {
         }}>
           <p style={{
             margin: `0 0 ${spacing.xs}`,
-            fontSize: typography.fontSize.xs,
+            fontSize: typography.fontSize.sm,
+            fontWeight: typography.fontWeight.semibold,
             fontFamily: typography.fontFamily.body,
             color: colors.text.tertiary,
             textTransform: "uppercase",
@@ -164,12 +166,12 @@ export default function AggregateImpacts({ impacts }) {
             Child Poverty Rate
           </p>
           <span style={{
-            fontSize: typography.fontSize.xl,
+            fontSize: typography.fontSize.base,
             fontWeight: typography.fontWeight.bold,
             fontFamily: typography.fontFamily.primary,
             color: childPovertyImpact?.percentChange < 0 ? colors.primary[600] : (childPovertyImpact?.percentChange > 0 ? colors.red[600] : colors.secondary[900]),
           }}>
-            {childPovertyImpact?.percentChange !== 0 ? formatPctChange(childPovertyImpact?.percentChange) : "no change"}
+            {childPovertyImpact?.percentChange !== 0 ? formatPctChange(childPovertyImpact?.percentChange) : "No change"}
           </span>
         </div>
       </div>
@@ -184,7 +186,7 @@ export default function AggregateImpacts({ impacts }) {
           }}>
             <h3 style={{
               margin: 0,
-              fontSize: typography.fontSize.xs,
+              fontSize: typography.fontSize.sm,
               fontWeight: typography.fontWeight.semibold,
               fontFamily: typography.fontFamily.body,
               textTransform: "uppercase",
@@ -213,7 +215,7 @@ export default function AggregateImpacts({ impacts }) {
           }}>
             <h3 style={{
               margin: 0,
-              fontSize: typography.fontSize.xs,
+              fontSize: typography.fontSize.sm,
               fontWeight: typography.fontWeight.semibold,
               fontFamily: typography.fontFamily.body,
               textTransform: "uppercase",
