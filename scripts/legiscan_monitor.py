@@ -27,10 +27,6 @@ LEGISCAN_API_KEY = os.environ.get("LEGISCAN_API_KEY")
 LEGISCAN_BASE_URL = "https://api.legiscan.com/"
 GITHUB_REPO = "PolicyEngine/state-legislative-tracker"
 
-# Supabase configuration
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://ffgngqlgfsvqartilful.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-
 # Search queries for PolicyEngine-relevant bills
 SEARCH_QUERIES = [
     "income tax rate",
@@ -84,41 +80,35 @@ def get_current_session_id(state):
 
 # ============== Supabase Functions ==============
 
-def supabase_request(method, endpoint, data=None):
-    """Make a request to Supabase REST API."""
-    if not SUPABASE_KEY:
-        raise ValueError("SUPABASE_KEY environment variable not set")
+def get_supabase_client():
+    """Get Supabase client. Returns None if credentials not set."""
+    try:
+        from supabase import create_client
+    except ImportError:
+        print("Error: supabase package not installed")
+        print("Run: pip install supabase")
+        return None
 
-    url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
-    headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "return=representation"
-    }
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_KEY")
 
-    if method == "GET":
-        response = requests.get(url, headers=headers)
-    elif method == "POST":
-        response = requests.post(url, headers=headers, json=data)
-    else:
-        raise ValueError(f"Unsupported method: {method}")
+    if not url or not key:
+        return None
 
-    response.raise_for_status()
-    return response.json() if response.text else None
+    return create_client(url, key)
 
 
-def get_processed_bill_ids():
+def get_processed_bill_ids(supabase):
     """Get set of already-processed bill IDs from Supabase."""
     try:
-        results = supabase_request("GET", "processed_bills?select=bill_id")
-        return {str(r["bill_id"]) for r in results}
+        result = supabase.table("processed_bills").select("bill_id").execute()
+        return {str(r["bill_id"]) for r in result.data}
     except Exception as e:
         print(f"Warning: Could not fetch processed bills from Supabase: {e}")
         return set()
 
 
-def save_processed_bill(bill, matched_query, github_issue_url=None, skipped_reason=None):
+def save_processed_bill(supabase, bill, matched_query, github_issue_url=None, skipped_reason=None):
     """Save a processed bill to Supabase with full details."""
     try:
         state = bill.get("state", "")
@@ -145,7 +135,7 @@ def save_processed_bill(bill, matched_query, github_issue_url=None, skipped_reas
             "legiscan_url": legiscan_url,
             "skipped_reason": skipped_reason
         }
-        supabase_request("POST", "processed_bills", data)
+        supabase.table("processed_bills").upsert(data).execute()
         return True
     except Exception as e:
         print(f"  Warning: Could not save to Supabase: {e}")
@@ -462,8 +452,9 @@ def main():
         print("Error: LEGISCAN_API_KEY environment variable not set")
         return 1
 
-    if not SUPABASE_KEY:
-        print("Error: SUPABASE_KEY environment variable not set")
+    supabase = get_supabase_client()
+    if not supabase:
+        print("Error: SUPABASE_URL and SUPABASE_KEY environment variables required")
         return 1
 
     states = args.states.split(",") if args.states else DEFAULT_STATES
@@ -478,7 +469,7 @@ def main():
 
     # Load previously processed bills from Supabase
     print("Fetching processed bills from Supabase...")
-    processed_ids = get_processed_bill_ids()
+    processed_ids = get_processed_bill_ids(supabase)
     print(f"Previously processed: {len(processed_ids)} bills")
     print()
 
@@ -562,7 +553,7 @@ def main():
             skipped_irrelevant += 1
             skipped_bills.append((bill, matched_query, "not_relevant"))
             if not args.dry_run:
-                save_processed_bill(bill, matched_query, skipped_reason="not_relevant")
+                save_processed_bill(supabase, bill, matched_query, skipped_reason="not_relevant")
             continue
 
         new_bills.append((bill, matched_query))
@@ -620,7 +611,7 @@ def main():
 
         # Save all bills to Supabase
         for bill, matched_query in new_bills:
-            save_processed_bill(bill, matched_query, github_issue_url=issue_url)
+            save_processed_bill(supabase, bill, matched_query, github_issue_url=issue_url)
 
         print(f"Saved {len(new_bills)} bills to Supabase")
     else:
