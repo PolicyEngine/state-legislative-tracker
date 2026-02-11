@@ -240,20 +240,6 @@ export default function BillOverview({ bill, impact }) {
               </h4>
               <div style={{ display: "flex", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm, flexWrap: "wrap" }}>
                 {bill?.status && <StatusBadge status={bill.status} />}
-                {impact?.analysisYear && (
-                  <span style={{
-                    display: "inline-block",
-                    padding: `${spacing.xs} ${spacing.sm}`,
-                    borderRadius: spacing.radius.md,
-                    backgroundColor: colors.primary[50],
-                    color: colors.primary[700],
-                    fontSize: typography.fontSize.xs,
-                    fontWeight: typography.fontWeight.medium,
-                    fontFamily: typography.fontFamily.body,
-                  }}>
-                    {impact.analysisYear} Analysis
-                  </span>
-                )}
               </div>
             </div>
 

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { colors, typography, spacing } from "../../designTokens";
 import DecileChart from "./DecileChart";
 import WinnersLosersChart from "./WinnersLosersChart";
@@ -29,6 +30,14 @@ const formatPctChange = (value, decimals = 1) => {
 };
 
 export default function AggregateImpacts({ impacts }) {
+  // Check for multi-year impacts
+  const availableYears = impacts?.impactsByYear ? Object.keys(impacts.impactsByYear).sort() : [];
+  const hasMultipleYears = availableYears.length > 1;
+
+  // Default to first available year or the single analysis year
+  const defaultYear = hasMultipleYears ? availableYears[0] : impacts?.analysisYear?.toString();
+  const [selectedYear, setSelectedYear] = useState(defaultYear);
+
   if (!impacts || !impacts.computed) {
     return (
       <div style={{
@@ -50,7 +59,13 @@ export default function AggregateImpacts({ impacts }) {
     );
   }
 
-  const { budgetaryImpact, povertyImpact, childPovertyImpact, winnersLosers, decileImpact, analysisYear } = impacts;
+  // Get impacts for selected year (from impactsByYear if multi-year, otherwise use root)
+  const yearImpacts = hasMultipleYears && impacts.impactsByYear[selectedYear]
+    ? impacts.impactsByYear[selectedYear]
+    : impacts;
+
+  const { budgetaryImpact, povertyImpact, childPovertyImpact, winnersLosers, decileImpact } = yearImpacts;
+  const analysisYear = selectedYear || impacts.analysisYear;
 
   // Use state income tax revenue impact for display
   // Note: For tax cuts, this is negative (state loses revenue, but households gain)
@@ -86,7 +101,35 @@ export default function AggregateImpacts({ impacts }) {
         }}>
           Reform Impact Summary
         </h3>
-        {analysisYear && (
+
+        {/* Year Tabs for multi-year reforms */}
+        {hasMultipleYears ? (
+          <div style={{
+            display: "flex",
+            gap: spacing.xs,
+          }}>
+            {availableYears.map((year) => (
+              <button
+                key={year}
+                onClick={() => setSelectedYear(year)}
+                style={{
+                  padding: `${spacing.xs} ${spacing.md}`,
+                  fontSize: typography.fontSize.xs,
+                  fontWeight: selectedYear === year ? typography.fontWeight.semibold : typography.fontWeight.medium,
+                  fontFamily: typography.fontFamily.body,
+                  color: selectedYear === year ? colors.white : colors.primary[600],
+                  backgroundColor: selectedYear === year ? colors.primary[600] : colors.primary[50],
+                  border: "none",
+                  borderRadius: spacing.radius.md,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {year}
+              </button>
+            ))}
+          </div>
+        ) : analysisYear ? (
           <span style={{
             fontSize: typography.fontSize.xs,
             fontWeight: typography.fontWeight.medium,
@@ -98,7 +141,7 @@ export default function AggregateImpacts({ impacts }) {
           }}>
             {analysisYear} Analysis
           </span>
-        )}
+        ) : null}
       </div>
 
       {/* Budgetary Impact */}

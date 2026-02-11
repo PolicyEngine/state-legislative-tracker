@@ -61,9 +61,7 @@ export const stateData = {
       stateCTC: { available: true, name: "Young Child Tax Credit" },
     },
     legislativeActivity: "high",
-    activeBills: [
-      { bill: "ACA 3 (Billionaire Tax)", status: "Proposed", description: "5% wealth tax on $1B+", url: "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260ACA3" }
-    ],
+    activeBills: [],
     taxChanges: [],
   },
   CO: {
@@ -268,14 +266,7 @@ export const stateData = {
       stateCTC: { available: false },
     },
     legislativeActivity: "moderate",
-    activeBills: [
-      {
-        bill: "Invest in MI Kids Initiative",
-        status: "Proposed",
-        description: "Additional 5% tax on annual taxable income to fund public schools",
-        url: "https://www.michigan.gov/sos/-/media/Project/Websites/sos/BSC-Announcements/Invest-in-MI-Kids-Petition.pdf"
-      }
-    ],
+    activeBills: [],
   },
   MN: {
     name: "Minnesota",
@@ -395,14 +386,7 @@ export const stateData = {
       stateCTC: { available: true, name: "Empire State Child Credit" },
     },
     legislativeActivity: "high",
-    activeBills: [
-      {
-        bill: "S.2082 (Working Families Tax Credit)",
-        status: "Proposed",
-        description: "New refundable credit for working families",
-        url: "https://www.nysenate.gov/legislation/bills/2025/S2082"
-      }
-    ],
+    activeBills: [],
   },
   NC: {
     name: "North Carolina",
@@ -413,11 +397,8 @@ export const stateData = {
       stateEITC: { available: false },
       stateCTC: { available: false },
     },
-    legislativeActivity: "high",
+    legislativeActivity: "moderate",
     activeBills: [],
-    taxChanges: [
-      { change: "Flat 3.99%", effective: "Jan 2026", impact: "Continued rate reduction", url: "https://www.ncleg.net/EnactedLegislation/Statutes/PDF/BySection/Chapter_105/GS_105-153.7.pdf" }
-    ],
   },
   ND: {
     name: "North Dakota",
@@ -440,11 +421,8 @@ export const stateData = {
       stateEITC: { available: true, match: "30%" },
       stateCTC: { available: false },
     },
-    legislativeActivity: "high",
+    legislativeActivity: "moderate",
     activeBills: [],
-    taxChanges: [
-      { change: "Flat 2.75%", effective: "Jan 2026", impact: "-$1.1B revenue", url: "https://codes.ohio.gov/assets/laws/revised-code/authenticated/57/5747/5747.02/9-30-2025/5747.02-9-30-2025.pdf" }
-    ],
   },
   OK: {
     name: "Oklahoma",
@@ -504,15 +482,7 @@ export const stateData = {
       stateCTC: { available: false },
     },
     legislativeActivity: "high",
-    activeBills: [
-      {
-        bill: "H.4216",
-        status: "Proposed",
-        description: "Flat 3.99% tax proposal",
-        url: "https://www.scstatehouse.gov/billsearch.php?billnumbers=4216&session=126"
-      },
-      // H.3492 loaded from Supabase with reformConfig
-    ],
+    activeBills: [],
   },
   SD: {
     name: "South Dakota",
@@ -595,15 +565,8 @@ export const stateData = {
       stateEITC: { available: true, name: "Working Families Tax Credit", type: "custom" },
       stateCTC: { available: false },
     },
-    legislativeActivity: "high",
-    activeBills: [
-      {
-        bill: "Millionaires' Tax Proposal",
-        status: "Proposed",
-        description: "9.9% income tax on earnings over $1M",
-        url: "https://governor.wa.gov/news/2025/governor-ferguson-announces-support-millionaires-tax"
-      }
-    ],
+    legislativeActivity: "moderate",
+    activeBills: [],
   },
   WV: {
     name: "West Virginia",

@@ -158,13 +158,13 @@ function UtahDistrictMap({ reformId }) {
   // Calculate max benefit for color scaling
   const maxBenefit = hasDistrictData
     ? Math.max(...Object.values(UTAH_DISTRICT_PATHS).map((_, idx) =>
-        Math.abs(reformImpacts.districtImpacts[`UT-${idx + 1}`]?.avgBenefit || 0)
+        Math.abs(yearImpacts.districtImpacts[`UT-${idx + 1}`]?.avgBenefit || 0)
       ))
     : 150;
 
   const activeDistrict = selectedDistrict;
   const activeImpact = activeDistrict && hasDistrictData
-    ? reformImpacts.districtImpacts[`UT-${activeDistrict}`]
+    ? yearImpacts.districtImpacts[`UT-${activeDistrict}`]
     : null;
 
   return (
@@ -213,7 +213,7 @@ function UtahDistrictMap({ reformId }) {
             {/* District shapes - real geographic boundaries */}
             {Object.entries(UTAH_DISTRICT_PATHS).map(([districtId, data]) => {
               const impact = hasDistrictData
-                ? reformImpacts.districtImpacts[`UT-${districtId}`]
+                ? yearImpacts.districtImpacts[`UT-${districtId}`]
                 : null;
               const avgBenefit = impact?.avgBenefit || 0;
               const isSelected = selectedDistrict === districtId;
@@ -369,7 +369,7 @@ function UtahDistrictMap({ reformId }) {
         }}>
           {Object.entries(UTAH_DISTRICT_PATHS).map(([districtId, data]) => {
             const impact = hasDistrictData
-              ? reformImpacts.districtImpacts[`UT-${districtId}`]
+              ? yearImpacts.districtImpacts[`UT-${districtId}`]
               : null;
             const avgBenefit = impact?.avgBenefit || 0;
             const isActive = activeDistrict === districtId;
@@ -640,7 +640,7 @@ function CardBasedDistrictView({ stateAbbr, reformId }) {
   }
 
   const maxBenefit = hasDistrictData
-    ? Math.max(...districts.map(d => Math.abs(reformImpacts.districtImpacts[`${stateAbbr}-${d.id}`]?.avgBenefit || 0)))
+    ? Math.max(...districts.map(d => Math.abs(yearImpacts.districtImpacts[`${stateAbbr}-${d.id}`]?.avgBenefit || 0)))
     : 100;
 
   return (
@@ -651,7 +651,7 @@ function CardBasedDistrictView({ stateAbbr, reformId }) {
     }}>
       {districts.map((district) => {
         const impact = hasDistrictData
-          ? reformImpacts.districtImpacts[`${stateAbbr}-${district.id}`]
+          ? yearImpacts.districtImpacts[`${stateAbbr}-${district.id}`]
           : null;
         const avgBenefit = impact?.avgBenefit || 0;
         const isPositive = avgBenefit > 0;
@@ -1239,7 +1239,7 @@ function DistrictDropdown({ geoData, getDistrictInfo, hasDistrictData, reformImp
   );
 }
 
-function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData }) {
+function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData, selectedYear }) {
   const [selectedDistrict, setSelectedDistrict] = useState(null);
   const [geoData, setGeoData] = useState(prefetchedGeoData || null);
   const [loading, setLoading] = useState(!prefetchedGeoData);
@@ -1248,7 +1248,12 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData }) {
   const [panCenter, setPanCenter] = useState(null);
   const { getImpact } = useData();
   const reformImpacts = getImpact(reformId);
-  const hasDistrictData = reformImpacts?.districtImpacts;
+
+  // Get district impacts - from impactsByYear if multi-year, otherwise from root
+  const yearImpacts = selectedYear && reformImpacts?.impactsByYear?.[selectedYear]
+    ? reformImpacts.impactsByYear[selectedYear]
+    : reformImpacts;
+  const hasDistrictData = yearImpacts?.districtImpacts;
 
   // Use prefetched data if it arrives after mount
   useEffect(() => {
@@ -1315,8 +1320,8 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData }) {
   // Calculate max benefit for color scaling
   const maxBenefit = useMemo(() => {
     if (!hasDistrictData) return 100;
-    return Math.max(...Object.values(reformImpacts.districtImpacts).map(d => Math.abs(d?.avgBenefit || 0)), 1);
-  }, [hasDistrictData, reformImpacts]);
+    return Math.max(...Object.values(yearImpacts.districtImpacts).map(d => Math.abs(d?.avgBenefit || 0)), 1);
+  }, [hasDistrictData, yearImpacts]);
 
   if (loading) {
     return (
@@ -1352,12 +1357,12 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData }) {
 
   const getAvgBenefit = (districtId) => {
     if (!hasDistrictData) return 0;
-    return reformImpacts.districtImpacts[districtId]?.avgBenefit || 0;
+    return yearImpacts.districtImpacts[districtId]?.avgBenefit || 0;
   };
 
   const activeDistrict = selectedDistrict;
   const activeImpact = activeDistrict && hasDistrictData
-    ? reformImpacts.districtImpacts[activeDistrict]
+    ? yearImpacts.districtImpacts[activeDistrict]
     : null;
 
   const center = STATE_CENTERS[stateAbbr] || [-97, 38];
@@ -1632,30 +1637,75 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData }) {
 }
 
 export default function DistrictMap({ stateAbbr, reformId, prefetchedGeoData }) {
+  const { getImpact } = useData();
+  const impacts = getImpact(reformId);
+
+  // Check for multi-year impacts
+  const availableYears = impacts?.impactsByYear ? Object.keys(impacts.impactsByYear).sort() : [];
+  const hasMultipleYears = availableYears.length > 1;
+  const defaultYear = hasMultipleYears ? availableYears[0] : null;
+  const [selectedYear, setSelectedYear] = useState(defaultYear);
+
   // Use generic map for all states
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-      <div style={{ marginBottom: spacing.md, flexShrink: 0 }}>
-        <h3 style={{
-          margin: 0,
-          fontSize: typography.fontSize.lg,
-          fontWeight: typography.fontWeight.semibold,
-          fontFamily: typography.fontFamily.primary,
-          color: colors.secondary[900],
-        }}>
-          Impact by Congressional District
-        </h3>
-        <p style={{
-          margin: `${spacing.xs} 0 0`,
-          fontSize: typography.fontSize.sm,
-          fontFamily: typography.fontFamily.body,
-          color: colors.text.secondary,
-        }}>
-          Click on a district to see detailed impact analysis
-        </p>
+      <div style={{ marginBottom: spacing.md, flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <h3 style={{
+            margin: 0,
+            fontSize: typography.fontSize.lg,
+            fontWeight: typography.fontWeight.semibold,
+            fontFamily: typography.fontFamily.primary,
+            color: colors.secondary[900],
+          }}>
+            Impact by Congressional District
+          </h3>
+          <p style={{
+            margin: `${spacing.xs} 0 0`,
+            fontSize: typography.fontSize.sm,
+            fontFamily: typography.fontFamily.body,
+            color: colors.text.secondary,
+          }}>
+            Click on a district to see detailed impact analysis
+          </p>
+        </div>
+
+        {/* Year Tabs for multi-year reforms */}
+        {hasMultipleYears && (
+          <div style={{
+            display: "flex",
+            gap: spacing.xs,
+          }}>
+            {availableYears.map((year) => (
+              <button
+                key={year}
+                onClick={() => setSelectedYear(year)}
+                style={{
+                  padding: `${spacing.xs} ${spacing.md}`,
+                  fontSize: typography.fontSize.xs,
+                  fontWeight: selectedYear === year ? typography.fontWeight.semibold : typography.fontWeight.medium,
+                  fontFamily: typography.fontFamily.body,
+                  color: selectedYear === year ? colors.white : colors.primary[600],
+                  backgroundColor: selectedYear === year ? colors.primary[600] : colors.primary[50],
+                  border: "none",
+                  borderRadius: spacing.radius.md,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {year}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-        <GenericStateDistrictMap stateAbbr={stateAbbr} reformId={reformId} prefetchedGeoData={prefetchedGeoData} />
+        <GenericStateDistrictMap
+          stateAbbr={stateAbbr}
+          reformId={reformId}
+          prefetchedGeoData={prefetchedGeoData}
+          selectedYear={selectedYear}
+        />
       </div>
     </div>
   );
