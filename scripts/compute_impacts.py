@@ -299,28 +299,17 @@ def compute_budgetary_impact(baseline, reformed, state: str, year: int = 2026) -
     """
     Compute state revenue impact.
 
-    Matches API budgetary_impact() approach:
-    - Weighted sums for revenue
-    - sum(household_weight) for household count
-
-    Note: State-specific datasets already filtered to target state.
+    Matches policyengine.py ProgramStatistics approach:
+    - calculate() returns weighted MicroSeries, so .sum() is already weighted
+    - sum(household_weight raw values) for household count
     """
-    from microdf import MicroSeries
-
-    # Get state income tax (at tax_unit level)
-    baseline_tax = baseline.calculate("state_income_tax", year).values
-    reform_tax = reformed.calculate("state_income_tax", year).values
-    tax_unit_weight = baseline.calculate("tax_unit_weight", year).values
-
-    # Compute weighted sum of tax change
-    baseline_revenue = MicroSeries(baseline_tax, weights=tax_unit_weight).sum()
-    reform_revenue = MicroSeries(reform_tax, weights=tax_unit_weight).sum()
-
+    # calculate() returns MicroSeries with tax_unit_weight — .sum() is weighted
+    baseline_revenue = baseline.calculate("state_income_tax", year).sum()
+    reform_revenue = reformed.calculate("state_income_tax", year).sum()
     revenue_change = float(reform_revenue - baseline_revenue)
 
-    # Household count: sum(household_weight) matching API approach
-    household_weight = baseline.calculate("household_weight", year).values
-    total_households = int(np.sum(household_weight))
+    # Household count: sum of raw weight values (not weighted sum)
+    total_households = int(baseline.calculate("household_weight", year).values.sum())
 
     return format_budgetary_impact(
         state_revenue_impact=revenue_change,
@@ -332,26 +321,17 @@ def compute_poverty_impact(baseline, reformed, state: str, year: int = 2026, chi
     """
     Compute poverty rate change.
 
-    Matches API poverty_impact() exactly:
-    - Variable: person_in_poverty (person-level)
-    - Weighted by person_weight
-    - Child filter: age < 18 (matching API)
+    Matches policyengine.py poverty_impact() exactly:
+    - calculate() returns weighted MicroSeries (person_weight)
+    - .mean() gives weighted poverty rate
+    - Child filter: age < 18
     """
-    from microdf import MicroSeries
-
-    # API uses person_in_poverty (person-level variable)
-    baseline_poverty = MicroSeries(
-        baseline.calculate("person_in_poverty", year).values.astype(float),
-        weights=baseline.calculate("person_weight", year).values,
-    )
-    reform_poverty = MicroSeries(
-        reformed.calculate("person_in_poverty", year).values.astype(float),
-        weights=baseline_poverty.weights,
-    )
+    # calculate() returns MicroSeries with person_weight already attached
+    baseline_poverty = baseline.calculate("person_in_poverty", year)
+    reform_poverty = reformed.calculate("person_in_poverty", year)
 
     if child_only:
-        # API uses age < 18, not is_child
-        age = MicroSeries(baseline.calculate("age", year).values)
+        age = baseline.calculate("age", year)
         baseline_rate = float(baseline_poverty[age < 18].mean())
         reform_rate = float(reform_poverty[age < 18].mean())
     else:
@@ -368,30 +348,16 @@ def compute_winners_losers(baseline, reformed, state: str, year: int = 2026) -> 
     """
     Compute winners/losers breakdown.
 
-    Matches API intra_decile_impact() exactly:
+    Matches policyengine.py intra_decile_impact() exactly:
     - BOUNDS/LABELS loop with (income_change > lower) & (income_change <= upper)
-    - Single people MicroSeries for all households
     - people[in_both].sum() / people[in_decile].sum() proportions
     - "all" = arithmetic mean of 10 decile proportions
     """
-    from microdf import MicroSeries
-
-    # Create MicroSeries exactly as API does
-    baseline_income = MicroSeries(
-        baseline.calculate("household_net_income", year).values,
-        weights=baseline.calculate("household_weight", year).values,
-    )
-    reform_income = MicroSeries(
-        reformed.calculate("household_net_income", year).values,
-        weights=baseline_income.weights,
-    )
-    people = MicroSeries(
-        baseline.calculate("household_count_people", year).values,
-        weights=baseline_income.weights,
-    )
-    decile = MicroSeries(
-        baseline.calculate("household_income_decile", year).values,
-    ).values
+    # calculate() returns weighted MicroSeries (household_weight)
+    baseline_income = baseline.calculate("household_net_income", year)
+    reform_income = reformed.calculate("household_net_income", year)
+    people = baseline.calculate("household_count_people", year)
+    decile = baseline.calculate("household_income_decile", year).values
 
     # Relative change formula (matching API exactly)
     absolute_change = (reform_income - baseline_income).values
@@ -450,24 +416,17 @@ def compute_decile_impact(baseline, reformed, state: str, year: int = 2026) -> d
     """
     Compute average income change by decile.
 
-    Matches API decile_impact() exactly:
-    - MicroSeries + groupby approach
+    Matches policyengine.py decile_impact() exactly:
+    - calculate() returns weighted MicroSeries (household_weight)
+    - groupby decile for relative and average breakdowns
     - Filter out negative decile values (decile >= 0)
-    - Compute both relative and average keys
     """
-    from microdf import MicroSeries
-
-    baseline_income = MicroSeries(
-        baseline.calculate("household_net_income", year).values,
-        weights=baseline.calculate("household_weight", year).values,
-    )
-    reform_income = MicroSeries(
-        reformed.calculate("household_net_income", year).values,
-        weights=baseline_income.weights,
-    )
+    # calculate() returns weighted MicroSeries (household_weight)
+    baseline_income = baseline.calculate("household_net_income", year)
+    reform_income = reformed.calculate("household_net_income", year)
 
     # Filter out negative decile values (matching API)
-    decile = MicroSeries(baseline.calculate("household_income_decile", year).values)
+    decile = baseline.calculate("household_income_decile", year)
     baseline_income_filtered = baseline_income[decile >= 0]
     reform_income_filtered = reform_income[decile >= 0]
 
@@ -498,11 +457,8 @@ def compute_district_impacts(baseline, reformed, state: str, year: int = 2026) -
     """
     Compute impacts by congressional district.
 
-    Matches API approach:
-    - MicroSeries for avg benefit: (reform.sum() - baseline.sum()) / baseline.count()
-    - person_in_poverty (person-level variable, matching API poverty_impact)
-    - age < 18 for child filter (matching API)
-    - Winners/losers per decile using same BOUNDS pattern as intra_decile_impact
+    Uses raw .values arrays for per-district slicing, then MicroSeries
+    for weighted aggregation within each district.
     """
     from microdf import MicroSeries
 
@@ -519,7 +475,8 @@ def compute_district_impacts(baseline, reformed, state: str, year: int = 2026) -
 
     state_fips = STATE_FIPS[state_upper]
 
-    # Get household-level variables
+    # Extract raw arrays for per-district slicing (can't use MicroSeries here
+    # because we need to create sub-arrays for each district)
     baseline_income = baseline.calculate("household_net_income", year).values
     reform_income = reformed.calculate("household_net_income", year).values
     household_weight = baseline.calculate("household_weight", year).values
@@ -527,7 +484,7 @@ def compute_district_impacts(baseline, reformed, state: str, year: int = 2026) -
     household_income_decile = baseline.calculate("household_income_decile", year).values
     cd_geoid = baseline.calculate("congressional_district_geoid", year).values
 
-    # Person-level variables for poverty (matching API: person_in_poverty, age < 18)
+    # Person-level raw arrays for per-district poverty
     baseline_poverty_person = baseline.calculate("person_in_poverty", year).values.astype(float)
     reform_poverty_person = reformed.calculate("person_in_poverty", year).values.astype(float)
     person_weight = baseline.calculate("person_weight", year).values
