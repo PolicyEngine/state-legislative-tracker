@@ -42,83 +42,85 @@ const StatusBadge = ({ status }) => {
 
 const ChangeRow = ({ label, baseline, reform, compact }) => (
   <div style={{
-    display: "flex",
-    alignItems: "center",
-    gap: compact ? spacing.sm : spacing.lg,
     padding: compact ? `${spacing.sm} ${spacing.md}` : spacing.lg,
     backgroundColor: colors.background.secondary,
     borderRadius: spacing.radius.lg,
   }}>
-    <div style={{ textAlign: compact ? "left" : "center", flex: 1 }}>
-      {!compact && (
-        <p style={{
-          margin: `0 0 ${spacing.xs}`,
-          fontSize: typography.fontSize.xs,
-          fontFamily: typography.fontFamily.body,
-          color: colors.text.tertiary,
-          textTransform: "uppercase",
-          letterSpacing: "0.5px",
-        }}>
-          Current
-        </p>
-      )}
-      {compact && label && (
-        <p style={{
-          margin: `0 0 2px`,
-          fontSize: typography.fontSize.xs,
-          fontFamily: typography.fontFamily.body,
-          color: colors.text.tertiary,
-        }}>
-          {label}
-        </p>
-      )}
+    {compact && label && (
       <p style={{
-        margin: 0,
-        fontSize: compact ? typography.fontSize.sm : typography.fontSize.lg,
-        fontWeight: typography.fontWeight.semibold,
-        fontFamily: typography.fontFamily.primary,
-        color: colors.text.secondary,
+        margin: `0 0 ${spacing.xs}`,
+        fontSize: typography.fontSize.xs,
+        fontFamily: typography.fontFamily.body,
+        color: colors.text.tertiary,
       }}>
-        {baseline}
+        {label}
       </p>
-    </div>
-
+    )}
     <div style={{
       display: "flex",
       alignItems: "center",
-      justifyContent: "center",
-      width: compact ? 28 : 40,
-      height: compact ? 28 : 40,
-      borderRadius: "50%",
-      backgroundColor: colors.primary[50],
-      flexShrink: 0,
+      gap: compact ? spacing.sm : spacing.lg,
     }}>
-      <ArrowIcon />
-    </div>
-
-    <div style={{ textAlign: compact ? "left" : "center", flex: 1 }}>
-      {!compact && (
+      <div style={{ textAlign: compact ? "left" : "center", flex: 1 }}>
+        {!compact && (
+          <p style={{
+            margin: `0 0 ${spacing.xs}`,
+            fontSize: typography.fontSize.xs,
+            fontFamily: typography.fontFamily.body,
+            color: colors.text.tertiary,
+            textTransform: "uppercase",
+            letterSpacing: "0.5px",
+          }}>
+            Current
+          </p>
+        )}
         <p style={{
-          margin: `0 0 ${spacing.xs}`,
-          fontSize: typography.fontSize.xs,
-          fontFamily: typography.fontFamily.body,
-          color: colors.text.tertiary,
-          textTransform: "uppercase",
-          letterSpacing: "0.5px",
+          margin: 0,
+          fontSize: compact ? typography.fontSize.sm : typography.fontSize.lg,
+          fontWeight: typography.fontWeight.semibold,
+          fontFamily: typography.fontFamily.primary,
+          color: colors.text.secondary,
         }}>
-          Proposed
+          {baseline}
         </p>
-      )}
-      {compact && <div style={{ height: label ? "calc(1em + 2px)" : 0 }} />}
-      <p style={{
-        margin: 0,
-        fontSize: compact ? typography.fontSize.sm : typography.fontSize.lg,
-        fontWeight: typography.fontWeight.bold,
-        fontFamily: typography.fontFamily.primary,
-        color: colors.primary[600],
+      </div>
+
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: compact ? 28 : 40,
+        height: compact ? 28 : 40,
+        borderRadius: "50%",
+        backgroundColor: colors.primary[50],
+        flexShrink: 0,
       }}>
-        {reform}
-      </p>
+        <ArrowIcon />
+      </div>
+
+      <div style={{ textAlign: compact ? "left" : "center", flex: 1 }}>
+        {!compact && (
+          <p style={{
+            margin: `0 0 ${spacing.xs}`,
+            fontSize: typography.fontSize.xs,
+            fontFamily: typography.fontFamily.body,
+            color: colors.text.tertiary,
+            textTransform: "uppercase",
+            letterSpacing: "0.5px",
+          }}>
+            Proposed
+          </p>
+        )}
+        <p style={{
+          margin: 0,
+          fontSize: compact ? typography.fontSize.sm : typography.fontSize.lg,
+          fontWeight: typography.fontWeight.bold,
+          fontFamily: typography.fontFamily.primary,
+          color: colors.primary[600],
+        }}>
+          {reform}
+        </p>
+      </div>
     </div>
   </div>
 );
