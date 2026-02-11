@@ -4,7 +4,7 @@ import {
   Geographies,
   Geography,
   ZoomableGroup,
-  Annotation,
+  Marker,
 } from "react-simple-maps";
 import { stateData } from "../data/states";
 import { colors, mapColors } from "../designTokens";
@@ -193,22 +193,14 @@ const USMap = memo(({ selectedState, onStateSelect }) => {
             }
           </Geographies>
 
-          {/* DC callout - too small to see/click on the map */}
-          <Annotation
-            subject={[-77.04, 38.9]}
-            dx={50}
-            dy={-30}
-            connectorProps={{
-              stroke: colors.gray[400],
-              strokeWidth: 1,
-            }}
-          >
+          {/* DC - placed below Alaska as an inset since it's too small on the map */}
+          <Marker coordinates={[-71, 37]}>
             <rect
-              x={-2}
-              y={-12}
+              x={-14}
+              y={-10}
               width={28}
-              height={16}
-              rx={3}
+              height={20}
+              rx={4}
               fill={getStateColor("DC")}
               stroke={selectedState === "DC" ? colors.primary[700] : colors.white}
               strokeWidth={selectedState === "DC" ? 2 : 0.5}
@@ -217,17 +209,17 @@ const USMap = memo(({ selectedState, onStateSelect }) => {
               className="state-path"
             />
             <text
-              x={12}
-              y={0}
+              y={1}
               textAnchor="middle"
-              fontSize={8}
-              fontWeight={600}
+              dominantBaseline="middle"
+              fontSize={7}
+              fontWeight={700}
               fill={colors.white}
               style={{ pointerEvents: "none" }}
             >
               DC
             </text>
-          </Annotation>
+          </Marker>
         </ZoomableGroup>
       </ComposableMap>
     </div>
