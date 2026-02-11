@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { getProvisions, getModelNotes, hasDescriptions } from '../data/analysisDescriptions';
 
 const DataContext = createContext(null);
 
@@ -31,7 +32,29 @@ export function DataProvider({ children }) {
         // Convert impacts to dict with camelCase
         const impactsDict = {};
         for (const item of impactsResult.data || []) {
-          // Parse model_notes if it's a string (Supabase sometimes returns JSON as string)
+          // Get provisions and model notes from local file first, fall back to Supabase
+          let provisions;
+          let localModelNotes;
+
+          if (hasDescriptions(item.id)) {
+            // Use local descriptions (version-controlled)
+            provisions = getProvisions(item.id);
+            localModelNotes = getModelNotes(item.id);
+          } else {
+            // Fall back to Supabase data
+            provisions = item.provisions;
+            if (typeof provisions === 'string') {
+              try {
+                provisions = JSON.parse(provisions);
+              } catch (e) {
+                console.error('Failed to parse provisions:', e);
+                provisions = [];
+              }
+            }
+            localModelNotes = null;
+          }
+
+          // Parse model_notes from Supabase (still needed for impacts_by_year and computed metadata)
           let modelNotes = item.model_notes;
           if (typeof modelNotes === 'string') {
             try {
@@ -43,16 +66,15 @@ export function DataProvider({ children }) {
           }
           modelNotes = modelNotes || {};
 
-          // Parse provisions if it's a string
-          let provisions = item.provisions;
-          if (typeof provisions === 'string') {
-            try {
-              provisions = JSON.parse(provisions);
-            } catch (e) {
-              console.error('Failed to parse provisions:', e);
-              provisions = [];
-            }
-          }
+          // Merge local model notes with Supabase model notes (local takes precedence for descriptions)
+          const mergedModelNotes = {
+            ...modelNotes,
+            ...(localModelNotes ? {
+              analysis_year: localModelNotes.analysisYear,
+              effective_date: localModelNotes.effectiveDate,
+              note: localModelNotes.note,
+            } : {})
+          };
 
           impactsDict[item.id] = {
             computed: item.computed,
@@ -67,9 +89,9 @@ export function DataProvider({ children }) {
             districtImpacts: item.district_impacts,
             reformParams: item.reform_params,
             provisions: provisions,
-            modelNotes: modelNotes,
-            analysisYear: modelNotes?.analysis_year,
-            impactsByYear: modelNotes?.impacts_by_year,
+            modelNotes: mergedModelNotes,
+            analysisYear: mergedModelNotes?.analysis_year,
+            impactsByYear: modelNotes?.impacts_by_year, // Always from Supabase (computed data)
             policyengineUsVersion: item.policyengine_us_version,
             datasetVersion: item.dataset_version,
           };
