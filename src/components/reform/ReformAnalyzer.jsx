@@ -92,6 +92,13 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
     track("reform_analyzer_opened", { state_abbr: stateAbbr, reform_id: reformConfig.id, bill_label: reformConfig.label });
   }, [stateAbbr, reformConfig.id, reformConfig.label]);
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   // Get pre-computed aggregate impacts
   const aggregateImpacts = getImpact(reformConfig.id);
 
@@ -153,7 +160,9 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
   };
 
   return createPortal(
-    <div style={{
+    <div
+      onWheel={(e) => e.stopPropagation()}
+      style={{
       position: "fixed",
       top: 0,
       left: 0,
@@ -165,6 +174,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
       justifyContent: "center",
       zIndex: 1000,
       padding: spacing.lg,
+      overflow: "hidden",
     }}>
       <div
         className="animate-fade-in"
@@ -262,8 +272,9 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
         {/* Content */}
         <div style={{
           padding: spacing["2xl"],
-          overflowY: "auto",
+          overflowY: activeTab === "districts" ? "hidden" : "auto",
           flex: 1,
+          ...(activeTab === "districts" ? { display: "flex", flexDirection: "column", minHeight: 0 } : {}),
         }}>
           {/* Overview Tab */}
           {activeTab === "overview" && (
@@ -277,7 +288,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
 
           {/* Districts Tab */}
           {activeTab === "districts" && (
-            <div style={{ height: "100%", minHeight: "500px" }}>
+            <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
               <DistrictMap
                 stateAbbr={stateAbbr}
                 reformId={reformConfig.id}
