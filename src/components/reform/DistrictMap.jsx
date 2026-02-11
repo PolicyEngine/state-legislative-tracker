@@ -1581,7 +1581,7 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData, selec
           geoData={geoData}
           getDistrictInfo={getDistrictInfo}
           hasDistrictData={hasDistrictData}
-          reformImpacts={reformImpacts}
+          reformImpacts={yearImpacts}
           maxBenefit={maxBenefit}
           activeDistrict={activeDistrict}
           onSelect={setSelectedDistrict}
