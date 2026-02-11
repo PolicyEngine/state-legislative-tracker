@@ -17,6 +17,7 @@
  *   - analysisYear: The tax year being analyzed
  *   - effectiveDate: (optional) When the policy takes effect
  *   - note: (optional) Additional context
+ *   - sponsor: (optional) Bill sponsor with party affiliation
  */
 
 const analysisDescriptions = {
@@ -28,11 +29,12 @@ const analysisDescriptions = {
         baseline: "4.5%",
         reform: "4.45%",
         parameter: "gov.states.ut.tax.income.rate",
-        explanation: "Changes Utah's flat income tax rate from 4.5% to 4.45%."
+        explanation: "Reduces Utah's flat income tax rate from 4.5% to 4.45%, providing broad-based tax relief across all income levels."
       }
     ],
     modelNotes: {
-      analysisYear: 2026
+      analysisYear: 2026,
+      sponsor: "Sen. Lincoln Fillmore (R)"
     }
   },
 
@@ -47,7 +49,7 @@ const analysisDescriptions = {
           { label: "Surviving spouse", baseline: "None", reform: "$158" },
           { label: "Married filing separately", baseline: "None", reform: "$79" }
         ],
-        explanation: "Creates a new nonrefundable marriage tax credit for married filers. Income limit of $90,000 (joint) or $45,000 (MFS)."
+        explanation: "Establishes a new nonrefundable marriage tax credit for married filers with income below $90,000 (joint) or $45,000 (married filing separately)."
       },
       {
         label: "Child Tax Credit Phase-out",
@@ -57,7 +59,7 @@ const analysisDescriptions = {
           { label: "Single filers", baseline: "$43,000", reform: "$27,000" },
           { label: "Head of household", baseline: "$43,000", reform: "$27,000" }
         ],
-        explanation: "Changes the CTC phase-out start to equal half the $54,000 joint threshold."
+        explanation: "Adjusts the Child Tax Credit phase-out threshold to equal half of the $54,000 joint threshold, ensuring equitable treatment across filing statuses."
       },
       {
         label: "Taxpayer Credit Phase-out",
@@ -66,7 +68,7 @@ const analysisDescriptions = {
         changes: [
           { label: "Head of household", baseline: "$27,320", reform: "$18,626" }
         ],
-        explanation: "Changes the taxpayer credit phase-out threshold for head-of-household filers to match single filers."
+        explanation: "Aligns the taxpayer credit phase-out threshold for head-of-household filers with the threshold applicable to single filers."
       },
       {
         label: "Retirement Credit Phase-out",
@@ -76,7 +78,7 @@ const analysisDescriptions = {
           { label: "Single filers", baseline: "$25,000", reform: "$16,000" },
           { label: "Head of household", baseline: "$32,000", reform: "$16,000" }
         ],
-        explanation: "Changes the retirement credit phase-out threshold to equal half the $32,000 joint threshold."
+        explanation: "Sets the retirement credit phase-out threshold at half of the $32,000 joint threshold for single and head-of-household filers."
       },
       {
         label: "Social Security Benefits Credit Phase-out",
@@ -86,13 +88,14 @@ const analysisDescriptions = {
           { label: "Single filers", baseline: "$54,000", reform: "$45,000" },
           { label: "Head of household", baseline: "$90,000", reform: "$45,000" }
         ],
-        explanation: "Changes the SS benefits credit phase-out threshold to equal half the $90,000 joint threshold."
+        explanation: "Standardizes the Social Security benefits credit phase-out threshold at half of the $90,000 joint threshold."
       }
     ],
     modelNotes: {
       analysisYear: 2026,
       effectiveDate: "January 1, 2026",
-      note: "Substitute 2 version. Key change from original: EITC stays at 20% (not repealed), new marriage credit replaces taxpayer credit add-on."
+      note: "Substitute 2 version. Key change from original: EITC remains at 20% (not repealed), new marriage credit replaces taxpayer credit add-on.",
+      sponsor: "Rep. Melissa Garff Ballard (R)"
     }
   },
 
@@ -109,11 +112,12 @@ const analysisDescriptions = {
           { label: "Surviving spouse", baseline: "$54,000", reform: "$61,000" },
           { label: "Married filing separately", baseline: "$27,000", reform: "$30,500" }
         ],
-        explanation: "Increases the income thresholds at which Utah's Child Tax Credit begins to phase out for all filing statuses."
+        explanation: "Raises the income thresholds at which Utah's Child Tax Credit begins to phase out, expanding eligibility to additional middle-income families."
       }
     ],
     modelNotes: {
-      analysisYear: 2026
+      analysisYear: 2026,
+      sponsor: "Rep. Tracy Miller (R)"
     }
   },
 
@@ -125,11 +129,12 @@ const analysisDescriptions = {
         baseline: "5% of federal EITC",
         reform: "10% of federal EITC",
         parameter: "gov.states.ok.tax.income.credits.earned_income.eitc_fraction",
-        explanation: "Doubles Oklahoma's state Earned Income Tax Credit from 5% to 10% of the federal EITC."
+        explanation: "Doubles Oklahoma's state Earned Income Tax Credit from 5% to 10% of the federal EITC, providing increased support for low- and moderate-income working families."
       }
     ],
     modelNotes: {
-      analysisYear: 2026
+      analysisYear: 2026,
+      sponsor: "Rep. Cyndi Munson (D)"
     }
   },
 
@@ -144,11 +149,12 @@ const analysisDescriptions = {
           { label: "Families with young child (under 3)", baseline: "12%", reform: "17%" },
           { label: "All other filers", baseline: "9%", reform: "14%" }
         ],
-        explanation: "Increases Oregon's EITC match rate as a percentage of the federal Earned Income Tax Credit."
+        explanation: "Increases Oregon's EITC match rate as a percentage of the federal Earned Income Tax Credit, with enhanced benefits for families with children under age 3."
       }
     ],
     modelNotes: {
-      analysisYear: 2026
+      analysisYear: 2026,
+      note: "Governor's budget proposal"
     }
   },
 
@@ -160,11 +166,12 @@ const analysisDescriptions = {
         baseline: "Non-refundable",
         reform: "Fully refundable",
         parameter: "gov.contrib.states.sc.h3492.in_effect",
-        explanation: "Changes the South Carolina EITC from non-refundable to fully refundable. Filers whose credit exceeds their tax liability would receive the difference as a refund."
+        explanation: "Converts South Carolina's Earned Income Tax Credit from non-refundable to fully refundable, enabling filers whose credit exceeds their tax liability to receive the difference as a refund."
       }
     ],
     modelNotes: {
-      analysisYear: 2026
+      analysisYear: 2026,
+      sponsor: "Reps. Gilda Cobb-Hunter (D) and Roger Kirby (D)"
     }
   },
 
@@ -175,18 +182,19 @@ const analysisDescriptions = {
         baseline: "3%",
         reform: "3.99%",
         parameter: "gov.states.sc.tax.income.rates.brackets[1].rate",
-        explanation: "Changes the second income tax bracket rate from 3% to 3.99%."
+        explanation: "Increases the second income tax bracket rate from 3% to 3.99% as part of a transition to a flat tax structure."
       },
       {
         label: "SC Income Tax Rate (Top Bracket)",
         baseline: "6.2%",
         reform: "3.99%",
         parameter: "gov.states.sc.tax.income.rates.brackets[2].rate",
-        explanation: "Changes the top income tax bracket rate from 6.2% to 3.99%, creating a single rate across brackets."
+        explanation: "Reduces the top income tax bracket rate from 6.2% to 3.99%, establishing a flat tax rate across brackets."
       }
     ],
     modelNotes: {
-      analysisYear: 2026
+      analysisYear: 2026,
+      sponsor: "Rep. Bruce Bannister (R)"
     }
   },
 
@@ -204,7 +212,7 @@ const analysisDescriptions = {
           { label: "Head of household", baseline: "$3,000", reform: "$15,000" },
           { label: "Joint filers", baseline: "$6,000", reform: "$20,000" }
         ],
-        explanation: "Triples Virginia standard deduction amounts, primarily benefiting lower and middle income households."
+        explanation: "More than triples Virginia's standard deduction amounts, providing tax relief primarily to lower- and middle-income households."
       },
       {
         label: "High-Earner Tax Brackets",
@@ -214,11 +222,12 @@ const analysisDescriptions = {
           { label: "Income $600k-$1M", baseline: "5.75%", reform: "8%" },
           { label: "Income over $1M", baseline: "5.75%", reform: "10%" }
         ],
-        explanation: "Adds new tax brackets for high earners: 8% on income between $600,000 and $1 million, and 10% on income over $1 million."
+        explanation: "Establishes two new tax brackets for high earners: 8% on taxable income between $600,000 and $1 million, and 10% on income exceeding $1 million."
       }
     ],
     modelNotes: {
-      analysisYear: 2027
+      analysisYear: 2027,
+      sponsor: "Del. Vivian Watts (D)"
     }
   },
 
@@ -226,15 +235,16 @@ const analysisDescriptions = {
   "ny-s4487": {
     provisions: [
       {
-        label: "NY S04487 Newborn Credit",
+        label: "Supplemental Empire State Child Credit for Newborns",
         baseline: "Not in effect",
         reform: "$1,000 per newborn (ages 0-1)",
         parameter: "gov.contrib.states.ny.s04487.in_effect",
-        explanation: "Creates a new $1,000 refundable supplemental credit for each qualifying newborn (child born in current or previous tax year, ages 0-1). This is in addition to the existing Empire State Child Credit."
+        explanation: "Creates a new $1,000 refundable supplemental credit for each qualifying newborn (child born in the current or previous tax year, ages 0-1), provided in addition to the existing Empire State Child Credit."
       }
     ],
     modelNotes: {
-      analysisYear: 2026
+      analysisYear: 2026,
+      sponsor: "Sen. Jacob Ashby (R)"
     }
   },
 
@@ -243,31 +253,32 @@ const analysisDescriptions = {
       {
         label: "Extend Enhanced ESCC Structure",
         baseline: "Expires 2027",
-        reform: "Extends permanently",
-        explanation: "Extends the post-2024 Empire State Child Credit structure beyond 2027"
+        reform: "Extended permanently",
+        explanation: "Extends the post-2024 Empire State Child Credit structure beyond 2027, preserving the enhanced credit amounts and expanded eligibility."
       },
       {
         label: "Credit for Young Children (Ages 0-3)",
         baseline: "$1,000",
         reform: "$1,500",
-        explanation: "Increases from $1,000 (2026) to $1,150 (2027), $1,300 (2028), $1,500 (2029+)"
+        explanation: "Phases in credit increases from $1,000 (2026) to $1,150 (2027), $1,300 (2028), and $1,500 (2029 and thereafter)."
       },
       {
         label: "Credit for Older Children (Ages 4-16)",
         baseline: "$500",
         reform: "$1,500",
-        explanation: "Increases from $500 (2026) to $750 (2027), $1,000 (2028), $1,250 (2029), $1,500 (2030+)"
+        explanation: "Phases in credit increases from $500 (2026) to $750 (2027), $1,000 (2028), $1,250 (2029), and $1,500 (2030 and thereafter)."
       },
       {
         label: "Age Eligibility",
         baseline: "Under 17",
         reform: "Under 18",
-        explanation: "Raises the age cap to include 17-year-olds in the credit"
+        explanation: "Expands eligibility to include 17-year-olds in the Empire State Child Credit."
       }
     ],
     modelNotes: {
       analysisYear: 2031,
-      note: "Multi-year analysis showing impacts from 2027-2031 as credit amounts phase in"
+      note: "Multi-year analysis showing impacts from 2027-2031 as credit amounts phase in.",
+      sponsor: "Sen. Andrew Gounardes (D)"
     }
   }
 };
