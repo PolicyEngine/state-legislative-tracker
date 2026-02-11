@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useState, useEffect } from "react";
 import { stateData } from "../data/states";
 import { useData } from "../context/DataContext";
 import ResearchCard from "./ResearchCard";
@@ -55,7 +55,7 @@ function SectionHeader({ children }) {
   );
 }
 
-const StatePanel = memo(({ stateAbbr, onClose }) => {
+const StatePanel = memo(({ stateAbbr, onClose, initialBillId }) => {
   const state = stateData[stateAbbr];
   const { getBillsForState, getResearchForState, loading } = useData();
   const [activeBill, setActiveBill] = useState(null);
@@ -64,6 +64,15 @@ const StatePanel = memo(({ stateAbbr, onClose }) => {
 
   // Get bills and research from Supabase
   const bills = getBillsForState(stateAbbr);
+
+  // Open bill from URL hash on mount
+  useEffect(() => {
+    if (initialBillId && bills.length > 0 && !activeBill) {
+      const match = bills.find(b => b.id === initialBillId && b.reformConfig);
+      if (match) setActiveBill(match);
+    }
+  }, [initialBillId, bills.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const research = getResearchForState(stateAbbr);
 
   // Separate research by status
@@ -226,6 +235,7 @@ const StatePanel = memo(({ stateAbbr, onClose }) => {
                     if (bill.reformConfig) {
                       track("bill_clicked", { state_abbr: stateAbbr, bill_id: bill.bill, has_reform: true });
                       setActiveBill(bill);
+                      window.location.hash = `${stateAbbr}/${bill.id}`;
                     }
                   }}
                   style={{
@@ -476,7 +486,10 @@ const StatePanel = memo(({ stateAbbr, onClose }) => {
           stateAbbr={stateAbbr}
           billUrl={activeBill.url}
           bill={activeBill}
-          onClose={() => setActiveBill(null)}
+          onClose={() => {
+            setActiveBill(null);
+            window.location.hash = stateAbbr;
+          }}
         />
       )}
     </div>

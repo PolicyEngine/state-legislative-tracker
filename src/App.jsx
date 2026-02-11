@@ -1,19 +1,43 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import USMap from "./components/USMap";
 import StatePanel from "./components/StatePanel";
 import { stateData } from "./data/states";
 import { colors, mapColors, typography, spacing } from "./designTokens";
 import { track } from "./lib/analytics";
 
-function App() {
-  const [selectedState, setSelectedState] = useState(null);
+function parseHash() {
+  const hash = window.location.hash.replace(/^#/, "");
+  if (!hash) return { state: null, billId: null };
+  const parts = hash.split("/");
+  const state = parts[0].toUpperCase();
+  const billId = parts[1] || null;
+  return { state: stateData[state] ? state : null, billId };
+}
 
-  const handleStateSelect = (abbr) => {
+function App() {
+  const [selectedState, setSelectedState] = useState(() => parseHash().state);
+  const [initialBillId, setInitialBillId] = useState(() => parseHash().billId);
+
+  const handleStateSelect = useCallback((abbr) => {
     setSelectedState(abbr);
+    setInitialBillId(null);
     if (abbr) {
+      window.location.hash = abbr;
       track("state_selected", { state_abbr: abbr, state_name: stateData[abbr]?.name });
+    } else {
+      history.pushState(null, "", window.location.pathname);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const { state, billId } = parseHash();
+      setSelectedState(state);
+      setInitialBillId(billId);
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
 
   return (
     <div style={{ minHeight: "100vh" }}>
@@ -126,7 +150,8 @@ function App() {
             {selectedState ? (
               <StatePanel
                 stateAbbr={selectedState}
-                onClose={() => setSelectedState(null)}
+                initialBillId={initialBillId}
+                onClose={() => handleStateSelect(null)}
               />
             ) : (
               <div style={{
