@@ -70,8 +70,6 @@ export default function AggregateImpacts({ impacts }) {
   // Use state income tax revenue impact for display
   // Note: For tax cuts, this is negative (state loses revenue, but households gain)
   const stateIncomeTaxImpact = budgetaryImpact?.stateRevenueImpact ?? budgetaryImpact?.netCost;
-  const isRevenueLoss = stateIncomeTaxImpact < 0;
-  const householdsGain = isRevenueLoss; // Tax cut = households benefit
 
   return (
     <div style={{
@@ -158,7 +156,7 @@ export default function AggregateImpacts({ impacts }) {
             fontSize: typography.fontSize["3xl"],
             fontWeight: typography.fontWeight.bold,
             fontFamily: typography.fontFamily.primary,
-            color: householdsGain ? colors.primary[600] : colors.red[600],
+            color: colors.secondary[900],
           }}>
             {formatCurrency(stateIncomeTaxImpact)}
           </span>
