@@ -134,7 +134,8 @@ const analysisDescriptions = {
     ],
     modelNotes: {
       analysisYear: 2026,
-      sponsor: "Rep. Cyndi Munson (D)"
+      sponsor: "Rep. Cyndi Munson (D)",
+      billUrl: "https://www.oklegislature.gov/cf_pdf/2025-26%20INT/hB/HB2229%20INT.PDF"
     }
   },
 
