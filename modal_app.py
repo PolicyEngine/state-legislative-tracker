@@ -23,12 +23,13 @@ image = (
     )
     .run_commands(
         # Clone repo and build - date command busts cache on each deploy
-        "date && echo 'v11'",
+        "date && echo 'v12'",
         f"git clone --branch {BRANCH} --single-branch {REPO_URL} /app",
         "cd /app && npm install --legacy-peer-deps",
         # Anon key is public (read-only, row-level security enforced)
         "cd /app && VITE_SUPABASE_URL=https://ffgngqlgfsvqartilful.supabase.co"
         " VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmZ25ncWxnZnN2cWFydGlsZnVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjQ4OTgsImV4cCI6MjA4NDAwMDg5OH0.FprGrDgkfT0j3nK51VGtCozs6y1pfhtZ07qDUHBm8Go"
+        " VITE_POSTHOG_KEY=phc_jrd8DSkxBiB4qr7mxqzizIFh0sIIZ0mSNSNGepllyGx"
         " npm run build",
     )
     .pip_install("fastapi", "uvicorn", "aiofiles")
