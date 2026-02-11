@@ -269,8 +269,8 @@ function App() {
             description="Browse all PolicyEngine state and federal research"
           />
           <QuickLinkCard
-            href="https://policyengine.org/us/policy"
-            title="Policy Simulator"
+            href="https://app.policyengine.org/us/reports"
+            title="Build a Reform"
             description="Model your own tax policy reforms"
           />
           <QuickLinkCard
