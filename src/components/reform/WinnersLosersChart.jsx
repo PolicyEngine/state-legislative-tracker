@@ -174,43 +174,67 @@ export default function WinnersLosersChart({ winnersLosers }) {
       {/* Per-decile rows */}
       {hasDeciles && (
         <div>
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "3px",
-          }}>
-            {Array.from({ length: 10 }, (_, i) => {
-              const decile = String(10 - i);
-              return (
-                <div key={decile} style={{ display: "flex", alignItems: "center" }}>
-                  <span style={{
-                    width: 24,
-                    textAlign: "right",
-                    marginRight: spacing.sm,
-                    fontSize: typography.fontSize.xs,
-                    fontFamily: typography.fontFamily.body,
-                    color: colors.text.tertiary,
-                    flexShrink: 0,
-                  }}>
-                    {decile}
-                  </span>
-                  <div style={{ flex: 1 }}>
-                    <StackedRow
-                      label={decile}
-                      data={intraDecile.deciles[decile] || allData}
-                      height={24}
-                    />
+          <div style={{ display: "flex" }}>
+            {/* Y-axis label */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              width: 20,
+            }}>
+              <span style={{
+                writingMode: "vertical-rl",
+                transform: "rotate(180deg)",
+                fontSize: typography.fontSize.xs,
+                fontFamily: typography.fontFamily.body,
+                color: colors.text.tertiary,
+                whiteSpace: "nowrap",
+              }}>
+                Income decile
+              </span>
+            </div>
+
+            {/* Decile numbers + bars */}
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "3px",
+              flex: 1,
+            }}>
+              {Array.from({ length: 10 }, (_, i) => {
+                const decile = String(10 - i);
+                return (
+                  <div key={decile} style={{ display: "flex", alignItems: "center" }}>
+                    <span style={{
+                      width: 24,
+                      textAlign: "right",
+                      marginRight: spacing.sm,
+                      fontSize: typography.fontSize.xs,
+                      fontFamily: typography.fontFamily.body,
+                      color: colors.text.tertiary,
+                      flexShrink: 0,
+                    }}>
+                      {decile}
+                    </span>
+                    <div style={{ flex: 1 }}>
+                      <StackedRow
+                        label={decile}
+                        data={intraDecile.deciles[decile] || allData}
+                        height={24}
+                      />
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
 
-          {/* Axis labels */}
+          {/* X-axis labels */}
           <div style={{
             display: "flex",
             justifyContent: "space-between",
-            marginLeft: 32,
+            marginLeft: 52,
             marginTop: spacing.xs,
             fontSize: typography.fontSize.xs,
             fontFamily: typography.fontFamily.body,
@@ -219,17 +243,6 @@ export default function WinnersLosersChart({ winnersLosers }) {
             <span>0%</span>
             <span>Population share</span>
             <span>100%</span>
-          </div>
-
-          <div style={{
-            textAlign: "center",
-            marginTop: "2px",
-            marginBottom: spacing.sm,
-            fontSize: typography.fontSize.xs,
-            fontFamily: typography.fontFamily.body,
-            color: colors.text.tertiary,
-          }}>
-            Income decile
           </div>
         </div>
       )}

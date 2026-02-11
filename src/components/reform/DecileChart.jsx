@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { colors, typography, spacing } from "../../designTokens";
 
 const DECILE_LABELS = [
@@ -6,6 +7,8 @@ const DECILE_LABELS = [
 ];
 
 export default function DecileChart({ decileData }) {
+  const [hoveredIndex, setHoveredIndex] = useState(null);
+
   if (!decileData) return null;
 
   // Use average ($ amounts, matching API decile_impact output), fallback for compatibility
@@ -27,6 +30,13 @@ export default function DecileChart({ decileData }) {
     if (abs >= 10000) return `$${(abs / 1000).toFixed(0)}K`;
     if (abs >= 1000) return `$${(abs / 1000).toFixed(1)}K`;
     return `$${Math.round(abs)}`;
+  };
+
+  // Full format for tooltip
+  const formatFull = (val) => {
+    const sign = val > 0 ? "+" : val < 0 ? "-" : "";
+    const abs = Math.abs(val);
+    return `${sign}$${Math.round(abs).toLocaleString("en-US")}`;
   };
 
   // Generate y-axis ticks that extend one increment beyond the data
@@ -131,17 +141,48 @@ export default function DecileChart({ decileData }) {
             barHeightPercent = 0;
           }
 
+          const isHovered = hoveredIndex === index;
+
           return (
             <div
               key={index}
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex(null)}
               style={{
                 flex: 1,
                 display: "flex",
                 flexDirection: "column",
                 height: "100%",
                 position: "relative",
+                cursor: "default",
               }}
             >
+              {/* Tooltip on hover */}
+              {isHovered && (
+                <div style={{
+                  position: "absolute",
+                  top: `${(tickPosition(0) + tickPosition(value)) / 2}%`,
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  padding: `${spacing.xs} ${spacing.sm}`,
+                  backgroundColor: colors.secondary[900],
+                  color: colors.white,
+                  borderRadius: spacing.radius.md,
+                  fontSize: typography.fontSize.xs,
+                  fontFamily: typography.fontFamily.body,
+                  whiteSpace: "nowrap",
+                  zIndex: 10,
+                  pointerEvents: "none",
+                  boxShadow: "var(--shadow-elevation-medium)",
+                }}>
+                  <span style={{ fontWeight: typography.fontWeight.semibold }}>
+                    {DECILE_LABELS[index]} decile
+                  </span>
+                  <br />
+                  {formatFull(value)}
+                </div>
+              )}
+
               {/* Value label - absolutely positioned above/below bar */}
               <span style={{
                 position: "absolute",
@@ -153,7 +194,7 @@ export default function DecileChart({ decileData }) {
                 fontSize: "9px",
                 fontWeight: typography.fontWeight.semibold,
                 fontFamily: typography.fontFamily.primary,
-                color: isPositive ? colors.primary[600] : colors.red[600],
+                color: isPositive ? colors.primary[600] : colors.gray[500],
                 whiteSpace: "nowrap",
                 lineHeight: 1,
                 zIndex: 1,
@@ -175,9 +216,10 @@ export default function DecileChart({ decileData }) {
                       style={{
                         width: "100%",
                         height: `${Math.max(barHeightPercent / tickPositiveRatio, 2)}%`,
-                        backgroundColor: colors.primary[500],
+                        backgroundColor: isHovered ? colors.primary[400] : colors.primary[500],
                         borderRadius: "2px 2px 0 0",
                         minHeight: "2px",
+                        transition: "background-color 0.15s ease",
                       }}
                     />
                   )}
@@ -208,9 +250,10 @@ export default function DecileChart({ decileData }) {
                       style={{
                         width: "100%",
                         height: `${Math.max(barHeightPercent / tickNegativeRatio, 2)}%`,
-                        backgroundColor: colors.red[500],
+                        backgroundColor: isHovered ? colors.gray[300] : colors.gray[400],
                         borderRadius: "0 0 2px 2px",
                         minHeight: "2px",
+                        transition: "background-color 0.15s ease",
                       }}
                     />
                   )}

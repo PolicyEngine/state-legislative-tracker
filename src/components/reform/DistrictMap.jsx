@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   ComposableMap,
   Geographies,
@@ -936,11 +936,316 @@ function GenericDistrictDetailCard({ districtNum, impact, maxBenefit, stateName 
 
 // Generic state district map using react-simple-maps with ArcGIS GeoJSON
 // Matches Utah map styling with district labels and same color scheme
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 20;
+const SLIDER_WIDTH = 140;
+
+function ZoomSlider({ zoomLevel, onChange }) {
+  const [dragging, setDragging] = useState(false);
+  const trackRef = useRef(null);
+
+  const zoomToPercent = (z) => (z - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN);
+  const percentToZoom = (p) => ZOOM_MIN + p * (ZOOM_MAX - ZOOM_MIN);
+
+  const updateFromX = (clientX) => {
+    const rect = trackRef.current.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    onChange(percentToZoom(pct));
+  };
+
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e) => updateFromX(e.clientX);
+    const onUp = () => setDragging(false);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [dragging]);
+
+  const pct = zoomToPercent(zoomLevel);
+
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      padding: `${spacing.xs} ${spacing.sm}`,
+      backgroundColor: colors.white,
+      borderRadius: spacing.radius.lg,
+      border: `1px solid ${colors.border.light}`,
+      boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
+    }}>
+      <span style={{
+        fontSize: "13px",
+        fontWeight: typography.fontWeight.bold,
+        color: colors.secondary[800],
+        lineHeight: 1,
+        cursor: "pointer",
+        userSelect: "none",
+      }}
+        onClick={() => onChange(Math.max(zoomLevel / 1.5, ZOOM_MIN))}
+      >-</span>
+
+      <div
+        ref={trackRef}
+        style={{
+          height: 6,
+          width: SLIDER_WIDTH,
+          backgroundColor: colors.gray[200],
+          borderRadius: 3,
+          position: "relative",
+          cursor: "pointer",
+        }}
+        onMouseDown={(e) => {
+          setDragging(true);
+          updateFromX(e.clientX);
+        }}
+      >
+        {/* Fill */}
+        <div style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          height: "100%",
+          width: `${pct * 100}%`,
+          backgroundColor: colors.primary[400],
+          borderRadius: 3,
+          pointerEvents: "none",
+        }} />
+        {/* Thumb */}
+        <div
+          style={{
+            position: "absolute",
+            left: `${pct * 100}%`,
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 14,
+            height: 14,
+            borderRadius: "50%",
+            backgroundColor: colors.white,
+            border: `2px solid ${colors.primary[500]}`,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+            cursor: "grab",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
+
+      <span style={{
+        fontSize: "13px",
+        fontWeight: typography.fontWeight.bold,
+        color: colors.secondary[800],
+        lineHeight: 1,
+        cursor: "pointer",
+        userSelect: "none",
+      }}
+        onClick={() => onChange(Math.min(zoomLevel * 1.5, ZOOM_MAX))}
+      >+</span>
+    </div>
+  );
+}
+
+function DistrictDropdown({ geoData, getDistrictInfo, hasDistrictData, reformImpacts, maxBenefit, activeDistrict, onSelect }) {
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [open]);
+
+  const items = (geoData?.features || []).map((feature) => {
+    const info = getDistrictInfo(feature);
+    if (!info) return null;
+    const impact = hasDistrictData ? reformImpacts.districtImpacts[info.districtId] : null;
+    const avgBenefit = impact?.avgBenefit || 0;
+    return { ...info, avgBenefit };
+  }).filter(Boolean);
+
+  const selected = items.find((d) => d.districtId === activeDistrict);
+
+  const formatValue = (val) => {
+    const sign = val > 0 ? "+" : "";
+    return val === 0 ? "$0" : `${sign}$${Math.abs(val).toLocaleString()}`;
+  };
+
+  return (
+    <div ref={dropdownRef} style={{ position: "relative" }}>
+      {/* Trigger */}
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          gap: spacing.sm,
+          padding: `${spacing.sm} ${spacing.md}`,
+          borderRadius: spacing.radius.lg,
+          border: `1px solid ${open ? colors.primary[300] : colors.border.light}`,
+          backgroundColor: colors.white,
+          cursor: "pointer",
+          transition: "border-color 0.15s ease",
+          boxShadow: open ? `0 0 0 3px ${colors.primary[100]}` : "none",
+        }}
+      >
+        {selected ? (
+          <>
+            <span style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 22,
+              height: 22,
+              borderRadius: spacing.radius.md,
+              backgroundColor: getImpactColor(selected.avgBenefit, maxBenefit),
+              color: colors.white,
+              fontSize: "11px",
+              fontWeight: typography.fontWeight.bold,
+              fontFamily: typography.fontFamily.primary,
+              flexShrink: 0,
+            }}>
+              {selected.districtNum}
+            </span>
+            <span style={{
+              flex: 1,
+              textAlign: "left",
+              fontSize: typography.fontSize.sm,
+              fontFamily: typography.fontFamily.body,
+              color: colors.secondary[900],
+              fontWeight: typography.fontWeight.medium,
+            }}>
+              District {selected.districtNum}
+            </span>
+            <span style={{
+              fontSize: typography.fontSize.sm,
+              fontWeight: typography.fontWeight.bold,
+              fontFamily: typography.fontFamily.primary,
+              color: selected.avgBenefit > 0 ? colors.primary[600] : (selected.avgBenefit < 0 ? colors.red[600] : colors.gray[500]),
+            }}>
+              {formatValue(selected.avgBenefit)}
+            </span>
+          </>
+        ) : (
+          <span style={{
+            flex: 1,
+            textAlign: "left",
+            fontSize: typography.fontSize.sm,
+            fontFamily: typography.fontFamily.body,
+            color: colors.text.tertiary,
+          }}>
+            Select a district...
+          </span>
+        )}
+        <svg
+          width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke={colors.text.tertiary} strokeWidth="2"
+          style={{
+            flexShrink: 0,
+            transition: "transform 0.15s ease",
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+          }}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {/* Dropdown list */}
+      {open && (
+        <div style={{
+          position: "absolute",
+          top: "calc(100% + 4px)",
+          left: 0,
+          right: 0,
+          maxHeight: "240px",
+          overflowY: "auto",
+          backgroundColor: colors.white,
+          borderRadius: spacing.radius.lg,
+          border: `1px solid ${colors.border.light}`,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+          zIndex: 20,
+          padding: spacing.xs,
+        }}>
+          {items.map((item) => {
+            const isActive = item.districtId === activeDistrict;
+            return (
+              <button
+                key={item.districtId}
+                onClick={() => {
+                  onSelect(item.districtId);
+                  setOpen(false);
+                }}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: spacing.sm,
+                  padding: `${spacing.sm} ${spacing.md}`,
+                  borderRadius: spacing.radius.md,
+                  border: "none",
+                  backgroundColor: isActive ? colors.primary[50] : "transparent",
+                  cursor: "pointer",
+                  transition: "background-color 0.1s ease",
+                }}
+                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = colors.gray[50]; }}
+                onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "transparent"; }}
+              >
+                <span style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 22,
+                  height: 22,
+                  borderRadius: spacing.radius.md,
+                  backgroundColor: getImpactColor(item.avgBenefit, maxBenefit),
+                  color: colors.white,
+                  fontSize: "11px",
+                  fontWeight: typography.fontWeight.bold,
+                  fontFamily: typography.fontFamily.primary,
+                  flexShrink: 0,
+                }}>
+                  {item.districtNum}
+                </span>
+                <span style={{
+                  flex: 1,
+                  textAlign: "left",
+                  fontSize: typography.fontSize.sm,
+                  fontFamily: typography.fontFamily.body,
+                  color: colors.secondary[900],
+                  fontWeight: isActive ? typography.fontWeight.semibold : typography.fontWeight.normal,
+                }}>
+                  District {item.districtNum}
+                </span>
+                <span style={{
+                  fontSize: typography.fontSize.sm,
+                  fontWeight: typography.fontWeight.bold,
+                  fontFamily: typography.fontFamily.primary,
+                  color: item.avgBenefit > 0 ? colors.primary[600] : (item.avgBenefit < 0 ? colors.red[600] : colors.gray[500]),
+                }}>
+                  {formatValue(item.avgBenefit)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData, selectedYear }) {
   const [selectedDistrict, setSelectedDistrict] = useState(null);
   const [geoData, setGeoData] = useState(prefetchedGeoData || null);
   const [loading, setLoading] = useState(!prefetchedGeoData);
   const [error, setError] = useState(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [panCenter, setPanCenter] = useState(null);
   const { getImpact } = useData();
   const reformImpacts = getImpact(reformId);
 
@@ -1074,7 +1379,8 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData, selec
       display: "grid",
       gridTemplateColumns: "1fr 1fr",
       gap: spacing["2xl"],
-      height: "100%",
+      flex: 1,
+      minHeight: 0,
     }}>
       {/* Map Container */}
       <div style={{
@@ -1084,6 +1390,8 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData, selec
         padding: spacing.xl,
         display: "flex",
         flexDirection: "column",
+        minHeight: 0,
+        overflow: "hidden",
       }}>
         <h4 style={{
           margin: `0 0 ${spacing.md}`,
@@ -1093,6 +1401,7 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData, selec
           color: colors.text.secondary,
           textTransform: "uppercase",
           letterSpacing: "0.5px",
+          flexShrink: 0,
         }}>
           {stateName} Congressional Districts
         </h4>
@@ -1102,14 +1411,33 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData, selec
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          minHeight: "300px",
+          position: "relative",
+          overflow: "hidden",
+          borderRadius: spacing.radius.lg,
         }}>
+          {/* Zoom slider */}
+          <div style={{
+            position: "absolute",
+            bottom: spacing.sm,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 5,
+          }}>
+            <ZoomSlider zoomLevel={zoomLevel} onChange={setZoomLevel} />
+          </div>
+
           <ComposableMap
             projection="geoMercator"
             projectionConfig={{ scale: 800 }}
-            style={{ width: "100%", height: "100%", maxHeight: "350px" }}
+            width={800}
+            height={800}
+            style={{ width: "100%", height: "100%", maxHeight: "100%" }}
           >
-            <ZoomableGroup center={center} zoom={zoom}>
+            <ZoomableGroup
+              center={panCenter || center}
+              zoom={zoom * zoomLevel}
+              onMoveEnd={({ coordinates }) => setPanCenter(coordinates)}
+            >
               <Geographies geography={geoData}>
                 {({ geographies }) =>
                   geographies.map(geo => {
@@ -1135,7 +1463,7 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData, selec
                           default: {
                             fill: fillColor,
                             stroke: isSelected ? colors.primary[700] : colors.white,
-                            strokeWidth: isSelected ? 1 : 0.5,
+                            strokeWidth: 0.05,
                             outline: "none",
                             cursor: "pointer",
                             transition: "fill 0.2s ease",
@@ -1143,14 +1471,14 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData, selec
                           hover: {
                             fill: getImpactHoverColor(avgBenefit, maxBenefit),
                             stroke: colors.primary[600],
-                            strokeWidth: 0.8,
+                            strokeWidth: 0.05,
                             outline: "none",
                             cursor: "pointer",
                           },
                           pressed: {
                             fill: getImpactHoverColor(avgBenefit, maxBenefit),
                             stroke: colors.primary[700],
-                            strokeWidth: 1,
+                            strokeWidth: 0.05,
                             outline: "none",
                           },
                         }}
@@ -1160,24 +1488,27 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData, selec
                 }
               </Geographies>
               {/* District Labels */}
-              {Object.entries(districtCentroids).map(([districtId, data]) => (
-                <Marker key={districtId} coordinates={data.coords}>
-                  <text
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    style={{
-                      fill: colors.white,
-                      fontSize: "10px",
-                      fontWeight: "700",
-                      fontFamily: typography.fontFamily.primary,
-                      pointerEvents: "none",
-                      textShadow: "0 1px 2px rgba(0,0,0,0.5)",
-                    }}
-                  >
-                    {data.num}
-                  </text>
-                </Marker>
-              ))}
+              {Object.entries(districtCentroids).map(([districtId, data]) => {
+                const labelSize = 12 / (zoom * zoomLevel);
+                return (
+                  <Marker key={districtId} coordinates={data.coords}>
+                    <text
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      style={{
+                        fill: colors.white,
+                        fontSize: `${labelSize}px`,
+                        fontWeight: "700",
+                        fontFamily: typography.fontFamily.primary,
+                        pointerEvents: "none",
+                        textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+                      }}
+                    >
+                      {data.num}
+                    </text>
+                  </Marker>
+                );
+              })}
             </ZoomableGroup>
           </ComposableMap>
         </div>
@@ -1237,12 +1568,25 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData, selec
         </div>
       </div>
 
-      {/* Detail Panel - matches Utah style */}
+      {/* Detail Panel */}
       <div style={{
         display: "flex",
         flexDirection: "column",
         gap: spacing.lg,
+        minHeight: 0,
+        overflow: "auto",
       }}>
+        {/* District dropdown selector */}
+        <DistrictDropdown
+          geoData={geoData}
+          getDistrictInfo={getDistrictInfo}
+          hasDistrictData={hasDistrictData}
+          reformImpacts={reformImpacts}
+          maxBenefit={maxBenefit}
+          activeDistrict={activeDistrict}
+          onSelect={setSelectedDistrict}
+        />
+
         {activeDistrict && activeImpact ? (
           <GenericDistrictDetailCard
             districtNum={activeDistrict.split("-")[1]}
@@ -1283,88 +1627,10 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData, selec
               fontFamily: typography.fontFamily.body,
               textAlign: "center",
             }}>
-              Click on a district<br />to see detailed impact data
+              Select a district from the dropdown<br />or click on the map
             </p>
           </div>
         )}
-
-        {/* District Summary Cards */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: spacing.md,
-        }}>
-          {geoData?.features?.map((feature) => {
-            const info = getDistrictInfo(feature);
-            if (!info) return null;
-
-            const impact = hasDistrictData
-              ? yearImpacts.districtImpacts[info.districtId]
-              : null;
-            const avgBenefit = impact?.avgBenefit || 0;
-            const isActive = activeDistrict === info.districtId;
-
-            return (
-              <button
-                key={info.districtId}
-                onClick={() => setSelectedDistrict(selectedDistrict === info.districtId ? null : info.districtId)}
-                style={{
-                  padding: spacing.md,
-                  backgroundColor: isActive ? colors.primary[50] : colors.white,
-                  borderRadius: spacing.radius.lg,
-                  border: `1px solid ${isActive ? colors.primary[300] : colors.border.light}`,
-                  cursor: "pointer",
-                  textAlign: "left",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}>
-                  <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: spacing.sm,
-                  }}>
-                    <span style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "24px",
-                      height: "24px",
-                      borderRadius: spacing.radius.md,
-                      backgroundColor: getImpactColor(avgBenefit, maxBenefit),
-                      color: colors.white,
-                      fontSize: typography.fontSize.xs,
-                      fontWeight: typography.fontWeight.bold,
-                      fontFamily: typography.fontFamily.primary,
-                    }}>
-                      {info.districtNum}
-                    </span>
-                    <span style={{
-                      fontSize: typography.fontSize.sm,
-                      fontWeight: typography.fontWeight.medium,
-                      fontFamily: typography.fontFamily.body,
-                      color: colors.secondary[800],
-                    }}>
-                      District {info.districtNum}
-                    </span>
-                  </div>
-                  <span style={{
-                    fontSize: typography.fontSize.sm,
-                    fontWeight: typography.fontWeight.bold,
-                    fontFamily: typography.fontFamily.primary,
-                    color: avgBenefit > 0 ? colors.primary[600] : (avgBenefit < 0 ? colors.red[600] : colors.gray[500]),
-                  }}>
-                    {avgBenefit > 0 ? "+" : ""}{avgBenefit === 0 ? "$0" : `$${Math.abs(avgBenefit)}`}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
       </div>
     </div>
   );
@@ -1382,13 +1648,8 @@ export default function DistrictMap({ stateAbbr, reformId, prefetchedGeoData }) 
 
   // Use generic map for all states
   return (
-    <div style={{ height: "100%" }}>
-      <div style={{
-        marginBottom: spacing.lg,
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-      }}>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+      <div style={{ marginBottom: spacing.md, flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <h3 style={{
             margin: 0,
@@ -1438,12 +1699,14 @@ export default function DistrictMap({ stateAbbr, reformId, prefetchedGeoData }) 
           </div>
         )}
       </div>
-      <GenericStateDistrictMap
-        stateAbbr={stateAbbr}
-        reformId={reformId}
-        prefetchedGeoData={prefetchedGeoData}
-        selectedYear={selectedYear}
-      />
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        <GenericStateDistrictMap
+          stateAbbr={stateAbbr}
+          reformId={reformId}
+          prefetchedGeoData={prefetchedGeoData}
+          selectedYear={selectedYear}
+        />
+      </div>
     </div>
   );
 }
