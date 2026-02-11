@@ -5,6 +5,7 @@
  * allowing version control and easier editing of these descriptions.
  *
  * Structure:
+ * - description: Short summary of the bill (1-2 sentences)
  * - provisions: Array of policy changes being modeled
  *   - label: Display name of the provision
  *   - baseline: Current law value
@@ -23,6 +24,7 @@
 const analysisDescriptions = {
   // Utah
   "ut-sb60": {
+    description: "Reduces Utah's flat income tax rate from 4.5% to 4.45%, providing broad-based tax relief. Effective: January 1, 2026.",
     provisions: [
       {
         label: "Utah Income Tax Rate",
@@ -39,6 +41,7 @@ const analysisDescriptions = {
   },
 
   "ut-hb210": {
+    description: "Creates a new marriage tax credit and adjusts phase-out thresholds for multiple credits to reduce marriage penalties in Utah's tax code. Effective: January 1, 2026.",
     provisions: [
       {
         label: "Marriage Tax Credit",
@@ -100,6 +103,7 @@ const analysisDescriptions = {
   },
 
   "ut-hb290": {
+    description: "Expands Utah's Child Tax Credit by raising the income phase-out thresholds for all filing statuses. Effective: January 1, 2026.",
     provisions: [
       {
         label: "Child Tax Credit Phase-out Thresholds",
@@ -123,6 +127,7 @@ const analysisDescriptions = {
 
   // Oklahoma
   "ok-hb2229": {
+    description: "Doubles Oklahoma's state Earned Income Tax Credit from 5% to 10% of the federal EITC. Effective: Tax year 2026.",
     provisions: [
       {
         label: "Oklahoma State EITC",
@@ -141,6 +146,7 @@ const analysisDescriptions = {
 
   // Oregon
   "or-sb1507": {
+    description: "Increases Oregon's EITC match rate from 9-12% to 14-17% of the federal credit, with enhanced benefits for families with young children. Governor's budget proposal.",
     provisions: [
       {
         label: "Oregon EITC Match Rate",
@@ -161,6 +167,7 @@ const analysisDescriptions = {
 
   // South Carolina
   "sc-h3492": {
+    description: "Makes South Carolina's Earned Income Tax Credit fully refundable, allowing filers to receive the difference as a refund if their credit exceeds tax liability.",
     provisions: [
       {
         label: "SC EITC Refundability",
@@ -177,6 +184,7 @@ const analysisDescriptions = {
   },
 
   "sc-h4216": {
+    description: "Establishes a flat 3.99% income tax rate in South Carolina, reducing the top rate from 6.2% while increasing the second bracket rate from 3%.",
     provisions: [
       {
         label: "SC Income Tax Rate (Bracket 2)",
@@ -201,6 +209,7 @@ const analysisDescriptions = {
 
   // Virginia
   "va-hb979": {
+    description: "More than triples Virginia's standard deduction and adds new tax brackets of 8% and 10% for high earners above $600,000. Effective: Tax year 2027.",
     provisions: [
       {
         label: "Standard Deduction Increase",
@@ -234,6 +243,7 @@ const analysisDescriptions = {
 
   // New York
   "ny-s4487": {
+    description: "Creates a new $1,000 refundable supplemental credit for each qualifying newborn (ages 0-1), in addition to the existing Empire State Child Credit.",
     provisions: [
       {
         label: "Supplemental Empire State Child Credit for Newborns",
@@ -250,6 +260,7 @@ const analysisDescriptions = {
   },
 
   "ny-s9077": {
+    description: "Extends and expands the Empire State Child Credit through 2030+. Increases credit amounts annually and raises age eligibility to include 17-year-olds. Effective: January 1, 2027.",
     provisions: [
       {
         label: "Extend Enhanced ESCC Structure",
@@ -302,6 +313,15 @@ export function getProvisions(reformId) {
  */
 export function getModelNotes(reformId) {
   return analysisDescriptions[reformId]?.modelNotes || {};
+}
+
+/**
+ * Get description for a specific reform
+ * @param {string} reformId - The reform ID (e.g., "ut-sb60")
+ * @returns {string} Description or empty string if not found
+ */
+export function getDescription(reformId) {
+  return analysisDescriptions[reformId]?.description || '';
 }
 
 /**

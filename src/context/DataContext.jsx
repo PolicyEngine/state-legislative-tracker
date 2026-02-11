@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { getProvisions, getModelNotes, hasDescriptions } from '../data/analysisDescriptions';
+import { getProvisions, getModelNotes, getDescription, hasDescriptions } from '../data/analysisDescriptions';
 
 const DataContext = createContext(null);
 
@@ -114,17 +114,21 @@ export function DataProvider({ children }) {
       .filter(item => item.state === stateAbbr && item.type === 'bill')
       .map(item => {
         const impact = reformImpacts[item.id];
+        // Use local description if available, fall back to Supabase
+        const description = hasDescriptions(item.id)
+          ? getDescription(item.id)
+          : item.description;
         return {
           id: item.id,
           bill: extractBillNumber(item.id, item.title),
           title: item.title,
-          description: item.description,
+          description: description,
           url: item.url,
           status: formatStatus(item.status),
           reformConfig: impact?.reformParams ? {
             id: item.id,
             label: item.title,
-            description: item.description,
+            description: description,
             reform: impact.reformParams,
           } : null,
           impact: impact,
