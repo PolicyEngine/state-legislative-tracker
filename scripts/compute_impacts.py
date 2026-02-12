@@ -17,7 +17,9 @@ Usage:
 """
 
 import argparse
+import json
 import os
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -744,6 +746,177 @@ def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: di
 
 
 # =============================================================================
+# PR CREATION
+# =============================================================================
+
+def update_research_status(supabase, reform_id: str, status: str):
+    """Update the research table status for a reform."""
+    result = supabase.table("research").update({"status": status}).eq("id", reform_id).execute()
+    return result
+
+
+def generate_bill_summary(reform: dict, impacts: dict, analysis_year: int) -> str:
+    """Generate a markdown summary for the bill review PR."""
+    lines = []
+    lines.append(f"# {reform['label']}")
+    lines.append("")
+    lines.append(f"- **ID**: `{reform['id']}`")
+    lines.append(f"- **State**: {reform['state'].upper()}")
+    if reform.get("bill_url"):
+        lines.append(f"- **Bill text**: {reform['bill_url']}")
+    lines.append(f"- **Analysis year**: {analysis_year}")
+    lines.append("")
+
+    # Reform parameters
+    lines.append("## Reform Parameters")
+    lines.append("")
+    lines.append("```json")
+    lines.append(json.dumps(reform["reform"], indent=2))
+    lines.append("```")
+    lines.append("")
+
+    # Provisions (fetch from DB if available)
+    # We include them if the impacts dict has provisions info; otherwise skip
+
+    # Computed impacts
+    budgetary = impacts.get("budgetaryImpact", {})
+    poverty = impacts.get("povertyImpact", {})
+    child_poverty = impacts.get("childPovertyImpact", {})
+    wl = impacts.get("winnersLosers", {})
+    decile = impacts.get("decileImpact", {})
+
+    lines.append("## Computed Impacts")
+    lines.append("")
+
+    lines.append("### Budgetary Impact")
+    rev = budgetary.get("stateRevenueImpact", 0)
+    lines.append(f"- State revenue impact: **${rev:,.0f}**")
+    lines.append(f"- Households: {budgetary.get('households', 'N/A'):,}")
+    lines.append("")
+
+    lines.append("### Poverty Impact")
+    lines.append(f"- Baseline rate: {poverty.get('baselineRate', 0):.2%}")
+    lines.append(f"- Reform rate: {poverty.get('reformRate', 0):.2%}")
+    pct_change = poverty.get('pctChange', 0)
+    lines.append(f"- Change: {pct_change:+.2f}%")
+    lines.append("")
+
+    lines.append("### Child Poverty Impact")
+    lines.append(f"- Baseline rate: {child_poverty.get('baselineRate', 0):.2%}")
+    lines.append(f"- Reform rate: {child_poverty.get('reformRate', 0):.2%}")
+    cp_change = child_poverty.get('pctChange', 0)
+    lines.append(f"- Change: {cp_change:+.2f}%")
+    lines.append("")
+
+    lines.append("### Winners & Losers")
+    gain_total = wl.get('gainMore5Pct', 0) + wl.get('gainLess5Pct', 0)
+    lose_total = wl.get('loseLess5Pct', 0) + wl.get('loseMore5Pct', 0)
+    lines.append(f"- Winners: {gain_total:.1%}")
+    lines.append(f"- No change: {wl.get('noChange', 0):.1%}")
+    lines.append(f"- Losers: {lose_total:.1%}")
+    lines.append("")
+
+    lines.append("### Decile Impact (Relative)")
+    rel = decile.get("relative", {})
+    if rel:
+        lines.append("| Decile | Change |")
+        lines.append("|--------|--------|")
+        for d in range(1, 11):
+            val = rel.get(str(d), rel.get(d, 0))
+            lines.append(f"| {d} | {val:+.2%} |")
+    lines.append("")
+
+    # District impacts summary
+    districts = impacts.get("districtImpacts", {})
+    if districts:
+        lines.append("### District Impacts")
+        lines.append("| District | Avg Benefit | Winners | Losers |")
+        lines.append("|----------|-------------|---------|--------|")
+        for did, dinfo in sorted(districts.items()):
+            avg = dinfo.get("avgBenefit", 0)
+            win = dinfo.get("winnersShare", 0)
+            lose = dinfo.get("losersShare", 0)
+            lines.append(f"| {did} | ${avg:,.0f} | {win:.1%} | {lose:.1%} |")
+        lines.append("")
+
+    # Version info
+    pe_version = get_changelog_version(str(_PE_US_REPO))
+    data_version = get_changelog_version(str(_PE_US_DATA_REPO))
+    lines.append("## Versions")
+    lines.append(f"- PolicyEngine US: `{pe_version}`")
+    lines.append(f"- Dataset: `{data_version}`")
+    lines.append(f"- Computed at: {impacts.get('computedAt', 'N/A')}")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+def create_review_pr(reform: dict, impacts: dict, analysis_year: int) -> str:
+    """Create a GitHub PR for bill review.
+
+    Returns the PR URL on success, or an error message on failure.
+    """
+    reform_id = reform["id"]
+    branch_name = f"bill/{reform_id}"
+    project_root = Path(__file__).resolve().parent.parent
+
+    # Generate the summary markdown
+    summary = generate_bill_summary(reform, impacts, analysis_year)
+
+    # Write the bill summary file
+    bills_dir = project_root / "bills"
+    bills_dir.mkdir(exist_ok=True)
+    bill_file = bills_dir / f"{reform_id}.md"
+    bill_file.write_text(summary)
+
+    # Git operations
+    def run_git(*cmd):
+        result = subprocess.run(
+            ["git"] + list(cmd),
+            cwd=str(project_root),
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"git {' '.join(cmd)} failed: {result.stderr.strip()}")
+        return result.stdout.strip()
+
+    # Create branch, commit, push
+    run_git("checkout", "-b", branch_name)
+    run_git("add", str(bill_file))
+    run_git("commit", "-m", f"Add bill review: {reform['label']}")
+    run_git("push", "-u", "origin", branch_name)
+
+    # Create PR with gh CLI
+    pr_body = f"## Bill Review: {reform['label']}\n\n"
+    pr_body += f"**Reform ID**: `{reform_id}`\n"
+    pr_body += f"**State**: {reform['state'].upper()}\n\n"
+    pr_body += "Merging this PR will publish the bill to the dashboard.\n\n"
+    pr_body += "---\n\n"
+    pr_body += summary
+
+    pr_result = subprocess.run(
+        [
+            "gh", "pr", "create",
+            "--title", f"Bill review: {reform['label']}",
+            "--body", pr_body,
+            "--label", "bill-review",
+        ],
+        cwd=str(project_root),
+        capture_output=True,
+        text=True,
+    )
+
+    # Return to main branch
+    run_git("checkout", "main")
+
+    if pr_result.returncode != 0:
+        return f"Error creating PR: {pr_result.stderr.strip()}"
+
+    return pr_result.stdout.strip()
+
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -788,6 +961,11 @@ Examples:
         "--multi-year",
         action="store_true",
         help="Store impacts in impacts_by_year structure (for multi-year analysis)"
+    )
+    parser.add_argument(
+        "--create-pr",
+        action="store_true",
+        help="Create a GitHub PR for review after computing impacts"
     )
     args = parser.parse_args()
 
@@ -889,6 +1067,16 @@ Examples:
             # Write to database
             print("  Writing to Supabase...")
             write_to_supabase(supabase, reform_id, impacts, reform["reform"], sim_year, args.multi_year)
+
+            # Set status to in_review
+            print("  Setting status to in_review...")
+            update_research_status(supabase, reform_id, "in_review")
+
+            # Create PR if requested
+            if args.create_pr:
+                print("  Creating review PR...")
+                pr_url = create_review_pr(reform, impacts, sim_year)
+                print(f"  PR: {pr_url}")
 
             print(f"\n  [OK] Complete!")
             results[reform_id] = "computed"

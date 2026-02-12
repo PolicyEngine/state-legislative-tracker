@@ -1,0 +1,57 @@
+name: Publish Bill on PR Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  publish:
+    if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'bill-review')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract reform ID from bill file
+        id: extract
+        run: |
+          # Find the bill markdown file added in this PR
+          BILL_FILE=$(git diff --name-only HEAD~1 HEAD -- 'bills/*.md' | head -1)
+          if [ -z "$BILL_FILE" ]; then
+            echo "No bill file found in PR"
+            exit 1
+          fi
+          # Extract reform ID from filename (e.g., bills/ut-sb60.md -> ut-sb60)
+          REFORM_ID=$(basename "$BILL_FILE" .md)
+          echo "reform_id=$REFORM_ID" >> "$GITHUB_OUTPUT"
+          echo "Found reform ID: $REFORM_ID"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install supabase
+
+      - name: Publish bill to dashboard
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          python3 << EOF
+          import os
+          from supabase import create_client
+
+          supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
+          reform_id = "${{ steps.extract.outputs.reform_id }}"
+
+          result = supabase.table("research").update({"status": "published"}).eq("id", reform_id).execute()
+
+          if result.data:
+              print(f"Published bill: {reform_id}")
+          else:
+              print(f"Warning: No research record found for {reform_id}")
+              exit(1)
+          EOF
