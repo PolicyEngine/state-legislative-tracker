@@ -104,6 +104,21 @@ Keep as separate provisions when they:
   - "Changes the South Carolina EITC from non-refundable to fully refundable. Filers whose credit exceeds their tax liability would receive the difference as a refund."
   - "Changes the retirement credit phase-out threshold to $16,000 for both single and head-of-household filers, equal to half the $32,000 joint threshold."
 
+## Multi-Year Bills
+
+For bills with year-by-year phase-ins, the provision should summarize the full schedule:
+
+```json
+{
+  "label": "Georgia Income Tax Rate",
+  "baseline": "5.09%",
+  "reform": "4.19% (2026) to 0% (2031)",
+  "explanation": "Reduces the flat income tax rate by 1 percentage point per year from 5.09% in 2025 to 0% by 2031. Rate schedule: 4.19% (2026), 3.19% (2027), 2.19% (2028), 1.19% (2029), 0.19% (2030), 0% (2031)."
+}
+```
+
+For multi-year bills, the `reform` field should show the range, and the `explanation` should list the full schedule.
+
 ## Common Parameter Patterns
 
 | Pattern | Label Template |
