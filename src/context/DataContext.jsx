@@ -89,7 +89,7 @@ export function DataProvider({ children }) {
   // Get bills for a state (type === 'bill')
   const getBillsForState = (stateAbbr) => {
     return research
-      .filter(item => item.state === stateAbbr && item.type === 'bill')
+      .filter(item => item.state === stateAbbr && item.type === 'bill' && item.status !== 'in_review')
       .map(item => {
         const impact = reformImpacts[item.id];
         return {
@@ -113,6 +113,7 @@ export function DataProvider({ children }) {
   // Get research for a state (excluding type === 'bill')
   const getResearchForState = (stateAbbr) => {
     return research.filter(item => {
+      if (item.status === 'in_review') return false;
       // Include if it's this state's research (not a bill)
       if (item.state === stateAbbr && item.type !== 'bill') return true;
       // Include if it's federal and relevant to this state
@@ -181,6 +182,7 @@ function formatStatus(status) {
   const map = {
     published: 'Published',
     in_progress: 'In Progress',
+    in_review: 'In Review',
     planned: 'Planned',
     not_modelable: 'Not Modelable',
   };

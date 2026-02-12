@@ -119,34 +119,72 @@ const ArrowDownIcon = () => (
   </svg>
 );
 
+// Interpolate between two hex colors; t in [0, 1]
+function lerpColor(a, b, t) {
+  const parse = (hex) => [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+  const [r1, g1, b1] = parse(a);
+  const [r2, g2, b2] = parse(b);
+  const c = (x1, x2) => Math.round(x1 + (x2 - x1) * t);
+  return `rgb(${c(r1, r2)}, ${c(g1, g2)}, ${c(b1, b2)})`;
+}
+
 function getImpactColor(avgBenefit, maxBenefit) {
   if (avgBenefit === 0) return colors.gray[200];
-  const intensity = Math.min(Math.abs(avgBenefit) / maxBenefit, 1);
-  if (avgBenefit > 0) {
-    // Teal scale for positive benefits
-    if (intensity > 0.7) return colors.primary[500];
-    if (intensity > 0.4) return colors.primary[400];
-    return colors.primary[300];
-  } else {
-    // Red scale for negative benefits
-    if (intensity > 0.7) return colors.red[500];
-    if (intensity > 0.4) return colors.red[400];
-    return colors.red[300];
-  }
+  const t = Math.min(Math.abs(avgBenefit) / maxBenefit, 1);
+  const target = avgBenefit > 0 ? colors.primary[500] : colors.red[500];
+  return lerpColor(colors.gray[200], target, t);
 }
 
 function getImpactHoverColor(avgBenefit, maxBenefit) {
   if (avgBenefit === 0) return colors.gray[300];
-  const intensity = Math.min(Math.abs(avgBenefit) / maxBenefit, 1);
-  if (avgBenefit > 0) {
-    if (intensity > 0.7) return colors.primary[600];
-    if (intensity > 0.4) return colors.primary[500];
-    return colors.primary[400];
-  } else {
-    if (intensity > 0.7) return colors.red[600];
-    if (intensity > 0.4) return colors.red[500];
-    return colors.red[400];
-  }
+  const t = Math.min(Math.abs(avgBenefit) / maxBenefit, 1);
+  const target = avgBenefit > 0 ? colors.primary[600] : colors.red[600];
+  return lerpColor(colors.gray[300], target, t);
+}
+
+// Gradient legend scale bar
+function ImpactLegend({ maxBenefit, allPositive, allNegative }) {
+  const formatVal = (v) => {
+    const abs = Math.abs(v);
+    if (abs >= 1e9) return `$${(abs / 1e9).toFixed(1)}B`;
+    if (abs >= 1e6) return `$${(abs / 1e6).toFixed(0)}M`;
+    if (abs >= 1e3) return `$${(abs / 1e3).toFixed(0)}K`;
+    return `$${abs.toFixed(0)}`;
+  };
+
+  const endColor = allNegative ? colors.red[500] : colors.primary[500];
+  const endLabel = allNegative ? `-${formatVal(maxBenefit)}` : `+${formatVal(maxBenefit)}`;
+
+  return (
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: "4px",
+      marginTop: spacing.lg,
+      paddingTop: spacing.md,
+      borderTop: `1px solid ${colors.border.light}`,
+    }}>
+      <span style={{
+        fontSize: typography.fontSize.xs,
+        fontFamily: typography.fontFamily.body,
+        color: colors.text.tertiary,
+        marginBottom: "2px",
+      }}>
+        Avg. household benefit
+      </span>
+      <div style={{ display: "flex", alignItems: "center", gap: spacing.sm, width: "80%", maxWidth: "240px" }}>
+        <span style={{ fontSize: typography.fontSize.xs, fontFamily: typography.fontFamily.body, color: colors.text.secondary, whiteSpace: "nowrap" }}>$0</span>
+        <div style={{
+          flex: 1,
+          height: "12px",
+          borderRadius: "2px",
+          background: `linear-gradient(to right, ${colors.gray[200]}, ${endColor})`,
+        }} />
+        <span style={{ fontSize: typography.fontSize.xs, fontFamily: typography.fontFamily.body, color: colors.text.secondary, whiteSpace: "nowrap" }}>{endLabel}</span>
+      </div>
+    </div>
+  );
 }
 
 function UtahDistrictMap({ reformId }) {
@@ -155,12 +193,16 @@ function UtahDistrictMap({ reformId }) {
   const reformImpacts = getImpact(reformId);
   const hasDistrictData = reformImpacts?.districtImpacts;
 
-  // Calculate max benefit for color scaling
-  const maxBenefit = hasDistrictData
-    ? Math.max(...Object.values(UTAH_DISTRICT_PATHS).map((_, idx) =>
-        Math.abs(yearImpacts.districtImpacts[`UT-${idx + 1}`]?.avgBenefit || 0)
-      ))
+  // Calculate max benefit and direction for color scaling
+  const districtValues = hasDistrictData
+    ? Object.values(UTAH_DISTRICT_PATHS).map((_, idx) =>
+        yearImpacts.districtImpacts[`UT-${idx + 1}`]?.avgBenefit || 0)
+    : [];
+  const maxBenefit = districtValues.length > 0
+    ? Math.max(...districtValues.map(Math.abs))
     : 150;
+  const allPositive = districtValues.every(v => v >= 0);
+  const allNegative = districtValues.every(v => v <= 0);
 
   const activeDistrict = selectedDistrict;
   const activeImpact = activeDistrict && hasDistrictData
@@ -259,55 +301,7 @@ function UtahDistrictMap({ reformId }) {
           </svg>
         </div>
 
-        {/* Legend */}
-        <div style={{
-          display: "flex",
-          justifyContent: "center",
-          gap: spacing.lg,
-          marginTop: spacing.lg,
-          paddingTop: spacing.md,
-          borderTop: `1px solid ${colors.border.light}`,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: spacing.xs }}>
-            <div style={{
-              width: "12px",
-              height: "12px",
-              borderRadius: "2px",
-              backgroundColor: colors.primary[400],
-            }} />
-            <span style={{
-              fontSize: typography.fontSize.xs,
-              fontFamily: typography.fontFamily.body,
-              color: colors.text.secondary,
-            }}>Gains</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: spacing.xs }}>
-            <div style={{
-              width: "12px",
-              height: "12px",
-              borderRadius: "2px",
-              backgroundColor: colors.red[400],
-            }} />
-            <span style={{
-              fontSize: typography.fontSize.xs,
-              fontFamily: typography.fontFamily.body,
-              color: colors.text.secondary,
-            }}>Loses</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: spacing.xs }}>
-            <div style={{
-              width: "12px",
-              height: "12px",
-              borderRadius: "2px",
-              backgroundColor: colors.gray[200],
-            }} />
-            <span style={{
-              fontSize: typography.fontSize.xs,
-              fontFamily: typography.fontFamily.body,
-              color: colors.text.secondary,
-            }}>No Change</span>
-          </div>
-        </div>
+        <ImpactLegend maxBenefit={maxBenefit} allPositive={allPositive} allNegative={allNegative} />
       </div>
 
       {/* Detail Panel */}
@@ -1360,6 +1354,13 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData, selec
     return yearImpacts.districtImpacts[districtId]?.avgBenefit || 0;
   };
 
+  const allDistrictValues = useMemo(() => {
+    if (!hasDistrictData) return [];
+    return Object.values(yearImpacts.districtImpacts).map(d => d?.avgBenefit || 0);
+  }, [hasDistrictData, yearImpacts]);
+  const allPositive = allDistrictValues.every(v => v >= 0);
+  const allNegative = allDistrictValues.every(v => v <= 0);
+
   const activeDistrict = selectedDistrict;
   const activeImpact = activeDistrict && hasDistrictData
     ? yearImpacts.districtImpacts[activeDistrict]
@@ -1513,59 +1514,7 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData, selec
           </ComposableMap>
         </div>
 
-        {/* Legend */}
-        <div style={{
-          display: "flex",
-          justifyContent: "center",
-          gap: spacing.lg,
-          marginTop: spacing.lg,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: spacing.xs }}>
-            <div style={{
-              width: "12px",
-              height: "12px",
-              borderRadius: "2px",
-              backgroundColor: colors.primary[400],
-            }} />
-            <span style={{
-              fontSize: typography.fontSize.xs,
-              fontFamily: typography.fontFamily.body,
-              color: colors.text.secondary,
-            }}>
-              Benefit
-            </span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: spacing.xs }}>
-            <div style={{
-              width: "12px",
-              height: "12px",
-              borderRadius: "2px",
-              backgroundColor: colors.gray[200],
-            }} />
-            <span style={{
-              fontSize: typography.fontSize.xs,
-              fontFamily: typography.fontFamily.body,
-              color: colors.text.secondary,
-            }}>
-              No change
-            </span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: spacing.xs }}>
-            <div style={{
-              width: "12px",
-              height: "12px",
-              borderRadius: "2px",
-              backgroundColor: colors.red[400],
-            }} />
-            <span style={{
-              fontSize: typography.fontSize.xs,
-              fontFamily: typography.fontFamily.body,
-              color: colors.text.secondary,
-            }}>
-              Cost
-            </span>
-          </div>
-        </div>
+        <ImpactLegend maxBenefit={maxBenefit} allPositive={allPositive} allNegative={allNegative} />
       </div>
 
       {/* Detail Panel */}
