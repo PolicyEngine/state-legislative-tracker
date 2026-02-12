@@ -14,8 +14,9 @@ export function usePolicyEngineAPI() {
       // Convert reform to API format with date ranges
       const apiPolicy = {};
       for (const [rawKey, value] of Object.entries(reform)) {
-        // Convert bracket notation (brackets[0]) to dot notation (brackets.0) for API
-        const key = rawKey.replace(/\[(\d+)\]/g, '.$1');
+        // Convert local param paths to API format:
+        // Local microsim uses "brackets[0].rate", API uses "[0].rate" (no "brackets" prefix)
+        const key = rawKey.replace(/\.brackets\[(\d+)\]/g, '[$1]');
         if (typeof value === "object" && value !== null) {
           // Convert year keys to date range format
           apiPolicy[key] = {};
