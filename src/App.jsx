@@ -26,6 +26,7 @@ function App() {
       track("state_selected", { state_abbr: abbr, state_name: stateData[abbr]?.name });
     } else {
       history.pushState(null, "", window.location.pathname);
+      window.parent.postMessage({ type: "hashchange", hash: "" }, "*");
     }
   }, []);
 
@@ -34,6 +35,11 @@ function App() {
       const { state, billId } = parseHash();
       setSelectedState(state);
       setInitialBillId(billId);
+      // Notify parent frame (policyengine.org) of hash change for deep linking
+      window.parent.postMessage(
+        { type: "hashchange", hash: window.location.hash },
+        "*",
+      );
     };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
