@@ -255,7 +255,7 @@ research = {
     "id": "{state}-{bill}".lower(),
     "state": "{STATE}",
     "type": "bill",
-    "status": "in_progress",
+    "status": "in_review",
     "title": "{BILL_TITLE}",
     "description": "{DESCRIPTION}",
     "url": "{BILL_URL}",
@@ -279,18 +279,46 @@ EOF
 
 ## Phase 5: Compute Impacts (via script)
 
-**Run the compute_impacts.py script** - this is the ONLY way to compute impacts:
+**Run the compute_impacts.py script** - this is the ONLY way to compute impacts.
+
+### Single-year bills
 
 ```bash
-export $(grep -v '^#' .env | xargs) && python scripts/compute_impacts.py --reform-id {state}-{bill}
+export $(grep -v '^#' .env | xargs) && python scripts/compute_impacts.py --reform-id {state}-{bill} --create-pr
 ```
 
-The script will:
+### Multi-year bills
+
+For bills that phase in over multiple years (e.g., GA SB168 cuts 1pp/year from 2026-2031), run each year with `--multi-year`:
+
+```bash
+export $(grep -v '^#' .env | xargs)
+python scripts/compute_impacts.py --reform-id {state}-{bill} --year 2026 --multi-year
+python scripts/compute_impacts.py --reform-id {state}-{bill} --year 2027 --multi-year
+python scripts/compute_impacts.py --reform-id {state}-{bill} --year 2028 --multi-year
+# ... continue for all years
+# Run the last year with --create-pr to create the review PR with all years' data:
+python scripts/compute_impacts.py --reform-id {state}-{bill} --year {final_year} --multi-year --create-pr
+```
+
+The `--multi-year` flag stores each year's impacts in `model_notes.impacts_by_year[year]` instead of overwriting. The `--create-pr` flag on the last year will generate a PR body that includes a multi-year summary table.
+
+### How to detect multi-year bills
+
+Look for these signals from the bill-researcher output:
+- `is_multi_year: true` in the research
+- Multiple year-specific period ranges in reform_params (e.g., `"2026-01-01.2026-12-31"`, `"2027-01-01.2027-12-31"`)
+- Rate schedules, phase-in language, annual reduction provisions
+
+### What the script does
+
 1. Read reform_params from database
-2. Call PolicyEngine API to create policy
-3. Fetch economy-wide impacts (budgetary, poverty, winners/losers)
-4. Run local Microsimulation for district-level impacts
-5. Write results back to database using proper schema
+2. Run local Microsimulation (budgetary, poverty, winners/losers, district-level)
+3. Write results back to database using proper schema
+4. Set status to `in_review` (bill hidden from dashboard)
+5. Create a GitHub PR with full impact summary for review (if `--create-pr`)
+
+The PR body includes: provisions table, multi-year impact summary (if applicable), decile/district breakdowns, reform parameters (collapsed), and version info.
 
 **DO NOT compute impacts inline or with ad-hoc code.** All computation goes through the script for:
 - Reproducibility
@@ -322,20 +350,11 @@ Use `AskUserQuestion`:
 - Results look correct?
 - Options: Yes, update status to computed / Re-compute with --force / Cancel
 
-## Phase 6: Verify and Finalize
+## Phase 6: PR Created - Awaiting Review
 
-1. **Check the app** - refresh to see the bill with computed impacts
-2. **Update status** if everything looks good:
+The bill is now in review. The `--create-pr` flag created a GitHub PR with the full impact summary.
 
-```bash
-export $(grep -v '^#' .env | xargs) && python3 << 'EOF'
-from supabase import create_client
-import os
-supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
-supabase.table("research").update({"status": "in_progress"}).eq("id", "{state}-{bill}").execute()
-print("Status updated")
-EOF
-```
+**The bill is NOT visible on the dashboard** until the PR is merged.
 
 ## Final Output
 
@@ -345,14 +364,16 @@ COMPLETE: {STATE} {BILL_NUMBER}
 ═══════════════════════════════════════════════════════════════════════════
 
 RECORDS IN DATABASE:
-  ✓ research: {id} (status: in_progress, type: bill)
+  ✓ research: {id} (status: in_review, type: bill)
   ✓ reform_impacts: {id} (computed: true)
 
-APP DISPLAY:
-  ✓ Bill appears in state panel
-  ✓ Statewide impacts tab shows data
-  ✓ District map displays (if available)
-  ✓ Household calculator works
+REVIEW PR:
+  {PR_URL}
+
+NEXT STEPS:
+  1. Review the PR for accuracy
+  2. Merge the PR to publish the bill to the dashboard
+  3. The publish-bill GitHub Action will set status to 'published'
 
 VIEW IN SUPABASE:
   https://supabase.com/dashboard/project/ffgngqlgfsvqartilful/editor
@@ -390,6 +411,8 @@ VIEW IN SUPABASE:
 - `.env` file with SUPABASE_URL and SUPABASE_KEY
 - PolicyEngine-US installed (for district microsimulation)
 - HuggingFace Hub access (for state datasets)
+- GitHub `bill-review` label exists on the repo (create with `gh label create bill-review` if missing)
+- `gh` CLI authenticated for PR creation
 
 ## Key Principle: All Computation via Script
 

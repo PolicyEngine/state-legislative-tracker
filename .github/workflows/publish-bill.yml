@@ -1,0 +1,53 @@
+name: Publish Bill on PR Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  publish:
+    if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'bill-review')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract reform ID from branch name
+        id: extract
+        run: |
+          # Branch name format: bill/{reform-id} (e.g., bill/ga-sb168)
+          BRANCH="${{ github.head_ref }}"
+          REFORM_ID="${BRANCH#bill/}"
+          if [ -z "$REFORM_ID" ] || [ "$REFORM_ID" = "$BRANCH" ]; then
+            echo "Could not extract reform ID from branch: $BRANCH"
+            exit 1
+          fi
+          echo "reform_id=$REFORM_ID" >> "$GITHUB_OUTPUT"
+          echo "Found reform ID: $REFORM_ID"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install supabase
+
+      - name: Publish bill to dashboard
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          python3 << EOF
+          import os
+          from supabase import create_client
+
+          supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
+          reform_id = "${{ steps.extract.outputs.reform_id }}"
+
+          result = supabase.table("research").update({"status": "published"}).eq("id", reform_id).execute()
+
+          if result.data:
+              print(f"Published bill: {reform_id}")
+          else:
+              print(f"Warning: No research record found for {reform_id}")
+              exit(1)
+          EOF
