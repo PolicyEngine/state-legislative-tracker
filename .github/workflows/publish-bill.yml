@@ -10,20 +10,16 @@ jobs:
     if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'bill-review')
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Extract reform ID from bill file
+      - name: Extract reform ID from branch name
         id: extract
         run: |
-          # Find the bill markdown file added in this PR
-          BILL_FILE=$(git diff --name-only HEAD~1 HEAD -- 'bills/*.md' | head -1)
-          if [ -z "$BILL_FILE" ]; then
-            echo "No bill file found in PR"
+          # Branch name format: bill/{reform-id} (e.g., bill/ga-sb168)
+          BRANCH="${{ github.head_ref }}"
+          REFORM_ID="${BRANCH#bill/}"
+          if [ -z "$REFORM_ID" ] || [ "$REFORM_ID" = "$BRANCH" ]; then
+            echo "Could not extract reform ID from branch: $BRANCH"
             exit 1
           fi
-          # Extract reform ID from filename (e.g., bills/ut-sb60.md -> ut-sb60)
-          REFORM_ID=$(basename "$BILL_FILE" .md)
           echo "reform_id=$REFORM_ID" >> "$GITHUB_OUTPUT"
           echo "Found reform ID: $REFORM_ID"
 

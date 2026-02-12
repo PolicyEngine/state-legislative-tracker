@@ -755,104 +755,164 @@ def update_research_status(supabase, reform_id: str, status: str):
     return result
 
 
-def generate_bill_summary(reform: dict, impacts: dict, analysis_year: int) -> str:
-    """Generate a markdown summary for the bill review PR."""
+def _format_impacts_section(impacts: dict, year_label: str = "") -> list:
+    """Format a single year's impacts as markdown lines."""
     lines = []
-    lines.append(f"# {reform['label']}")
+    prefix = f" ({year_label})" if year_label else ""
+
+    budgetary = impacts.get("budgetaryImpact", {})
+    poverty = impacts.get("povertyImpact", {})
+    child_poverty = impacts.get("childPovertyImpact", {})
+    wl = impacts.get("winnersLosers", {})
+
+    rev = budgetary.get("stateRevenueImpact", 0)
+    gain_total = wl.get('gainMore5Pct', 0) + wl.get('gainLess5Pct', 0)
+    lose_total = wl.get('loseLess5Pct', 0) + wl.get('loseMore5Pct', 0)
+
+    lines.append(f"| Revenue impact{prefix} | **${rev:,.0f}** |")
+    lines.append(f"| Poverty rate{prefix} | {poverty.get('baselineRate', 0):.2%} to {poverty.get('reformRate', 0):.2%} ({poverty.get('percentChange', 0):+.2f}%) |")
+    lines.append(f"| Child poverty rate{prefix} | {child_poverty.get('baselineRate', 0):.2%} to {child_poverty.get('reformRate', 0):.2%} ({child_poverty.get('percentChange', 0):+.2f}%) |")
+    lines.append(f"| Winners{prefix} | {gain_total:.1%} |")
+    lines.append(f"| Losers{prefix} | {lose_total:.1%} |")
+
+    return lines
+
+
+def generate_pr_body(reform: dict, impacts: dict, analysis_year: int, supabase=None) -> str:
+    """Generate a rich PR body for bill review.
+
+    Includes multi-year impacts if available, provisions, benchmarks,
+    and links to bill text.
+    """
+    lines = []
+    reform_id = reform["id"]
+    state = reform["state"].upper()
+
+    lines.append(f"## Bill Review: {reform['label']}")
     lines.append("")
-    lines.append(f"- **ID**: `{reform['id']}`")
-    lines.append(f"- **State**: {reform['state'].upper()}")
+    lines.append(f"**Reform ID**: `{reform_id}`")
+    lines.append(f"**State**: {state}")
     if reform.get("bill_url"):
-        lines.append(f"- **Bill text**: {reform['bill_url']}")
-    lines.append(f"- **Analysis year**: {analysis_year}")
+        lines.append(f"**Bill text**: {reform['bill_url']}")
+    if reform.get("description"):
+        lines.append(f"**Description**: {reform['description']}")
+    lines.append("")
+    lines.append("Merging this PR will publish the bill to the dashboard.")
+    lines.append("")
+    lines.append("---")
     lines.append("")
 
-    # Reform parameters
-    lines.append("## Reform Parameters")
+    # Fetch provisions and multi-year data from DB if available
+    provisions = []
+    impacts_by_year = {}
+    if supabase:
+        try:
+            db_result = supabase.table("reform_impacts").select(
+                "provisions, model_notes"
+            ).eq("id", reform_id).execute()
+            if db_result.data:
+                provisions = db_result.data[0].get("provisions") or []
+                model_notes = db_result.data[0].get("model_notes") or {}
+                if isinstance(model_notes, str):
+                    model_notes = json.loads(model_notes)
+                impacts_by_year = model_notes.get("impacts_by_year", {})
+        except Exception:
+            pass
+
+    # Provisions table
+    if provisions:
+        lines.append("### What we model")
+        lines.append("")
+        lines.append("| Provision | Current | Proposed |")
+        lines.append("|-----------|---------|----------|")
+        for p in provisions:
+            lines.append(f"| {p.get('label', '')} | {p.get('baseline', '')} | {p.get('reform', '')} |")
+        lines.append("")
+
+    # Multi-year impacts table
+    if impacts_by_year and len(impacts_by_year) > 1:
+        lines.append("### Multi-year impacts")
+        lines.append("")
+        lines.append("| Year | Revenue Impact | Poverty Change | Winners | Losers |")
+        lines.append("|------|----------------|----------------|---------|--------|")
+        for year_str in sorted(impacts_by_year.keys()):
+            yr_data = impacts_by_year[year_str]
+            rev = yr_data.get("budgetaryImpact", {}).get("stateRevenueImpact", 0)
+            pov_change = yr_data.get("povertyImpact", {}).get("percentChange", 0)
+            wl = yr_data.get("winnersLosers", {})
+            gain = wl.get('gainMore5Pct', 0) + wl.get('gainLess5Pct', 0)
+            lose = wl.get('loseLess5Pct', 0) + wl.get('loseMore5Pct', 0)
+            lines.append(f"| {year_str} | ${rev:,.0f} | {pov_change:+.2f}% | {gain:.1%} | {lose:.1%} |")
+        lines.append("")
+    else:
+        # Single-year key results
+        lines.append("### Key results")
+        lines.append("")
+        lines.append("| Metric | Value |")
+        lines.append("|--------|-------|")
+        lines.extend(_format_impacts_section(impacts))
+        lines.append("")
+
+    # Decile impact for the computed year
+    decile = impacts.get("decileImpact", {})
+    rel = decile.get("relative", {})
+    avg = decile.get("average", {})
+    if rel:
+        lines.append("### Decile impact (relative change in net income)")
+        lines.append("")
+        lines.append("| Decile | Change | Avg Benefit |")
+        lines.append("|--------|--------|-------------|")
+        for d in range(1, 11):
+            val = rel.get(str(d), rel.get(d, 0))
+            avg_val = avg.get(str(d), avg.get(d, 0))
+            lines.append(f"| {d} | {val:+.2%} | ${avg_val:,.0f} |")
+        lines.append("")
+
+    # District impacts
+    districts = impacts.get("districtImpacts", {})
+    if districts:
+        lines.append("### District impacts")
+        lines.append("")
+        lines.append("| District | Avg Benefit | Winners | Losers | Poverty Change |")
+        lines.append("|----------|-------------|---------|--------|----------------|")
+        for did, dinfo in sorted(districts.items()):
+            avg_b = dinfo.get("avgBenefit", 0)
+            win = dinfo.get("winnersShare", 0)
+            lose = dinfo.get("losersShare", 0)
+            pov = dinfo.get("povertyPctChange", 0)
+            lines.append(f"| {did} | ${avg_b:,.0f} | {win:.0%} | {lose:.0%} | {pov:+.2f}% |")
+        lines.append("")
+
+    # Reform parameters (collapsed)
+    lines.append("<details>")
+    lines.append("<summary>Reform parameters JSON</summary>")
     lines.append("")
     lines.append("```json")
     lines.append(json.dumps(reform["reform"], indent=2))
     lines.append("```")
     lines.append("")
-
-    # Provisions (fetch from DB if available)
-    # We include them if the impacts dict has provisions info; otherwise skip
-
-    # Computed impacts
-    budgetary = impacts.get("budgetaryImpact", {})
-    poverty = impacts.get("povertyImpact", {})
-    child_poverty = impacts.get("childPovertyImpact", {})
-    wl = impacts.get("winnersLosers", {})
-    decile = impacts.get("decileImpact", {})
-
-    lines.append("## Computed Impacts")
+    lines.append("</details>")
     lines.append("")
-
-    lines.append("### Budgetary Impact")
-    rev = budgetary.get("stateRevenueImpact", 0)
-    lines.append(f"- State revenue impact: **${rev:,.0f}**")
-    lines.append(f"- Households: {budgetary.get('households', 'N/A'):,}")
-    lines.append("")
-
-    lines.append("### Poverty Impact")
-    lines.append(f"- Baseline rate: {poverty.get('baselineRate', 0):.2%}")
-    lines.append(f"- Reform rate: {poverty.get('reformRate', 0):.2%}")
-    pct_change = poverty.get('pctChange', 0)
-    lines.append(f"- Change: {pct_change:+.2f}%")
-    lines.append("")
-
-    lines.append("### Child Poverty Impact")
-    lines.append(f"- Baseline rate: {child_poverty.get('baselineRate', 0):.2%}")
-    lines.append(f"- Reform rate: {child_poverty.get('reformRate', 0):.2%}")
-    cp_change = child_poverty.get('pctChange', 0)
-    lines.append(f"- Change: {cp_change:+.2f}%")
-    lines.append("")
-
-    lines.append("### Winners & Losers")
-    gain_total = wl.get('gainMore5Pct', 0) + wl.get('gainLess5Pct', 0)
-    lose_total = wl.get('loseLess5Pct', 0) + wl.get('loseMore5Pct', 0)
-    lines.append(f"- Winners: {gain_total:.1%}")
-    lines.append(f"- No change: {wl.get('noChange', 0):.1%}")
-    lines.append(f"- Losers: {lose_total:.1%}")
-    lines.append("")
-
-    lines.append("### Decile Impact (Relative)")
-    rel = decile.get("relative", {})
-    if rel:
-        lines.append("| Decile | Change |")
-        lines.append("|--------|--------|")
-        for d in range(1, 11):
-            val = rel.get(str(d), rel.get(d, 0))
-            lines.append(f"| {d} | {val:+.2%} |")
-    lines.append("")
-
-    # District impacts summary
-    districts = impacts.get("districtImpacts", {})
-    if districts:
-        lines.append("### District Impacts")
-        lines.append("| District | Avg Benefit | Winners | Losers |")
-        lines.append("|----------|-------------|---------|--------|")
-        for did, dinfo in sorted(districts.items()):
-            avg = dinfo.get("avgBenefit", 0)
-            win = dinfo.get("winnersShare", 0)
-            lose = dinfo.get("losersShare", 0)
-            lines.append(f"| {did} | ${avg:,.0f} | {win:.1%} | {lose:.1%} |")
-        lines.append("")
 
     # Version info
     pe_version = get_changelog_version(str(_PE_US_REPO))
     data_version = get_changelog_version(str(_PE_US_DATA_REPO))
-    lines.append("## Versions")
+    lines.append("### Versions")
     lines.append(f"- PolicyEngine US: `{pe_version}`")
     lines.append(f"- Dataset: `{data_version}`")
-    lines.append(f"- Computed at: {impacts.get('computedAt', 'N/A')}")
+    lines.append(f"- Computed: {impacts.get('computedAt', 'N/A')[:10]}")
     lines.append("")
 
     return "\n".join(lines)
 
 
-def create_review_pr(reform: dict, impacts: dict, analysis_year: int) -> str:
+def create_review_pr(reform: dict, impacts: dict, analysis_year: int, supabase=None) -> str:
     """Create a GitHub PR for bill review.
+
+    Creates a branch bill/{reform-id}, pushes an empty commit, and opens a PR
+    with a rich body containing all impact data. No .md files are written —
+    the PR body is the single source of truth, and the GitHub Action extracts
+    the reform-id from the branch name on merge.
 
     Returns the PR URL on success, or an error message on failure.
     """
@@ -860,14 +920,8 @@ def create_review_pr(reform: dict, impacts: dict, analysis_year: int) -> str:
     branch_name = f"bill/{reform_id}"
     project_root = Path(__file__).resolve().parent.parent
 
-    # Generate the summary markdown
-    summary = generate_bill_summary(reform, impacts, analysis_year)
-
-    # Write the bill summary file
-    bills_dir = project_root / "bills"
-    bills_dir.mkdir(exist_ok=True)
-    bill_file = bills_dir / f"{reform_id}.md"
-    bill_file.write_text(summary)
+    # Generate the rich PR body
+    pr_body = generate_pr_body(reform, impacts, analysis_year, supabase=supabase)
 
     # Git operations
     def run_git(*cmd):
@@ -881,24 +935,19 @@ def create_review_pr(reform: dict, impacts: dict, analysis_year: int) -> str:
             raise RuntimeError(f"git {' '.join(cmd)} failed: {result.stderr.strip()}")
         return result.stdout.strip()
 
-    # Create branch, commit, push
+    # Create branch with an empty commit and push
     run_git("checkout", "-b", branch_name)
-    run_git("add", str(bill_file))
-    run_git("commit", "-m", f"Add bill review: {reform['label']}")
+    run_git("commit", "--allow-empty", "-m", f"Bill review: {reform['label']}")
     run_git("push", "-u", "origin", branch_name)
 
     # Create PR with gh CLI
-    pr_body = f"## Bill Review: {reform['label']}\n\n"
-    pr_body += f"**Reform ID**: `{reform_id}`\n"
-    pr_body += f"**State**: {reform['state'].upper()}\n\n"
-    pr_body += "Merging this PR will publish the bill to the dashboard.\n\n"
-    pr_body += "---\n\n"
-    pr_body += summary
+    state = reform["state"].upper()
+    pr_title = f"Bill review: {reform['label']} ({state})"
 
     pr_result = subprocess.run(
         [
             "gh", "pr", "create",
-            "--title", f"Bill review: {reform['label']}",
+            "--title", pr_title,
             "--body", pr_body,
             "--label", "bill-review",
         ],
@@ -1075,7 +1124,7 @@ Examples:
             # Create PR if requested
             if args.create_pr:
                 print("  Creating review PR...")
-                pr_url = create_review_pr(reform, impacts, sim_year)
+                pr_url = create_review_pr(reform, impacts, sim_year, supabase=supabase)
                 print(f"  PR: {pr_url}")
 
             print(f"\n  [OK] Complete!")

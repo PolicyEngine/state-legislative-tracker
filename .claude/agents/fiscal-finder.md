@@ -41,9 +41,12 @@ Search for external analyses:
 ```
 
 State-specific policy centers:
+- Georgia: Georgia Budget and Policy Institute (GBPI), Georgia Center for Opportunity
 - Utah: Utah Foundation, Kem C. Gardner Policy Institute
 - South Carolina: SC Policy Council
 - Oklahoma: Oklahoma Policy Institute
+- Virginia: The Commonwealth Institute
+- Oregon: Oregon Center for Public Policy
 - New York: Fiscal Policy Institute
 - California: California Budget & Policy Center
 
@@ -120,3 +123,7 @@ When comparing PolicyEngine results to fiscal notes:
 - State fiscal notes often assume no behavioral response
 - Think tanks may use different baseline years
 - Check if estimate is annual or multi-year
+- For multi-year phase-ins, fiscal notes often provide per-year estimates — extract all years
+- Some states publish fiscal impact only for the first year or for the "fully phased in" year
+- When extrapolating (e.g., "$748M per 0.20pp cut"), note the assumptions clearly
+- Include the comparison methodology in the output (static vs dynamic, base year, etc.)

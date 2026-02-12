@@ -23,10 +23,15 @@ Use the `policyengine-us-skill` for parameter knowledge. Key patterns:
 
 **State Income Tax Rates**:
 ```
-gov.states.{state}.tax.income.rate                    # Flat rate states
-gov.states.{state}.tax.income.rates.rate              # Graduated rate states
-gov.states.{state}.tax.income.rates.thresholds        # Bracket thresholds
+gov.states.{state}.tax.income.rate                              # Flat rate states (UT)
+gov.states.{state}.tax.income.rates.brackets[N].rate            # Graduated rate states (SC)
+gov.states.{state}.tax.income.rates.brackets[N].threshold       # Bracket thresholds (SC)
+gov.states.{state}.tax.income.main.{filing}.brackets[N].rate    # Per-filing-status rates (GA)
 ```
+
+**Filing statuses for bracket parameters**: `single`, `joint`, `separate`, `surviving_spouse`, `head_of_household`
+
+For states with per-filing-status brackets (like GA), ALL filing statuses must be set to the same values.
 
 **State EITC**:
 ```
@@ -77,6 +82,20 @@ Format for PolicyEngine API:
 **Date format**: `YYYY-MM-DD.YYYY-MM-DD` for start and end dates.
 - Use `2100-12-31` as end date for "permanent" changes
 - Use specific end date if provision sunsets
+- For multi-year bills, use year-specific ranges:
+  ```json
+  {
+    "gov.states.ga.tax.income.main.single.brackets[0].rate": {
+      "2026-01-01.2026-12-31": 0.0419,
+      "2027-01-01.2027-12-31": 0.0319,
+      "2028-01-01.2028-12-31": 0.0219,
+      "2029-01-01.2029-12-31": 0.0119,
+      "2030-01-01.2030-12-31": 0.0019,
+      "2031-01-01.2100-12-31": 0.0
+    }
+  }
+  ```
+  The last year uses `2100-12-31` as the end date since it's the permanent final rate.
 
 **Value types**:
 - Rates: decimal (0.0445 not 4.45%)
@@ -139,9 +158,27 @@ Before returning:
 - `Grep/Glob`: Search policyengine-us codebase if available
 - `Read`: Read existing reforms in this repo for patterns
 
+## CRITICAL: API vs Local Parameter Paths
+
+The PolicyEngine **API** and **local microsimulation** use different parameter path formats for bracket-based parameters:
+
+| Format | Path |
+|--------|------|
+| **Local (policyengine-core)** | `gov.states.ga.tax.income.main.single.brackets[0].rate` |
+| **PE API** | `gov.states.ga.tax.income.main.single[0].rate` |
+
+The API strips `.brackets` from the path. The frontend `usePolicyEngineAPI.js` handles this conversion automatically with:
+```js
+rawKey.replace(/\.brackets\[(\d+)\]/g, '[$1]')
+```
+
+**Always use the local (policyengine-core) format** in `reform_params` stored in Supabase. The frontend converts on the fly when calling the API.
+
 ## Tips
 
 - Check `src/data/states.js` for existing reform examples in this repo
 - Filing status variants: SINGLE, JOINT, HEAD_OF_HOUSEHOLD, SEPARATE, SURVIVING_SPOUSE
 - Some parameters have nested structures (by filing status, by age, etc.)
 - When in doubt, check how similar bills were encoded
+- For bracket parameters, verify the number of brackets per filing status — states vary (GA has 6, SC has 3)
+- Use `browse-parameters` skill or check `policyengine_us/parameters/gov/states/{state}/` to verify paths
