@@ -1636,6 +1636,9 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData, selec
   );
 }
 
+// States with only one congressional district (at-large)
+const SINGLE_DISTRICT_STATES = ["AK", "DE", "ND", "SD", "VT", "WY", "DC"];
+
 export default function DistrictMap({ stateAbbr, reformId, prefetchedGeoData }) {
   const { getImpact } = useData();
   const impacts = getImpact(reformId);
@@ -1645,6 +1648,51 @@ export default function DistrictMap({ stateAbbr, reformId, prefetchedGeoData }) 
   const hasMultipleYears = availableYears.length > 1;
   const defaultYear = hasMultipleYears ? availableYears[0] : null;
   const [selectedYear, setSelectedYear] = useState(defaultYear);
+
+  // Check if this is a single-district state
+  const isSingleDistrict = SINGLE_DISTRICT_STATES.includes(stateAbbr);
+
+  if (isSingleDistrict) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+        <div style={{ marginBottom: spacing.md, flexShrink: 0 }}>
+          <h3 style={{
+            margin: 0,
+            fontSize: typography.fontSize.lg,
+            fontWeight: typography.fontWeight.semibold,
+            fontFamily: typography.fontFamily.primary,
+            color: colors.secondary[900],
+          }}>
+            Impact by Congressional District
+          </h3>
+        </div>
+        <div style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.background.secondary,
+          borderRadius: spacing.radius.lg,
+          border: `1px solid ${colors.border.light}`,
+          padding: spacing.xl,
+        }}>
+          <p style={{
+            margin: 0,
+            fontSize: typography.fontSize.base,
+            fontFamily: typography.fontFamily.body,
+            color: colors.text.secondary,
+            textAlign: "center",
+          }}>
+            {stateAbbr === "DC" ? "Washington, D.C." : "This state"} has only one at-large congressional district.
+            <br />
+            <span style={{ fontSize: typography.fontSize.sm, color: colors.text.tertiary }}>
+              Statewide impacts are shown in the previous tab.
+            </span>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Use generic map for all states
   return (
