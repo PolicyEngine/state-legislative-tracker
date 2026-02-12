@@ -13,7 +13,9 @@ export function usePolicyEngineAPI() {
     if (reform) {
       // Convert reform to API format with date ranges
       const apiPolicy = {};
-      for (const [key, value] of Object.entries(reform)) {
+      for (const [rawKey, value] of Object.entries(reform)) {
+        // Convert bracket notation (brackets[0]) to dot notation (brackets.0) for API
+        const key = rawKey.replace(/\[(\d+)\]/g, '.$1');
         if (typeof value === "object" && value !== null) {
           // Convert year keys to date range format
           apiPolicy[key] = {};
