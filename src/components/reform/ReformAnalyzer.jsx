@@ -417,7 +417,10 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
               <span style={{ marginLeft: spacing.sm }}>
                 · <a href="https://github.com/PolicyEngine/policyengine-us" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary[600], textDecoration: "none" }}>-us:v{aggregateImpacts.policyengineUsVersion}</a>
                 {aggregateImpacts.datasetVersion && (
-                  <>{" "}<a href="https://github.com/PolicyEngine/policyengine-us-data" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary[600], textDecoration: "none" }}>-us-data:v{aggregateImpacts.datasetVersion}</a></>
+                  <span style={{ marginLeft: spacing.xl }}><a href="https://github.com/PolicyEngine/policyengine-us-data" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary[600], textDecoration: "none" }}>-us-data:v{aggregateImpacts.datasetVersion}</a></span>
+                )}
+                {aggregateImpacts.computedAt && (
+                  <span style={{ marginLeft: spacing.xl }}>Computed on {new Date(aggregateImpacts.computedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
                 )}
               </span>
             )}
