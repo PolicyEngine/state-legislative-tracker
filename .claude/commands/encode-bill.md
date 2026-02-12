@@ -121,7 +121,9 @@ No further action needed unless PE-US has been updated.
                                 │
                                 ▼
                     ┌───────────────────────────────┐
-                    │  PHASE 6: VERIFY IN APP       │
+                    │  PHASE 6: CREATE REVIEW PR    │
+                    │  (agent builds PR body with   │
+                    │   full research context)      │
                     └───────────────────────────────┘
                                 │
                                 ▼
@@ -284,7 +286,7 @@ EOF
 ### Single-year bills
 
 ```bash
-export $(grep -v '^#' .env | xargs) && python scripts/compute_impacts.py --reform-id {state}-{bill} --create-pr
+export $(grep -v '^#' .env | xargs) && python scripts/compute_impacts.py --reform-id {state}-{bill}
 ```
 
 ### Multi-year bills
@@ -297,11 +299,10 @@ python scripts/compute_impacts.py --reform-id {state}-{bill} --year 2026 --multi
 python scripts/compute_impacts.py --reform-id {state}-{bill} --year 2027 --multi-year
 python scripts/compute_impacts.py --reform-id {state}-{bill} --year 2028 --multi-year
 # ... continue for all years
-# Run the last year with --create-pr to create the review PR with all years' data:
-python scripts/compute_impacts.py --reform-id {state}-{bill} --year {final_year} --multi-year --create-pr
+python scripts/compute_impacts.py --reform-id {state}-{bill} --year {final_year} --multi-year
 ```
 
-The `--multi-year` flag stores each year's impacts in `model_notes.impacts_by_year[year]` instead of overwriting. The `--create-pr` flag on the last year will generate a PR body that includes a multi-year summary table.
+The `--multi-year` flag stores each year's impacts in `model_notes.impacts_by_year[year]` instead of overwriting.
 
 ### How to detect multi-year bills
 
@@ -316,9 +317,6 @@ Look for these signals from the bill-researcher output:
 2. Run local Microsimulation (budgetary, poverty, winners/losers, district-level)
 3. Write results back to database using proper schema
 4. Set status to `in_review` (bill hidden from dashboard)
-5. Create a GitHub PR with full impact summary for review (if `--create-pr`)
-
-The PR body includes: provisions table, multi-year impact summary (if applicable), decile/district breakdowns, reform parameters (collapsed), and version info.
 
 **DO NOT compute impacts inline or with ad-hoc code.** All computation goes through the script for:
 - Reproducibility
@@ -350,11 +348,125 @@ Use `AskUserQuestion`:
 - Results look correct?
 - Options: Yes, update status to computed / Re-compute with --force / Cancel
 
-## Phase 6: PR Created - Awaiting Review
+## Phase 6: Create Review PR
 
-The bill is now in review. The `--create-pr` flag created a GitHub PR with the full impact summary.
+**The agent (you) creates the PR**, not the script. This lets you include context from the research phases that the script doesn't have access to.
 
-**The bill is NOT visible on the dashboard** until the PR is merged.
+### Step 1: Fetch computed data from Supabase
+
+```bash
+source .env && python3 << 'EOF'
+import json, os
+from supabase import create_client
+
+supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
+
+reform_id = "{state}-{bill}".lower()
+
+# Fetch research record
+research = supabase.table("research").select("*").eq("id", reform_id).execute()
+print("=== RESEARCH ===")
+print(json.dumps(research.data[0], indent=2, default=str))
+
+# Fetch reform_impacts record
+impacts = supabase.table("reform_impacts").select("*").eq("id", reform_id).execute()
+print("\n=== REFORM IMPACTS ===")
+print(json.dumps(impacts.data[0], indent=2, default=str))
+EOF
+```
+
+### Step 2: Construct the PR body
+
+Build the PR body using data from the DB **plus** context from earlier research phases. Use this template:
+
+```markdown
+## Bill Review: {title}
+
+**Reform ID**: `{id}`  |  **State**: {STATE}
+**Bill text**: {url}
+**Description**: {description}
+
+Merging this PR will publish the bill to the dashboard.
+
+---
+
+### What we model
+| Provision | Current | Proposed |
+|-----------|---------|----------|
+(from reform_impacts.provisions)
+
+### Fiscal estimates (external)
+- {key_findings[0]}
+- {key_findings[1]}
+(from research.key_findings)
+
+### Parameter changes
+| Parameter | Period | Value |
+|-----------|--------|-------|
+(from reform_impacts.reform_params — format rates as "0.0445 (4.45%)", amounts with commas)
+
+### Key results
+| Metric | Value |
+|--------|-------|
+| Revenue impact | **${budgetary_impact.stateRevenueImpact}** |
+| Poverty rate | {baseline} to {reform} ({change}%) |
+| Child poverty rate | {baseline} to {reform} ({change}%) |
+| Winners | {pct} |
+| Losers | {pct} |
+
+(For multi-year bills: replace "Key results" with a year-by-year summary table showing Revenue Impact, Poverty Change, Winners, Losers per year)
+
+### Decile impact
+| Decile | Change | Avg Benefit |
+|--------|--------|-------------|
+(deciles 1-10 from decile_impact.relative and decile_impact.average)
+
+### District impacts
+| District | Avg Benefit | Winners | Losers | Poverty Change |
+|----------|-------------|---------|--------|----------------|
+(from district_impacts, sorted by district ID)
+
+<details><summary>Reform parameters JSON</summary>
+
+```json
+{reform_params as formatted JSON}
+```
+
+</details>
+
+### Versions
+- PolicyEngine US: `{policyengine_us_version}`
+- Dataset: `{dataset_version}`
+- Computed: {computed_at}
+```
+
+### Step 3: Add agent-specific context
+
+Below the template sections, add any context from the research phases that is NOT in the DB:
+
+- **Fiscal estimate comparison**: PE estimate vs fiscal note, percentage difference, explanation of discrepancy
+- **Data quality caveats**: e.g., CPS top-coding for ultra-high earners, small sample sizes for specific districts
+- **Modeling notes**: what's included/excluded from the model vs the actual bill
+
+### Step 4: Create branch and PR
+
+**Critical constraints** (the GitHub Action depends on these):
+- Branch name MUST be `bill/{reform-id}`
+- Label MUST be `bill-review`
+
+```bash
+cd /Users/pavelmakarchuk/state-research-tracker
+git checkout -b bill/{reform-id}
+git commit --allow-empty -m "Bill review: {title}"
+git push -u origin bill/{reform-id}
+gh pr create --title "Bill review: {title} ({STATE})" --label "bill-review" --body "$(cat <<'EOF'
+{PR_BODY}
+EOF
+)"
+git checkout main
+```
+
+**The bill is NOT visible on the dashboard** until the PR is merged. The `publish-bill` GitHub Action extracts the reform-id from the branch name on merge and sets status to `published`.
 
 ## Final Output
 
