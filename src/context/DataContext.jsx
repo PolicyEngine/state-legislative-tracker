@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { getProvisions, getModelNotes, getDescription, hasDescriptions } from '../data/analysisDescriptions';
+import { getModelNotes, getDescription, hasDescriptions } from '../data/analysisDescriptions';
 
 const DataContext = createContext(null);
 
@@ -32,26 +32,18 @@ export function DataProvider({ children }) {
         // Convert impacts to dict with camelCase
         const impactsDict = {};
         for (const item of impactsResult.data || []) {
-          // Get provisions and model notes from local file first, fall back to Supabase
-          let provisions;
-          let localModelNotes;
+          // Get model notes from local file if available
+          const localModelNotes = hasDescriptions(item.id) ? getModelNotes(item.id) : null;
 
-          if (hasDescriptions(item.id)) {
-            // Use local descriptions (version-controlled)
-            provisions = getProvisions(item.id);
-            localModelNotes = getModelNotes(item.id);
-          } else {
-            // Fall back to Supabase data
-            provisions = item.provisions;
-            if (typeof provisions === 'string') {
-              try {
-                provisions = JSON.parse(provisions);
-              } catch (e) {
-                console.error('Failed to parse provisions:', e);
-                provisions = [];
-              }
+          // Provisions always come from Supabase
+          let provisions = item.provisions;
+          if (typeof provisions === 'string') {
+            try {
+              provisions = JSON.parse(provisions);
+            } catch (e) {
+              console.error('Failed to parse provisions:', e);
+              provisions = [];
             }
-            localModelNotes = null;
           }
 
           // Parse model_notes from Supabase (still needed for impacts_by_year and computed metadata)
