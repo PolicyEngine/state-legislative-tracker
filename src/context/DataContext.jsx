@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { getModelNotes, getDescription, hasDescriptions } from '../data/analysisDescriptions';
 
 const DataContext = createContext(null);
 
@@ -31,7 +32,21 @@ export function DataProvider({ children }) {
         // Convert impacts to dict with camelCase
         const impactsDict = {};
         for (const item of impactsResult.data || []) {
-          // Parse model_notes if it's a string (Supabase sometimes returns JSON as string)
+          // Get model notes from local file if available
+          const localModelNotes = hasDescriptions(item.id) ? getModelNotes(item.id) : null;
+
+          // Provisions always come from Supabase
+          let provisions = item.provisions;
+          if (typeof provisions === 'string') {
+            try {
+              provisions = JSON.parse(provisions);
+            } catch (e) {
+              console.error('Failed to parse provisions:', e);
+              provisions = [];
+            }
+          }
+
+          // Parse model_notes from Supabase (still needed for impacts_by_year and computed metadata)
           let modelNotes = item.model_notes;
           if (typeof modelNotes === 'string') {
             try {
@@ -43,16 +58,15 @@ export function DataProvider({ children }) {
           }
           modelNotes = modelNotes || {};
 
-          // Parse provisions if it's a string
-          let provisions = item.provisions;
-          if (typeof provisions === 'string') {
-            try {
-              provisions = JSON.parse(provisions);
-            } catch (e) {
-              console.error('Failed to parse provisions:', e);
-              provisions = [];
-            }
-          }
+          // Merge local model notes with Supabase model notes (local takes precedence for descriptions)
+          const mergedModelNotes = {
+            ...modelNotes,
+            ...(localModelNotes ? {
+              analysis_year: localModelNotes.analysisYear,
+              effective_date: localModelNotes.effectiveDate,
+              note: localModelNotes.note,
+            } : {})
+          };
 
           impactsDict[item.id] = {
             computed: item.computed,
@@ -67,9 +81,9 @@ export function DataProvider({ children }) {
             districtImpacts: item.district_impacts,
             reformParams: item.reform_params,
             provisions: provisions,
-            modelNotes: modelNotes,
-            analysisYear: modelNotes?.analysis_year,
-            impactsByYear: modelNotes?.impacts_by_year,
+            modelNotes: mergedModelNotes,
+            analysisYear: mergedModelNotes?.analysis_year,
+            impactsByYear: modelNotes?.impacts_by_year, // Always from Supabase (computed data)
             policyengineUsVersion: item.policyengine_us_version,
             datasetVersion: item.dataset_version,
           };
@@ -92,17 +106,21 @@ export function DataProvider({ children }) {
       .filter(item => item.state === stateAbbr && item.type === 'bill' && item.status !== 'in_review')
       .map(item => {
         const impact = reformImpacts[item.id];
+        // Use local description if available, fall back to Supabase
+        const description = hasDescriptions(item.id)
+          ? getDescription(item.id)
+          : item.description;
         return {
           id: item.id,
           bill: extractBillNumber(item.id, item.title),
           title: item.title,
-          description: item.description,
+          description: description,
           url: item.url,
           status: formatStatus(item.status),
           reformConfig: impact?.reformParams ? {
             id: item.id,
             label: item.title,
-            description: item.description,
+            description: description,
             reform: impact.reformParams,
           } : null,
           impact: impact,
