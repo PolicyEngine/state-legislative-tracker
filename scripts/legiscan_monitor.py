@@ -115,14 +115,28 @@ def get_supabase_client():
 def get_processed_bill_ids(supabase):
     """Get set of already-processed bill IDs from Supabase."""
     try:
-        result = supabase.table("processed_bills").select("bill_id").execute()
-        return {str(r["bill_id"]) for r in result.data}
+        all_ids = set()
+        page_size = 1000
+        offset = 0
+        while True:
+            result = (
+                supabase.table("processed_bills")
+                .select("bill_id")
+                .range(offset, offset + page_size - 1)
+                .execute()
+            )
+            batch = {str(r["bill_id"]) for r in result.data}
+            all_ids.update(batch)
+            if len(result.data) < page_size:
+                break
+            offset += page_size
+        return all_ids
     except Exception as e:
         print(f"Warning: Could not fetch processed bills from Supabase: {e}")
         return set()
 
 
-def save_processed_bill(supabase, bill, matched_query, github_issue_url=None, skipped_reason=None, scoring_result=None):
+def save_processed_bill(supabase, bill, matched_query, github_issue_url=None, skipped_reason=None):
     """Save a processed bill to Supabase with full details."""
     try:
         state = bill.get("state", "")
@@ -149,12 +163,6 @@ def save_processed_bill(supabase, bill, matched_query, github_issue_url=None, sk
             "legiscan_url": legiscan_url,
             "skipped_reason": skipped_reason
         }
-
-        if scoring_result is not None:
-            data["confidence_score"] = scoring_result["score"]
-            data["matched_categories"] = json.dumps(scoring_result["matched_categories"])
-            data["matched_parameters"] = json.dumps(scoring_result["matched_parameters"])
-            data["top_category"] = scoring_result["top_category"]
 
         supabase.table("processed_bills").upsert(data).execute()
         return True
@@ -341,31 +349,22 @@ def download_and_extract_dataset(session_id, access_key):
 
 # ============== GitHub Functions ==============
 
-def create_digest_issue(scored_bills):
+def create_digest_issue(new_bills):
     """Create a single digest issue for all new bills found.
 
     Args:
-        scored_bills: list of (bill, query, scoring) tuples, pre-sorted by score desc.
+        new_bills: list of (bill, query) tuples.
     """
     today = datetime.now().strftime("%Y-%m-%d")
-    bill_count = len(scored_bills)
-
-    # Confidence tier counts
-    high = sum(1 for _, _, s in scored_bills if s["score"] >= 75)
-    medium = sum(1 for _, _, s in scored_bills if 40 <= s["score"] < 75)
-    low = sum(1 for _, _, s in scored_bills if s["score"] < 40)
-
-    # Reform type counts
-    parametric = sum(1 for _, _, s in scored_bills if s.get("reform_type") == "parametric")
-    structural = sum(1 for _, _, s in scored_bills if s.get("reform_type") == "structural")
+    bill_count = len(new_bills)
 
     # Group bills by state
     by_state = {}
-    for bill, query, scoring in scored_bills:
+    for bill, query in new_bills:
         state = bill.get("state", "US")
         if state not in by_state:
             by_state[state] = []
-        by_state[state].append((bill, query, scoring))
+        by_state[state].append((bill, query))
 
     issue_title = f"[{today}] LegiScan Monitor: {bill_count} new bill{'s' if bill_count != 1 else ''} found"
 
@@ -375,26 +374,16 @@ def create_digest_issue(scored_bills):
         f"",
         f"Found **{bill_count} new bill{'s' if bill_count != 1 else ''}** across **{len(by_state)} state{'s' if len(by_state) != 1 else ''}**.",
         f"",
-        f"### Confidence Tiers",
-        f"- **High (>=75):** {high} bill{'s' if high != 1 else ''} (auto-encode candidates)",
-        f"- **Medium (40-74):** {medium} bill{'s' if medium != 1 else ''}",
-        f"- **Low (<40):** {low} bill{'s' if low != 1 else ''}",
-        f"",
-        f"### Reform Type",
-        f"- **Parametric:** {parametric} (PE parameter exists — just change the value)",
-        f"- **Structural:** {structural} (needs new code in policyengine-us)",
+        f"Run `/triage-bills` to score these bills for PolicyEngine modelability.",
         f"",
     ]
 
     for state in sorted(by_state.keys()):
         state_bills = by_state[state]
-        # Sort within state: parametric first, then by score descending
-        type_order = {"parametric": 0, "structural": 1, "unknown": 2}
-        state_bills.sort(key=lambda x: (type_order.get(x[2].get("reform_type", "unknown"), 2), -x[2]["score"]))
         body_parts.append(f"### {state} ({len(state_bills)} bill{'s' if len(state_bills) != 1 else ''})")
         body_parts.append("")
 
-        for bill, query, scoring in state_bills:
+        for bill, query in state_bills:
             bill_number = bill.get("bill_number", "Unknown")
             title = bill.get("title", "No title")
             short_title = title[:100] + "..." if len(title) > 100 else title
@@ -412,16 +401,6 @@ def create_digest_issue(scored_bills):
             if last_action:
                 body_parts.append(f"- Last Action ({last_action_date}): {last_action}")
             body_parts.append(f"- Matched: `{query}`")
-            # Confidence + reform type annotation
-            categories_str = ", ".join(scoring["matched_categories"]) if scoring["matched_categories"] else "none"
-            rtype = scoring.get("reform_type", "unknown")
-            rtype_label = {"parametric": "Parametric", "structural": "Structural", "unknown": "Unknown"}.get(rtype, "Unknown")
-            body_parts.append(f"- Confidence: **{scoring['score']}/100** ({categories_str})")
-            body_parts.append(f"- Reform type: **{rtype_label}**")
-            if rtype == "parametric" and scoring.get("existing_parameters"):
-                body_parts.append(f"- PE parameters: `{'`, `'.join(scoring['existing_parameters'])}`")
-            if scoring.get("reasoning"):
-                body_parts.append(f"- {scoring['reasoning']}")
             if official_url:
                 body_parts.append(f"- [Official Text]({official_url})")
             body_parts.append("")
@@ -580,192 +559,6 @@ def is_relevant_bill(bill):
 
     # Include if any relevant keyword matches
     return any(kw in title for kw in relevant_keywords)
-
-
-# ============== Confidence Scoring (LLM) ==============
-
-_pe_parameter_cache = None
-
-
-def get_pe_parameters():
-    """Fetch all PE-US parameter paths from the API. Cached for the session."""
-    global _pe_parameter_cache
-    if _pe_parameter_cache is not None:
-        return _pe_parameter_cache
-
-    try:
-        print("  Fetching PolicyEngine parameter index...")
-        resp = requests.get(
-            "https://api.policyengine.org/us/metadata",
-            timeout=30,
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            params = data.get("result", {}).get("parameters", {})
-            _pe_parameter_cache = set(params.keys())
-            print(f"  Loaded {len(_pe_parameter_cache)} PE parameters")
-        else:
-            print(f"  Warning: PE API returned {resp.status_code}, skipping parameter lookup")
-            _pe_parameter_cache = set()
-    except Exception as e:
-        print(f"  Warning: Could not fetch PE parameters: {e}")
-        _pe_parameter_cache = set()
-
-    return _pe_parameter_cache
-
-
-def get_state_parameter_context(state, pe_params):
-    """Filter PE params to gov.states.{state}.* and deduplicate parents.
-
-    Returns a compact multi-line string for the LLM prompt.
-    """
-    prefix = f"gov.states.{state.lower()}."
-    state_params = sorted(p for p in pe_params if p.startswith(prefix))
-
-    if not state_params:
-        return f"No parameters found for state {state}."
-
-    # Deduplicate by grouping children under parent paths
-    # e.g. gov.states.ut.tax.income.rate.[i].rate and .threshold → gov.states.ut.tax.income.rate
-    seen_parents = set()
-    compact = []
-    for p in state_params:
-        # Strip array indices like [i] and trailing leaf segments to find parent
-        parts = p.replace(prefix, "").split(".")
-        # Keep up to 4 levels of depth for grouping
-        parent = prefix + ".".join(parts[:4])
-        if parent not in seen_parents:
-            seen_parents.add(parent)
-            compact.append(parent)
-
-    # Also include full paths but limit total lines
-    if len(state_params) <= 300:
-        return "\n".join(state_params)
-
-    return "\n".join(compact[:300])
-
-
-def _empty_score():
-    """Default scoring result when LLM is unavailable."""
-    return {
-        "score": 0,
-        "matched_categories": [],
-        "matched_parameters": [],
-        "top_category": None,
-        "reform_type": "unknown",
-        "existing_parameters": [],
-        "reasoning": "Scoring unavailable",
-    }
-
-
-def score_bill_with_llm(bill, state_params_text):
-    """Score a bill using Claude Code (`claude -p`) with PE parameter context.
-
-    Uses the same Claude Code CLI that powers the rest of the pipeline.
-    No separate API key needed — inherits auth from the environment.
-
-    Returns dict with:
-    {score, matched_categories, matched_parameters, top_category,
-     reform_type, existing_parameters, reasoning}
-    """
-    title = bill.get("title", "")
-    description = bill.get("description", "")
-    state = bill.get("state", "XX")
-
-    prompt = f"""You are a policy analyst scoring legislative bills for PolicyEngine modelability.
-
-Bill information:
-- State: {state}
-- Title: {title}
-- Description: {description}
-
-Below are the existing PolicyEngine parameter paths for {state}. If the bill modifies something
-that maps to one of these parameters, it is "parametric" (just change the value). If it requires
-new code/parameters, it is "structural".
-
-{state_params_text}
-
-Note: PolicyEngine also models federal programs (SNAP/food stamps, EITC, CTC, CDCC, etc.)
-at paths like gov.irs.*, gov.usda.snap.*, gov.hhs.*, etc. State bills that modify state-level
-matches or supplements for these programs are often parametric.
-
-Scoring rubric:
-- 80-100: Directly parametric — bill changes a value that maps to an existing PE parameter
-- 50-79: Likely modelable but may need parameter additions or adaptation
-- 20-49: Structural change — needs new code in policyengine-us
-- 0-19: Not modelable in PolicyEngine (e.g. purely administrative)
-
-Respond with ONLY a JSON object (no markdown, no explanation outside the JSON):
-{{
-  "score": <integer 0-100>,
-  "reform_type": "<parametric|structural|unknown>",
-  "matched_parameters": ["<list of PE parameter paths this bill would affect>"],
-  "top_category": "<short category label, e.g. flat_income_tax_rate, state_eitc, snap, etc.>",
-  "reasoning": "<one sentence explaining the score>"
-}}"""
-
-    try:
-        result = subprocess.run(
-            ["claude", "-p", prompt, "--output-format", "json"],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-
-        if result.returncode != 0:
-            print(f"  Warning: claude -p failed (rc={result.returncode}): {result.stderr[:200]}")
-            return _empty_score()
-
-        # claude --output-format json wraps the response in {"result": "..."}
-        outer = json.loads(result.stdout)
-        raw = outer.get("result", result.stdout).strip()
-
-        # Strip markdown fences if present
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-        if raw.endswith("```"):
-            raw = raw[:raw.rfind("```")]
-        raw = raw.strip()
-
-        parsed = json.loads(raw)
-
-        # Normalize to expected shape
-        score = int(parsed.get("score", 0))
-        score = max(0, min(100, score))
-        reform_type = parsed.get("reform_type", "unknown")
-        if reform_type not in ("parametric", "structural", "unknown"):
-            reform_type = "unknown"
-        matched_params = parsed.get("matched_parameters", [])
-        if not isinstance(matched_params, list):
-            matched_params = []
-        top_category = parsed.get("top_category")
-        reasoning = parsed.get("reasoning", "")
-
-        matched_categories = [top_category] if top_category else []
-        existing_parameters = matched_params if reform_type == "parametric" else []
-
-        return {
-            "score": score,
-            "matched_categories": matched_categories,
-            "matched_parameters": matched_params,
-            "top_category": top_category,
-            "reform_type": reform_type,
-            "existing_parameters": existing_parameters,
-            "reasoning": reasoning,
-        }
-
-    except json.JSONDecodeError as e:
-        print(f"  Warning: Could not parse scoring response as JSON: {e}")
-        return _empty_score()
-    except subprocess.TimeoutExpired:
-        print(f"  Warning: Scoring timed out for {state} {bill.get('bill_number', '')}")
-        return _empty_score()
-    except FileNotFoundError:
-        print("  Warning: 'claude' CLI not found, scoring disabled")
-        return _empty_score()
-    except Exception as e:
-        print(f"  Warning: LLM scoring failed: {e}")
-        return _empty_score()
 
 
 # ============== Scan Modes ==============
@@ -967,105 +760,11 @@ def run_dataset_scan(supabase, states, dry_run):
 
 # ============== Main ==============
 
-def get_already_encoded_bill_ids(supabase):
-    """Get set of bill IDs already in the encoding pipeline (have a research entry)."""
-    try:
-        result = supabase.table("research").select("legiscan_bill_id").not_.is_("legiscan_bill_id", "null").execute()
-        return {r["legiscan_bill_id"] for r in result.data}
-    except Exception as e:
-        print(f"Warning: Could not fetch encoded bill IDs: {e}")
-        return set()
-
-
-def run_auto_encode(supabase, scored_bills, already_encoded_ids, threshold, max_bills, dry_run):
-    """Auto-encode high-confidence bills via subprocess.
-
-    Known limitation: /encode-bill has human checkpoints. This plumbing is
-    opt-in via --auto-encode and should only be used after addressing checkpoint
-    handling (e.g. --non-interactive flag on encode-bill, or --dangerouslySkipPermissions).
-
-    Args:
-        scored_bills: list of (bill, query, scoring) tuples
-        already_encoded_ids: set of bill_ids already in research table
-        threshold: minimum confidence score to auto-encode
-        max_bills: maximum number of bills to auto-encode per run
-        dry_run: if True, just print what would be done
-    """
-    candidates = []
-    for bill, query, scoring in scored_bills:
-        bill_id = bill.get("bill_id")
-        if scoring["score"] < threshold:
-            continue
-        if bill_id in already_encoded_ids:
-            continue
-        # Skip bills already attempted (auto_encode_status is set)
-        # We can't check DB here efficiently, so rely on the research table check above
-        candidates.append((bill, query, scoring))
-
-    candidates = candidates[:max_bills]
-
-    if not candidates:
-        print("Auto-encode: no candidates above threshold.")
-        return
-
-    print(f"Auto-encode: {len(candidates)} candidate(s) above threshold {threshold}")
-    for bill, query, scoring in candidates:
-        state = bill.get("state", "")
-        bill_number = bill.get("bill_number", "")
-        print(f"  [{state}-{bill_number}] score={scoring['score']} top={scoring['top_category']}")
-
-        if dry_run:
-            print(f"    [DRY RUN] Would run: claude -p '/encode-bill {state} {bill_number}'")
-            continue
-
-        # Update status to queued
-        try:
-            supabase.table("processed_bills").update(
-                {"auto_encode_status": "queued"}
-            ).eq("bill_id", int(bill.get("bill_id"))).execute()
-        except Exception as e:
-            print(f"    Warning: Could not update auto_encode_status: {e}")
-
-        # Run encode-bill via Claude CLI
-        try:
-            result = subprocess.run(
-                ["claude", "-p", f"/encode-bill {state} {bill_number}"],
-                capture_output=True,
-                text=True,
-                timeout=600,
-            )
-            status = "success" if result.returncode == 0 else "failed"
-            if result.returncode != 0:
-                print(f"    encode-bill failed (rc={result.returncode}): {result.stderr[:200]}")
-        except subprocess.TimeoutExpired:
-            status = "failed"
-            print(f"    encode-bill timed out")
-        except Exception as e:
-            status = "failed"
-            print(f"    encode-bill error: {e}")
-
-        # Update final status
-        try:
-            supabase.table("processed_bills").update(
-                {"auto_encode_status": status}
-            ).eq("bill_id", int(bill.get("bill_id"))).execute()
-        except Exception as e:
-            print(f"    Warning: Could not update auto_encode_status: {e}")
-
-        print(f"    Result: {status}")
-
-
 def main():
     parser = argparse.ArgumentParser(description="Monitor LegiScan for relevant bills")
     parser.add_argument("--states", help="Comma-separated list of state codes (e.g., NH,NY,CA)")
     parser.add_argument("--dry-run", action="store_true", help="Don't create issues, just show what would be created")
     parser.add_argument("--query", help="Run a single search query (uses search mode instead of dataset mode)")
-    parser.add_argument("--auto-encode", action="store_true",
-                        help="Auto-encode high-confidence bills (requires checkpoint handling — see docs)")
-    parser.add_argument("--encode-threshold", type=int, default=75,
-                        help="Minimum confidence score for auto-encode (default: 75)")
-    parser.add_argument("--encode-max", type=int, default=3,
-                        help="Maximum bills to auto-encode per run (default: 3)")
     args = parser.parse_args()
 
     # Validate environment
@@ -1104,26 +803,6 @@ def main():
         print("Fetching processed bills and dataset hashes from Supabase...")
         new_bills, skipped_bills, stats = run_dataset_scan(supabase, scan_states, args.dry_run)
 
-    # Score all relevant bills with LLM
-    pe_params = get_pe_parameters() if new_bills else set()
-
-    # Build per-state parameter context once
-    state_contexts = {}
-    for bill, _ in new_bills:
-        st = bill.get("state", "XX")
-        if st not in state_contexts:
-            state_contexts[st] = get_state_parameter_context(st, pe_params)
-
-    scored_new = []
-    for bill, matched_query in new_bills:
-        st = bill.get("state", "XX")
-        scoring = score_bill_with_llm(bill, state_contexts[st])
-        scored_new.append((bill, matched_query, scoring))
-
-    # Sort: parametric first, then by score descending
-    type_order = {"parametric": 0, "structural": 1, "unknown": 2}
-    scored_new.sort(key=lambda x: (type_order.get(x[2].get("reform_type", "unknown"), 2), -x[2]["score"]))
-
     # Summary
     print()
     print("Summary:")
@@ -1135,19 +814,7 @@ def main():
         print(f"  Datasets unchanged: {stats['datasets_skipped_unchanged']}")
         print(f"  Datasets skipped (no 2026): {stats['datasets_skipped_no_2026']}")
         print(f"  API calls used: {stats['api_calls']}")
-    print(f"  New bills for digest: {len(scored_new)}")
-
-    # Confidence tier summary
-    high = sum(1 for _, _, s in scored_new if s["score"] >= 75)
-    medium = sum(1 for _, _, s in scored_new if 40 <= s["score"] < 75)
-    low = sum(1 for _, _, s in scored_new if s["score"] < 40)
-    print(f"  Confidence: {high} high (>=75), {medium} medium (40-74), {low} low (<40)")
-
-    # Reform type summary
-    parametric = sum(1 for _, _, s in scored_new if s.get("reform_type") == "parametric")
-    structural = sum(1 for _, _, s in scored_new if s.get("reform_type") == "structural")
-    unknown_type = sum(1 for _, _, s in scored_new if s.get("reform_type") in ("unknown", None))
-    print(f"  Reform type: {parametric} parametric, {structural} structural, {unknown_type} unknown")
+    print(f"  New bills for digest: {len(new_bills)}")
     print()
 
     # Show skipped bills for review (limit to first 10)
@@ -1164,61 +831,54 @@ def main():
             print(f"  ... and {len(skipped_bills) - 10} more")
         print()
 
-    if not scored_new:
+    if not new_bills:
         print("No new bills to process.")
         return 0
 
-    # Show bills that will be included (now with scores)
+    # Show bills that will be included
     print("Bills to include in digest:")
-    for bill, matched_query, scoring in scored_new:
+    for bill, matched_query in new_bills:
         state = bill.get("state", "US")
         bill_number = bill.get("bill_number", "")
         title = bill.get("title", "")[:50]
         year_start = bill.get("session", {}).get("year_start", "")
         legiscan_url = f"https://legiscan.com/{state}/bill/{bill_number}/{year_start}"
-        categories = ", ".join(scoring["matched_categories"]) if scoring["matched_categories"] else "none"
-        rtype = scoring.get("reform_type", "unknown")
-        print(f"  [{state}-{bill_number}] score={scoring['score']} {rtype} ({categories}) {title}...")
+        print(f"  [{state}-{bill_number}] {title}...")
         print(f"    {legiscan_url}")
 
     if args.dry_run:
         print()
-        print(f"[DRY RUN] Would create 1 digest issue with {len(scored_new)} bills")
-
-        if args.auto_encode:
-            print()
-            already_encoded = get_already_encoded_bill_ids(supabase)
-            run_auto_encode(supabase, scored_new, already_encoded,
-                            args.encode_threshold, args.encode_max, dry_run=True)
+        print(f"[DRY RUN] Would create 1 digest issue with {len(new_bills)} bills")
         return 0
+
+    # Save all bills to Supabase (unscored — use /triage-bills to score later)
+    for bill, matched_query in new_bills:
+        save_processed_bill(supabase, bill, matched_query)
+    print(f"Saved {len(new_bills)} bills to Supabase")
 
     # Create single digest issue
     print()
     print("Creating digest issue...")
-    issue_url = create_digest_issue(scored_new)
+    issue_url = create_digest_issue(new_bills)
 
     if issue_url:
         print(f"Created: {issue_url}")
 
-        # Save all bills to Supabase with scoring data
-        for bill, matched_query, scoring in scored_new:
-            save_processed_bill(supabase, bill, matched_query,
-                                github_issue_url=issue_url, scoring_result=scoring)
-
-        print(f"Saved {len(scored_new)} bills to Supabase")
+        # Update bills with issue URL
+        for bill, matched_query in new_bills:
+            try:
+                supabase.table("processed_bills").update(
+                    {"github_issue_url": issue_url}
+                ).eq("bill_id", int(bill.get("bill_id"))).execute()
+            except Exception as e:
+                print(f"  Warning: Could not update issue URL for bill {bill.get('bill_id')}: {e}")
     else:
         print("Failed to create digest issue")
         return 1
 
-    # Auto-encode if requested
-    if args.auto_encode:
-        print()
-        already_encoded = get_already_encoded_bill_ids(supabase)
-        run_auto_encode(supabase, scored_new, already_encoded,
-                        args.encode_threshold, args.encode_max, dry_run=False)
-
     print()
-    print(f"Done! Created 1 digest issue with {len(scored_new)} bills.")
+    print(f"Done! Created 1 digest issue with {len(new_bills)} bills.")
+    print("Run /triage-bills to score these bills for PolicyEngine modelability.")
     return 0
 
 
