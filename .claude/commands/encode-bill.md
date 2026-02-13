@@ -242,6 +242,8 @@ Use `AskUserQuestion` to confirm:
 
 ## Phase 4: Write Reform Config to Database
 
+**CRITICAL: NEVER set status to `published`**. The status must be `in_review` when writing to the database. Only the `publish-bill` GitHub Action (triggered by merging the review PR) is allowed to set `published`. If you skip the PR or set `published` directly, the bill goes live without human review.
+
 **IMPORTANT**: Before computing impacts, write the reform config to the database.
 This ensures the reform is tracked and can be re-computed if needed.
 
@@ -348,7 +350,9 @@ Use `AskUserQuestion`:
 - Results look correct?
 - Options: Yes, update status to computed / Re-compute with --force / Cancel
 
-## Phase 6: Create Review PR
+## Phase 6: Create Review PR — MANDATORY
+
+**This phase is NOT optional.** Without a PR, the bill stays hidden (`in_review`) and cannot be published. You MUST complete this phase before finishing.
 
 **The agent (you) creates the PR**, not the script. This lets you include context from the research phases that the script doesn't have access to.
 

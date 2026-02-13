@@ -750,7 +750,18 @@ def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: di
 # =============================================================================
 
 def update_research_status(supabase, reform_id: str, status: str):
-    """Update the research table status for a reform."""
+    """Update the research table status for a reform.
+
+    Only 'in_review' is allowed here. The 'published' status must ONLY
+    be set by the publish-bill GitHub Action on PR merge.
+    """
+    ALLOWED_STATUSES = {"in_review", "not_modelable"}
+    if status not in ALLOWED_STATUSES:
+        raise ValueError(
+            f"Cannot set status to '{status}' from script. "
+            f"Allowed: {ALLOWED_STATUSES}. "
+            f"'published' can only be set by the publish-bill GitHub Action on PR merge."
+        )
     result = supabase.table("research").update({"status": status}).eq("id", reform_id).execute()
     return result
 
