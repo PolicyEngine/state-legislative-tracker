@@ -271,6 +271,49 @@ async function main() {
   const sitemapUrls = [BASE_URL];
   let billCount = 0;
 
+  // Write the set of valid route prefixes for the server to use for 404 detection
+  const validRoutes = new Set(["sitemap.xml", "robots.txt"]);
+  for (const state of Object.keys(billsByState)) {
+    validRoutes.add(state);
+    for (const bill of billsByState[state]) {
+      validRoutes.add(`${state}/${bill.id}`);
+    }
+  }
+  // Also include all 50 states + DC as valid SPA routes (even without bills)
+  for (const code of Object.keys(STATE_NAMES)) {
+    validRoutes.add(code);
+  }
+  writeFileSync(
+    join(DIST, "_valid_routes.json"),
+    JSON.stringify([...validRoutes].sort()),
+  );
+
+  // Update homepage with noscript navigation links
+  const homeParts = [
+    "<h1>2026 State Legislative Tracker | PolicyEngine</h1>",
+    "<p>Track PolicyEngine&apos;s state-level tax and benefit policy research across all 50 states.</p>",
+    "<h2>States with Analyzed Legislation</h2>",
+    "<nav><ul>",
+  ];
+  for (const [state, stateBills] of Object.entries(billsByState).sort()) {
+    const stateName = STATE_NAMES[state] || state;
+    homeParts.push(
+      `<li><a href="${BASE_URL}/${state}">${escapeHtml(stateName)}</a> — ${stateBills.length} bill${stateBills.length !== 1 ? "s" : ""}`,
+    );
+    homeParts.push("<ul>");
+    for (const b of stateBills) {
+      const bn = extractBillNumber(b.id, b.title);
+      homeParts.push(
+        `<li><a href="${BASE_URL}/${state}/${b.id}">${escapeHtml(bn)}: ${escapeHtml(b.title)}</a></li>`,
+      );
+    }
+    homeParts.push("</ul></li>");
+  }
+  homeParts.push("</ul></nav>");
+  let homeHtml = addNoscript(template, homeParts.join(""));
+  homeHtml = addCanonical(homeHtml, BASE_URL);
+  writeFileSync(join(DIST, "index.html"), homeHtml);
+
   // Generate pages per state
   for (const [state, stateBills] of Object.entries(billsByState)) {
     // State index page
