@@ -52,7 +52,7 @@ function App() {
         "*",
       );
       window.parent.postMessage(
-        { type: "hashchange", hash: window.location.pathname },
+        { type: "hashchange", hash: window.location.pathname.replace(/^\//, "") },
         "*",
       );
     };
