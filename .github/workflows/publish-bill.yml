@@ -51,3 +51,17 @@ jobs:
               print(f"Warning: No research record found for {reform_id}")
               exit(1)
           EOF
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Install Modal
+        run: pip install modal
+
+      - name: Redeploy with updated pre-rendered pages
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: modal deploy modal_app.py
