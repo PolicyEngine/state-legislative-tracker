@@ -5,44 +5,59 @@ import { stateData } from "./data/states";
 import { colors, mapColors, typography, spacing } from "./designTokens";
 import { track } from "./lib/analytics";
 
-function parseHash() {
+function parsePath() {
+  // Support old hash URLs for backward compat
   const hash = window.location.hash.replace(/^#/, "");
-  if (!hash) return { state: null, billId: null };
-  const parts = hash.split("/");
+  const path = hash || window.location.pathname.replace(/^\//, "");
+  if (!path) return { state: null, billId: null };
+  const parts = path.split("/");
   const state = parts[0].toUpperCase();
   const billId = parts[1] || null;
   return { state: stateData[state] ? state : null, billId };
 }
 
 function App() {
-  const [selectedState, setSelectedState] = useState(() => parseHash().state);
-  const [initialBillId, setInitialBillId] = useState(() => parseHash().billId);
+  const [selectedState, setSelectedState] = useState(() => parsePath().state);
+  const [initialBillId, setInitialBillId] = useState(() => parsePath().billId);
+
+  // Redirect old hash URLs to path URLs
+  useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, "");
+    if (hash) {
+      history.replaceState(null, "", "/" + hash);
+    }
+  }, []);
 
   const handleStateSelect = useCallback((abbr) => {
     setSelectedState(abbr);
     setInitialBillId(null);
     if (abbr) {
-      window.location.hash = abbr;
+      history.pushState(null, "", "/" + abbr);
       track("state_selected", { state_abbr: abbr, state_name: stateData[abbr]?.name });
     } else {
-      history.pushState(null, "", window.location.pathname);
+      history.pushState(null, "", "/");
+      window.parent.postMessage({ type: "pathchange", path: "/" }, "*");
       window.parent.postMessage({ type: "hashchange", hash: "" }, "*");
     }
   }, []);
 
   useEffect(() => {
-    const onHashChange = () => {
-      const { state, billId } = parseHash();
+    const onPopState = () => {
+      const { state, billId } = parsePath();
       setSelectedState(state);
       setInitialBillId(billId);
-      // Notify parent frame (policyengine.org) of hash change for deep linking
+      // Notify parent frame of path change for deep linking
       window.parent.postMessage(
-        { type: "hashchange", hash: window.location.hash },
+        { type: "pathchange", path: window.location.pathname },
+        "*",
+      );
+      window.parent.postMessage(
+        { type: "hashchange", hash: window.location.pathname },
         "*",
       );
     };
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
   return (

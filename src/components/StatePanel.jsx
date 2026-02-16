@@ -235,7 +235,9 @@ const StatePanel = memo(({ stateAbbr, onClose, initialBillId }) => {
                     if (bill.reformConfig) {
                       track("bill_clicked", { state_abbr: stateAbbr, bill_id: bill.bill, has_reform: true });
                       setActiveBill(bill);
-                      window.location.hash = `${stateAbbr}/${bill.id}`;
+                      history.pushState(null, "", `/${stateAbbr}/${bill.id}`);
+                      window.parent.postMessage({ type: "pathchange", path: `/${stateAbbr}/${bill.id}` }, "*");
+                      window.parent.postMessage({ type: "hashchange", hash: `${stateAbbr}/${bill.id}` }, "*");
                     }
                   }}
                   style={{
@@ -488,7 +490,9 @@ const StatePanel = memo(({ stateAbbr, onClose, initialBillId }) => {
           bill={activeBill}
           onClose={() => {
             setActiveBill(null);
-            window.location.hash = stateAbbr;
+            history.pushState(null, "", `/${stateAbbr}`);
+            window.parent.postMessage({ type: "pathchange", path: `/${stateAbbr}` }, "*");
+            window.parent.postMessage({ type: "hashchange", hash: stateAbbr }, "*");
           }}
         />
       )}

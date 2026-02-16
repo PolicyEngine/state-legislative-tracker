@@ -23,7 +23,7 @@ image = (
     )
     .run_commands(
         # Clone repo and build - date command busts cache on each deploy
-        "date && echo 'v18'",
+        "date && echo 'v19'",
         f"git clone --branch {BRANCH} --single-branch {REPO_URL} /app",
         "cd /app && npm install --legacy-peer-deps",
         # Anon key is public (read-only, row-level security enforced)
@@ -31,6 +31,9 @@ image = (
         " VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmZ25ncWxnZnN2cWFydGlsZnVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjQ4OTgsImV4cCI6MjA4NDAwMDg5OH0.FprGrDgkfT0j3nK51VGtCozs6y1pfhtZ07qDUHBm8Go"
         " VITE_POSTHOG_KEY=phc_jrd8DSkxBiB4qr7mxqzizIFh0sIIZ0mSNSNGepllyGx"
         " npm run build",
+        # Pre-render bill pages for SEO (uses public anon key)
+        "cd /app && SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmZ25ncWxnZnN2cWFydGlsZnVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjQ4OTgsImV4cCI6MjA4NDAwMDg5OH0.FprGrDgkfT0j3nK51VGtCozs6y1pfhtZ07qDUHBm8Go"
+        " node scripts/prerender.mjs",
     )
     .pip_install("fastapi", "uvicorn", "aiofiles")
 )
@@ -64,6 +67,11 @@ def web():
         # If it's a file that exists, serve it
         if os.path.isfile(file_path):
             return FileResponse(file_path)
+
+        # Check for pre-rendered directory page (e.g. /GA or /GA/ga-sb168)
+        index_path = f"{file_path}/index.html"
+        if os.path.isfile(index_path):
+            return FileResponse(index_path)
 
         # Otherwise serve index.html (SPA routing)
         return FileResponse(f"{dist_path}/index.html")
