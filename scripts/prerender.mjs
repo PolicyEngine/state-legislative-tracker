@@ -117,6 +117,14 @@ function addNoscript(html, content) {
   );
 }
 
+function addJsonLd(html, data) {
+  const json = JSON.stringify(data).replace(/<\//g, "<\\/");
+  return html.replace(
+    "</head>",
+    `    <script type="application/ld+json">${json}</script>\n  </head>`,
+  );
+}
+
 /** Strip leading state name/abbr and bill number from title to avoid duplication. */
 function dedup(raw, stateAbbr, stateName, billNumber) {
   if (!raw) return raw;
@@ -190,6 +198,25 @@ function buildBillPage(template, bill, impact, state) {
   );
 
   html = addNoscript(html, parts.join(""));
+
+  // JSON-LD structured data
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: title.replace(" | PolicyEngine", ""),
+    description,
+    url: canonicalUrl,
+    publisher: {
+      "@type": "Organization",
+      name: "PolicyEngine",
+      url: "https://policyengine.org",
+    },
+  };
+  if (bill.url) jsonLd.about = { "@type": "Legislation", url: bill.url, name: bill.title };
+  if (impact?.computed_at) jsonLd.dateModified = impact.computed_at.split("T")[0];
+  if (bill.created_at) jsonLd.datePublished = bill.created_at.split("T")[0];
+  html = addJsonLd(html, jsonLd);
+
   return html;
 }
 
@@ -268,7 +295,8 @@ async function main() {
     billsByState[state].push(bill);
   }
 
-  const sitemapUrls = [BASE_URL];
+  const today = new Date().toISOString().split("T")[0];
+  const sitemapEntries = [{ url: BASE_URL, lastmod: today }];
   let billCount = 0;
 
   // Write the set of valid route prefixes for the server to use for 404 detection
@@ -323,17 +351,32 @@ async function main() {
       join(stateDir, "index.html"),
       buildStatePage(template, state, stateBills),
     );
-    sitemapUrls.push(`${BASE_URL}/${state}`);
+    // Find most recent update across bills in this state for state page lastmod
+    let stateLastmod = null;
+    for (const bill of stateBills) {
+      const impact = impactMap[bill.id];
+      const d = impact?.computed_at || bill.updated_at || bill.created_at;
+      if (d && (!stateLastmod || d > stateLastmod)) stateLastmod = d;
+    }
+    sitemapEntries.push({
+      url: `${BASE_URL}/${state}`,
+      lastmod: stateLastmod ? stateLastmod.split("T")[0] : today,
+    });
 
     // Per-bill pages
     for (const bill of stateBills) {
+      const impact = impactMap[bill.id];
       const billDir = join(stateDir, bill.id);
       mkdirSync(billDir, { recursive: true });
       writeFileSync(
         join(billDir, "index.html"),
-        buildBillPage(template, bill, impactMap[bill.id], state),
+        buildBillPage(template, bill, impact, state),
       );
-      sitemapUrls.push(`${BASE_URL}/${state}/${bill.id}`);
+      const billLastmod = impact?.computed_at || bill.updated_at || bill.created_at;
+      sitemapEntries.push({
+        url: `${BASE_URL}/${state}/${bill.id}`,
+        lastmod: billLastmod ? billLastmod.split("T")[0] : today,
+      });
       billCount++;
     }
   }
@@ -342,9 +385,9 @@ async function main() {
   const sitemap = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    ...sitemapUrls.map(
-      (url) =>
-        `  <url><loc>${escapeHtml(url)}</loc><changefreq>weekly</changefreq></url>`,
+    ...sitemapEntries.map(
+      ({ url, lastmod }) =>
+        `  <url><loc>${escapeHtml(url)}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq></url>`,
     ),
     "</urlset>",
   ].join("\n");
@@ -360,7 +403,7 @@ async function main() {
     `Pre-rendered ${billCount} bill pages across ${Object.keys(billsByState).length} states`,
   );
   console.log(
-    `Generated sitemap.xml (${sitemapUrls.length} URLs) and robots.txt`,
+    `Generated sitemap.xml (${sitemapEntries.length} URLs) and robots.txt`,
   );
 }
 
