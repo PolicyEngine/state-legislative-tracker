@@ -11,7 +11,6 @@ export default function StateSearchCombobox({ onSelect, statesWithBills }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const inputRef = useRef(null);
   const listRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -117,7 +116,6 @@ export default function StateSearchCombobox({ onSelect, statesWithBills }) {
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
         <input
-          ref={inputRef}
           type="text"
           role="combobox"
           aria-expanded={open}
