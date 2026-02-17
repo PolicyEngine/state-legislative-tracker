@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 
 const DataContext = createContext(null);
@@ -86,6 +86,16 @@ export function DataProvider({ children }) {
     fetchData();
   }, []);
 
+  const statesWithBills = useMemo(() => {
+    const counts = {};
+    for (const item of research) {
+      if (item.type === 'bill' && item.status !== 'in_review' && item.state) {
+        counts[item.state] = (counts[item.state] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [research]);
+
   // Get bills for a state (type === 'bill')
   const getBillsForState = (stateAbbr) => {
     return research
@@ -146,6 +156,7 @@ export function DataProvider({ children }) {
       reformImpacts,
       loading,
       error,
+      statesWithBills,
       getBillsForState,
       getResearchForState,
       getImpact,

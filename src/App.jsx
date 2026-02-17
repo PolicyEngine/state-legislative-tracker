@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import USMap from "./components/USMap";
 import StatePanel from "./components/StatePanel";
+import StateSearchCombobox from "./components/StateSearchCombobox";
+import { useData } from "./context/DataContext";
 import { stateData } from "./data/states";
 import { colors, mapColors, typography, spacing } from "./designTokens";
 import { track } from "./lib/analytics";
@@ -17,8 +19,18 @@ function parsePath() {
 }
 
 function App() {
+  const { statesWithBills } = useData();
   const [selectedState, setSelectedState] = useState(() => parsePath().state);
   const [initialBillId, setInitialBillId] = useState(() => parsePath().billId);
+
+  const activeStates = useMemo(
+    () =>
+      Object.entries(statesWithBills)
+        .map(([abbr, count]) => ({ abbr, name: stateData[abbr]?.name, count }))
+        .filter((s) => s.name)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [statesWithBills],
+  );
 
   // Redirect old hash URLs to path URLs
   useEffect(() => {
@@ -74,34 +86,37 @@ function App() {
         }}
       >
         <div style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing.xl} ${spacing["2xl"]}` }}>
-          <div style={{ display: "flex", alignItems: "center", gap: spacing.lg }}>
-            <a href="https://policyengine.org" target="_blank" rel="noopener noreferrer">
-              <img
-                src="/policyengine-favicon.svg"
-                alt="PolicyEngine"
-                style={{ height: "40px", width: "auto" }}
-              />
-            </a>
-            <div>
-              <h1 style={{
-                margin: 0,
-                color: colors.secondary[900],
-                fontSize: typography.fontSize["2xl"],
-                fontWeight: typography.fontWeight.bold,
-                fontFamily: typography.fontFamily.primary,
-                letterSpacing: "-0.02em",
-              }}>
-                2026 State Legislative Tracker
-              </h1>
-              <p style={{
-                margin: "2px 0 0",
-                color: colors.text.secondary,
-                fontSize: typography.fontSize.sm,
-                fontFamily: typography.fontFamily.body,
-              }}>
-                PolicyEngine State Tax Research
-              </p>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: spacing.lg }}>
+              <a href="https://policyengine.org" target="_blank" rel="noopener noreferrer">
+                <img
+                  src="/policyengine-favicon.svg"
+                  alt="PolicyEngine"
+                  style={{ height: "40px", width: "auto" }}
+                />
+              </a>
+              <div>
+                <h1 style={{
+                  margin: 0,
+                  color: colors.secondary[900],
+                  fontSize: typography.fontSize["2xl"],
+                  fontWeight: typography.fontWeight.bold,
+                  fontFamily: typography.fontFamily.primary,
+                  letterSpacing: "-0.02em",
+                }}>
+                  2026 State Legislative Tracker
+                </h1>
+                <p style={{
+                  margin: "2px 0 0",
+                  color: colors.text.secondary,
+                  fontSize: typography.fontSize.sm,
+                  fontFamily: typography.fontFamily.body,
+                }}>
+                  PolicyEngine State Tax Research
+                </p>
+              </div>
             </div>
+            <StateSearchCombobox onSelect={handleStateSelect} statesWithBills={statesWithBills} />
           </div>
         </div>
       </header>
@@ -221,57 +236,75 @@ function App() {
                   Click any state to see legislative activity, tax changes, and available research.
                 </p>
 
-                {/* Quick stats for high activity states */}
-                <div style={{ width: "100%", maxWidth: "320px" }}>
-                  <h4 style={{
-                    margin: `0 0 ${spacing.md}`,
-                    color: colors.text.tertiary,
-                    fontSize: typography.fontSize.xs,
-                    fontWeight: typography.fontWeight.semibold,
-                    fontFamily: typography.fontFamily.primary,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                  }}>
-                    States with Major Tax Changes
-                  </h4>
-                  <div style={{ display: "flex", flexDirection: "column", gap: spacing.xs }}>
-                    {Object.entries(stateData)
-                      .filter(([, s]) => s.taxChanges?.length > 0)
-                      .slice(0, 5)
-                      .map(([abbr, state]) => (
+                {/* Active state chips */}
+                {activeStates.length > 0 && (
+                  <div style={{ width: "100%", maxWidth: "360px" }}>
+                    <h4 style={{
+                      margin: `0 0 ${spacing.md}`,
+                      color: colors.text.tertiary,
+                      fontSize: typography.fontSize.xs,
+                      fontWeight: typography.fontWeight.semibold,
+                      fontFamily: typography.fontFamily.primary,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}>
+                      States with Published Analysis
+                    </h4>
+                    <div style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: spacing.sm,
+                      justifyContent: "center",
+                    }}>
+                      {activeStates.map((s) => (
                         <button
-                          key={abbr}
-                          onClick={() => handleStateSelect(abbr)}
+                          key={s.abbr}
+                          onClick={() => handleStateSelect(s.abbr)}
                           style={{
-                            display: "flex",
+                            display: "inline-flex",
                             alignItems: "center",
-                            justifyContent: "space-between",
-                            width: "100%",
-                            padding: `${spacing.sm} ${spacing.md}`,
-                            border: "none",
-                            borderRadius: spacing.radius.lg,
-                            backgroundColor: "transparent",
-                            cursor: "pointer",
-                            transition: "background-color 0.15s ease",
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.background.secondary}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                        >
-                          <span style={{
-                            color: colors.secondary[900],
+                            gap: spacing.xs,
+                            padding: `${spacing.xs} ${spacing.md}`,
+                            border: `1px solid ${colors.primary[200]}`,
+                            borderRadius: spacing.radius.xl,
+                            backgroundColor: colors.primary[50],
+                            color: colors.primary[700],
                             fontSize: typography.fontSize.sm,
                             fontWeight: typography.fontWeight.medium,
                             fontFamily: typography.fontFamily.body,
-                          }}>{state.name}</span>
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = colors.primary[100];
+                            e.currentTarget.style.transform = "translateY(-1px)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = colors.primary[50];
+                            e.currentTarget.style.transform = "translateY(0)";
+                          }}
+                        >
+                          {s.abbr}
                           <span style={{
-                            color: colors.text.tertiary,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: "18px",
+                            height: "18px",
+                            borderRadius: "50%",
+                            backgroundColor: colors.primary[200],
+                            color: colors.primary[800],
                             fontSize: typography.fontSize.xs,
-                            fontFamily: typography.fontFamily.body,
-                          }}>{state.taxChanges[0].change}</span>
+                            fontWeight: typography.fontWeight.semibold,
+                            lineHeight: 1,
+                          }}>
+                            {s.count}
+                          </span>
                         </button>
                       ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
           </div>
