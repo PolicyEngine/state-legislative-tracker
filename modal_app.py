@@ -14,7 +14,7 @@ REPO_URL = "https://github.com/PolicyEngine/state-legislative-tracker.git"
 BRANCH = "main"
 
 # Bump this when source code changes to rebuild the app layer
-APP_VERSION = "v25"
+APP_VERSION = "v26"
 
 # Evaluated at deploy time — unique command string busts Modal's layer cache
 _now = datetime.datetime.utcnow().isoformat()
@@ -51,7 +51,7 @@ image = (
         f"cd /app && SUPABASE_ANON_KEY={SUPABASE_ANON_KEY}"
         " node scripts/prerender.mjs",
     )
-    .pip_install("fastapi", "uvicorn", "aiofiles")
+    .pip_install("fastapi", "uvicorn", "aiofiles", "httpx")
 )
 
 
@@ -62,13 +62,15 @@ image = (
 @modal.asgi_app(label="state-legislative-tracker")
 def web():
     """Serve static files with FastAPI."""
-    from fastapi import FastAPI
+    from fastapi import FastAPI, Request
     from fastapi.staticfiles import StaticFiles
     from fastapi.responses import FileResponse, Response
+    import httpx
     import json
     import os
 
     api = FastAPI()
+    http_client = httpx.AsyncClient()
 
     dist_path = "/app/dist"
 
@@ -79,6 +81,44 @@ def web():
     # Serve static assets (renamed from assets/ to _tracker/ to avoid collisions with proxy host)
     if os.path.exists(f"{dist_path}/_tracker"):
         api.mount("/_tracker", StaticFiles(directory=f"{dist_path}/_tracker"), name="tracker_assets")
+
+    # PostHog reverse proxy — routes analytics through our domain to avoid ad blockers
+    POSTHOG_HOST = "https://us.i.posthog.com"
+    POSTHOG_ASSETS_HOST = "https://us-assets.i.posthog.com"
+
+    @api.api_route("/ingest/{path:path}", methods=["GET", "POST", "OPTIONS"])
+    async def posthog_proxy(path: str, request: Request):
+        # Static assets come from a different host
+        if path.startswith("static/"):
+            target = f"{POSTHOG_ASSETS_HOST}/{path}"
+        else:
+            target = f"{POSTHOG_HOST}/{path}"
+
+        headers = {
+            k: v for k, v in request.headers.items()
+            if k.lower() not in ("host", "content-length")
+        }
+        body = await request.body()
+
+        resp = await http_client.request(
+            method=request.method,
+            url=target,
+            headers=headers,
+            content=body,
+            params=dict(request.query_params),
+        )
+        # httpx decompresses gzip/br automatically, so strip hop-by-hop
+        # and encoding headers to avoid browser trying to double-decompress
+        excluded = {"content-encoding", "content-length", "transfer-encoding", "connection"}
+        resp_headers = {
+            k: v for k, v in resp.headers.items()
+            if k.lower() not in excluded
+        }
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=resp_headers,
+        )
 
     @api.get("/{full_path:path}")
     async def serve_spa(full_path: str):

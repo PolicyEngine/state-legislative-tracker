@@ -7,7 +7,8 @@ import { DataProvider } from './context/DataContext.jsx'
 
 if (import.meta.env.VITE_POSTHOG_KEY && import.meta.env.PROD) {
   posthog.init(import.meta.env.VITE_POSTHOG_KEY, {
-    api_host: import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com',
+    api_host: '/ingest',
+    ui_host: 'https://us.posthog.com',
     capture_pageview: true,
     capture_pageleave: true,
     autocapture: true,
