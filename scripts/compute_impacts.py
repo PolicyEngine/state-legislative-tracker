@@ -361,11 +361,10 @@ def compute_winners_losers(baseline, reformed, state: str, year: int = 2026) -> 
     people = baseline.calculate("household_count_people", year)
     decile = baseline.calculate("household_income_decile", year).values
 
-    # Relative change formula (matching API exactly)
+    # Relative change formula (matching API fix in policyengine-api#3283)
     absolute_change = (reform_income - baseline_income).values
     capped_baseline_income = np.maximum(baseline_income.values, 1)
-    capped_reform_income = np.maximum(reform_income.values, 1) + absolute_change
-    income_change = (capped_reform_income - capped_baseline_income) / capped_baseline_income
+    income_change = absolute_change / capped_baseline_income
 
     # BOUNDS/LABELS approach matching API intra_decile_impact()
     outcome_groups = {}
@@ -499,11 +498,10 @@ def compute_district_impacts(baseline, reformed, state: str, year: int = 2026) -
         print("    Warning: Congressional district data not available")
         return {}
 
-    # Compute relative change for winners calculation (matching API intra_decile_impact)
+    # Compute relative change for winners calculation (matching API fix in policyengine-api#3283)
     absolute_change = reform_income - baseline_income
     capped_baseline = np.maximum(baseline_income, 1)
-    capped_reform = np.maximum(reform_income, 1) + absolute_change
-    relative_change = (capped_reform - capped_baseline) / capped_baseline
+    relative_change = absolute_change / capped_baseline
 
     district_impacts = {}
 
