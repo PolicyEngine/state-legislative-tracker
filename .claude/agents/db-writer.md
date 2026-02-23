@@ -45,7 +45,7 @@ research_record = {
     "status": "published",  # or "in_progress", "planned"
     "title": f"{state} {bill_number}: {short_title}",
     "url": None,  # Set when blog post is published
-    "description": bill_summary,  # Facts only: what programs change and how. No adjectives, judgments, or predictions.
+    "description": bill_summary,  # Fallback only — primary source is src/data/analysisDescriptions.js (version-controlled). Still write here for backward compatibility.
     "date": datetime.now().strftime("%Y-%m-%d"),
     "author": "PolicyEngine",
     "key_findings": [
@@ -154,7 +154,16 @@ supabase.table("reform_impacts").upsert(impact_record).execute()
 supabase.table("validation_metadata").upsert(validation_record).execute()
 ```
 
-### Step 5: Update states.js (Optional)
+### Step 5: Update `src/data/analysisDescriptions.js` — REQUIRED for bills
+
+Bill descriptions are version-controlled in `src/data/analysisDescriptions.js`. The app uses this as the primary source, falling back to Supabase. You MUST add/update the description here in addition to the Supabase write above.
+
+Add a new entry in alphabetical position (grouped by state):
+```js
+  "{state}-{bill}": "{DESCRIPTION}",
+```
+
+### Step 6: Update states.js (Optional)
 
 If the bill should have an interactive analyzer, add to `src/data/states.js`:
 
@@ -175,7 +184,7 @@ If the bill should have an interactive analyzer, add to `src/data/states.js`:
 }
 ```
 
-### Step 6: Verify in App
+### Step 7: Verify in App
 
 The app fetches data from Supabase at runtime (no sync needed).
 
