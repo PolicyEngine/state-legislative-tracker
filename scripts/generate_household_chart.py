@@ -13,6 +13,7 @@ Usage:
 """
 
 import argparse
+import copy
 import json
 import subprocess
 import sys
@@ -253,9 +254,8 @@ def run_simulations(situation: dict, reform_params: dict, year: int, num_people:
     """
     from policyengine_us import Simulation
 
-    import copy
-    params_copy = copy.deepcopy(reform_params)
-    ReformClass = create_reform_class(params_copy)
+    # reform_params is already a deepcopy from the caller
+    ReformClass = create_reform_class(reform_params)
 
     print("  Running baseline simulation...")
     baseline_sim = Simulation(situation=situation)
@@ -410,6 +410,10 @@ def generate_chart(
 
 def print_summary_stats(earnings: np.ndarray, benefit: np.ndarray) -> dict:
     """Print summary statistics and return them as a dict for PR comments."""
+    if len(earnings) == 0 or len(benefit) == 0:
+        print("\n  Summary: No data from simulation sweep")
+        return {}
+
     max_benefit = float(np.max(benefit))
     min_benefit = float(np.min(benefit))
     max_idx = int(np.argmax(benefit))
@@ -523,6 +527,7 @@ def _upload_image_to_github(chart_path: Path, reform_id: str, repo: str) -> str 
         ["gh", "api", f"repos/{repo}/branches/charts"],
         capture_output=True, text=True,
     )
+    created_branch = False
     if check.returncode != 0:
         # Create branch from main
         sha_result = subprocess.run(
@@ -532,11 +537,12 @@ def _upload_image_to_github(chart_path: Path, reform_id: str, repo: str) -> str 
         if sha_result.returncode != 0:
             return None
         main_sha = sha_result.stdout.strip()
-        subprocess.run(
+        branch_result = subprocess.run(
             ["gh", "api", f"repos/{repo}/git/refs", "--method", "POST",
              "-f", "ref=refs/heads/charts", "-f", f"sha={main_sha}"],
             capture_output=True, text=True,
         )
+        created_branch = branch_result.returncode == 0
 
     # Check if file already exists (need its SHA to update)
     existing = subprocess.run(
@@ -557,6 +563,12 @@ def _upload_image_to_github(chart_path: Path, reform_id: str, repo: str) -> str 
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"  GitHub upload error: {result.stderr}")
+        # Clean up orphaned branch if we just created it
+        if created_branch:
+            subprocess.run(
+                ["gh", "api", f"repos/{repo}/git/refs/heads/charts", "--method", "DELETE"],
+                capture_output=True, text=True,
+            )
         return None
 
     return f"https://raw.githubusercontent.com/{repo}/charts/{filename}"
@@ -680,8 +692,6 @@ Examples:
     situation = build_situation(config, state, sim_year)
 
     # Run simulations
-    import copy
-
     num_people = config.get("_num_people", len(config["adults"]) + len(config["children"]))
     earnings, baseline_vals, reform_vals, benefit = run_simulations(
         situation, copy.deepcopy(reform_params), sim_year, num_people
