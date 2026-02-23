@@ -337,6 +337,25 @@ Look for these signals from the bill-researcher output:
 - Auditability
 - Consistent schema formatting
 
+## Phase 5b: Generate Household Earnings Sweep Chart
+
+After compute_impacts.py completes, generate a household-level chart to validate the reform's shape:
+
+```bash
+export $(grep -v '^#' .env | xargs) && python scripts/generate_household_chart.py --reform-id {state}-{bill}
+```
+
+This auto-selects a household archetype (e.g., single parent + 2 kids for CTC/EITC, single filer for rate cuts), sweeps employment income from $0 to a sensible max, and saves:
+- `charts/{reform-id}.png` — static chart for PR comment
+- `charts/{reform-id}.html` — interactive chart for local review
+
+**Quick sanity check the chart**: Does the benefit curve match the bill's intent? E.g.:
+- CTC: flat benefit up to income limit, then cliff
+- EITC: triangle shape (phase-in, plateau, phase-out)
+- Rate cut: linearly increasing benefit with income
+
+If the chart looks wrong, investigate before proceeding — it likely means a parameter mapping error.
+
 ## Checkpoint #2: Results Review
 
 After the script completes, review the output and compare to fiscal note:
@@ -522,6 +541,16 @@ git checkout main
 
 The commit includes the updated `analysisDescriptions.js` with the new bill entry. When merged, the GitHub Action sets status to `published` AND the app picks up the version-controlled description.
 
+### Step 5: Upload household chart to PR
+
+After creating the PR, upload the earnings sweep chart as an embedded comment:
+
+```bash
+export $(grep -v '^#' .env | xargs) && python scripts/generate_household_chart.py --reform-id {state}-{bill} --upload-to-pr {PR_NUMBER}
+```
+
+This uploads the PNG to a `charts` branch on GitHub and posts a comment with the chart embedded inline, so reviewers can verify the reform's shape at a glance.
+
 **The bill is NOT visible on the dashboard** until the PR is merged. The `publish-bill` GitHub Action extracts the reform-id from the branch name on merge and sets status to `published`.
 
 ## Final Output
@@ -572,6 +601,7 @@ VIEW IN SUPABASE:
 | Script | Purpose |
 |--------|---------|
 | `scripts/compute_impacts.py` | Compute and store impacts (PE API + Microsimulation) |
+| `scripts/generate_household_chart.py` | Generate earnings sweep chart for PR validation |
 | `scripts/db_schema.py` | Schema utilities for consistent data formatting |
 
 ## Prerequisites
