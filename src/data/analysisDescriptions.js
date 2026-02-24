@@ -17,6 +17,7 @@ const descriptions = {
   "ct-sb78": "Eliminates the qualifying income thresholds for the personal income tax deductions for Social Security benefits. Currently, filers above $75K (single) / $100K (joint) can only deduct 75% of SS benefits; this bill makes 100% deductible for all.",
   "ct-sb69": "Eliminates Connecticut's state Earned Income Tax Credit (EITC), which currently provides 40% of the federal EITC to eligible low-income working families. We assume the $250 child bonus is also eliminated as the EITC statute is removed from the legal code.",
   "ct-tax-rebate-2026": "Governor Lamont's proposed one-time tax rebate providing $200 per person ($400 for joint filers) to Connecticut residents with AGI below $200,000 (single) or $400,000 (joint).",
+  "ct-hb5009": "Expands Connecticut's property tax credit by tripling the maximum from $300 to $1,000, establishing a $400 minimum floor, and raising income thresholds to benefit more middle-income homeowners.",
   "ct-hb5134": "Creates a new refundable child tax credit of $600 per qualifying child (up to 3 children) for Connecticut families with federal AGI below $100,000 (single) or $200,000 (joint). Children must be under age 18. Effective tax year 2026.",
   "ct-sb100": "Reduces Connecticut's lowest two marginal income tax rates for taxpayers with AGI below $100,000 (single) or $200,000 (joint). Eliminates tax on the first $10,000/$20,000 of income and cuts the next bracket from 4.5% to 3%.",
 
