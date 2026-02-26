@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { colors, typography, spacing } from "../../designTokens";
-import { usePolicyEngineAPI } from "../../hooks/usePolicyEngineAPI";
+import { usePolicyEngineAPI, compareSemver, reformNeedsStructuralCode } from "../../hooks/usePolicyEngineAPI";
 import { buildHousehold } from "../../utils/householdBuilder";
 import { useData } from "../../context/DataContext";
 import { track } from "../../lib/analytics";
@@ -84,9 +84,22 @@ const TABS = [
 ];
 
 export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill, onClose }) {
-  const { compareReform, loading, error } = usePolicyEngineAPI();
+  const { compareReform, loading, error, apiVersion } = usePolicyEngineAPI();
   const { getImpact } = useData();
   const [activeTab, setActiveTab] = useState("overview");
+
+  // Get pre-computed aggregate impacts (used for version gating + rendering)
+  const aggregateImpacts = getImpact(reformConfig.id);
+
+  // Disable household calc only for structural reforms (contrib paths,
+  // _use_reform) when the API version is too old. Parametric reforms
+  // (just changing existing parameter values) work on any API version.
+  // Fail closed: if we can't determine the API version, disable for structural.
+  const requiredVersion = aggregateImpacts?.policyengineUsVersion;
+  const isStructural = reformNeedsStructuralCode(reformConfig.reform);
+  const householdUnsupported =
+    isStructural &&
+    (!apiVersion || !requiredVersion || compareSemver(apiVersion, requiredVersion) < 0);
 
   useEffect(() => {
     track("reform_analyzer_opened", { state_abbr: stateAbbr, reform_id: reformConfig.id, bill_label: reformConfig.label });
@@ -98,9 +111,6 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
   }, []);
-
-  // Get pre-computed aggregate impacts
-  const aggregateImpacts = getImpact(reformConfig.id);
 
   // Pre-fetch district GeoJSON on modal open so it's ready when user clicks Districts tab
   const [cachedGeoData, setCachedGeoData] = useState(null);
@@ -238,10 +248,14 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
+            const isDisabled = tab.id === "household" && householdUnsupported;
             return (
               <button
                 key={tab.id}
+                disabled={isDisabled}
+                title={isDisabled ? `Requires PolicyEngine US v${requiredVersion} (API is v${apiVersion})` : undefined}
                 onClick={() => {
+                  if (isDisabled) return;
                   setActiveTab(tab.id);
                   track("tab_switched", { tab_id: tab.id, reform_id: reformConfig.id, state_abbr: stateAbbr });
                 }}
@@ -253,13 +267,14 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
                   border: "none",
                   borderBottom: isActive ? `2px solid ${colors.primary[600]}` : "2px solid transparent",
                   backgroundColor: "transparent",
-                  color: isActive ? colors.primary[600] : colors.text.secondary,
+                  color: isDisabled ? colors.gray[300] : isActive ? colors.primary[600] : colors.text.secondary,
                   fontSize: typography.fontSize.sm,
                   fontWeight: isActive ? typography.fontWeight.semibold : typography.fontWeight.medium,
                   fontFamily: typography.fontFamily.body,
-                  cursor: "pointer",
+                  cursor: isDisabled ? "not-allowed" : "pointer",
                   transition: "all 0.15s ease",
                   marginBottom: "-1px",
+                  opacity: isDisabled ? 0.5 : 1,
                 }}
               >
                 <Icon />

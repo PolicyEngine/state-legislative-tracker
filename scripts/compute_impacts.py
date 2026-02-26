@@ -198,13 +198,16 @@ def create_reform_class(reform_params: dict):
     from policyengine_core.reforms import Reform
     from policyengine_core.periods import instant
 
-    # Check for built-in reform
-    builtin_reform_name = reform_params.pop("_use_reform", None)
-    skip_prefixes = reform_params.pop("_skip_params", [])
+    # Check for built-in reform (use .get() to avoid mutating the input dict,
+    # which gets written back to Supabase later)
+    builtin_reform_name = reform_params.get("_use_reform")
+    skip_prefixes = reform_params.get("_skip_params", [])
 
-    # Filter out parameters that the built-in reform handles
+    # Filter out internal keys and parameters that the built-in reform handles
     filtered_params = {}
     for param_path, values in reform_params.items():
+        if param_path.startswith("_"):
+            continue
         should_skip = False
         for prefix in skip_prefixes:
             if param_path.startswith(prefix):
@@ -639,6 +642,10 @@ def get_effective_year_from_params(reform_params: dict) -> int:
     """Extract the earliest effective year from reform params."""
     earliest_year = 2100
     for param_path, values in reform_params.items():
+        if param_path.startswith("_"):
+            continue
+        if not isinstance(values, dict):
+            continue
         for period_str in values.keys():
             # Parse period string like "2027-01-01.2100-12-31" or "2027-01-01"
             if "." in period_str and len(period_str) > 10:
@@ -654,12 +661,37 @@ def get_effective_year_from_params(reform_params: dict) -> int:
     return earliest_year if earliest_year < 2100 else 2026
 
 
+def _resolve_pe_us_version(supabase, reform_id: str, reform_params: dict) -> str:
+    """Determine the policyengine-us version to store.
+
+    On re-runs (--force) where reform_params haven't changed, preserve the
+    existing version to avoid spuriously bumping it. The stored version acts
+    as "minimum API version needed", not "version last computed with".
+    """
+    current_version = get_changelog_version(str(_PE_US_REPO))
+
+    existing = supabase.table("reform_impacts").select(
+        "policyengine_us_version, reform_params"
+    ).eq("id", reform_id).execute()
+
+    if existing.data and len(existing.data) > 0:
+        old_version = existing.data[0].get("policyengine_us_version")
+        old_params = existing.data[0].get("reform_params")
+        # If params unchanged and we already have a version, keep the older one
+        if old_version and old_params == reform_params:
+            return old_version
+
+    return current_version
+
+
 def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: dict, analysis_year: int, multi_year: bool = False):
     """Write impacts to Supabase reform_impacts table.
 
     If multi_year=True, stores impacts in model_notes.impacts_by_year[year] instead of
     overwriting the main impact fields. This allows storing multiple years of impacts.
     """
+    pe_us_version = _resolve_pe_us_version(supabase, reform_id, reform_params)
+
     if multi_year:
         import json
         # Fetch existing record to preserve other years' data
@@ -713,7 +745,7 @@ def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: di
             "district_impacts": impacts.get("districtImpacts"),
             "reform_params": reform_params,
             "model_notes": model_notes,
-            "policyengine_us_version": get_changelog_version(str(_PE_US_REPO)),
+            "policyengine_us_version": pe_us_version,
             "dataset_name": "policyengine-us-data",
             "dataset_version": get_changelog_version(str(_PE_US_DATA_REPO)),
         }
@@ -734,7 +766,7 @@ def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: di
             "district_impacts": impacts.get("districtImpacts"),
             "reform_params": reform_params,
             "model_notes": model_notes,
-            "policyengine_us_version": get_changelog_version(str(_PE_US_REPO)),
+            "policyengine_us_version": pe_us_version,
             "dataset_name": "policyengine-us-data",
             "dataset_version": get_changelog_version(str(_PE_US_DATA_REPO)),
         }
@@ -911,9 +943,13 @@ Examples:
             print("  Writing to Supabase...")
             write_to_supabase(supabase, reform_id, impacts, reform["reform"], sim_year, args.multi_year)
 
-            # Set status to in_review
-            print("  Setting status to in_review...")
-            update_research_status(supabase, reform_id, "in_review")
+            # Set status to in_review (skip if already published to avoid taking bills offline)
+            current_status = supabase.table("research").select("status").eq("id", reform_id).execute().data
+            if current_status and current_status[0].get("status") == "published":
+                print("  Status already 'published' — preserving (not resetting to in_review)")
+            else:
+                print("  Setting status to in_review...")
+                update_research_status(supabase, reform_id, "in_review")
 
             print(f"\n  [OK] Complete!")
             results[reform_id] = "computed"
