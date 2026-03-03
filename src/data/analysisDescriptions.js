@@ -34,6 +34,7 @@ const descriptions = {
   "il-hb4680": "Increases the Illinois Earned Income Tax Credit match from 20% to 30% of the federal EITC, effective January 1, 2026.",
 
   // Kansas
+  "ks-hb2620": "Increases the Kansas earned income tax credit from 17% to 18% of the federal EITC.",
   "ks-hb2629": "Kansas HB2629 increases the standard deduction base amounts for all filing statuses effective tax year 2026: single from $3,605 to $3,805, joint from $8,240 to $8,640, head of household from $6,180 to $6,480.",
 
   // Massachusetts
