@@ -23,6 +23,9 @@ const descriptions = {
   // Washington DC
   "dc-hjr142": "Congressional resolution disapproving the D.C. Income and Franchise Tax Conformity and Revision Emergency Amendment Act of 2025, which would eliminate the $1,000 Child Tax Credit and revert the EITC match for households with children from 100% to 85%.",
 
+  // Delaware
+  "de-hb274": "Increases Delaware's Child and Dependent Care Credit from 50% to 100% of the federal CDCC, effectively doubling the state credit for eligible taxpayers.",
+
   // Georgia
   "ga-sb168": "Reduces Georgia's flat income tax rate from 5.09% to 4.19% for 2026, with 1.0pp annual cuts to eliminate the tax by 2031. Removes revenue trigger conditions and rate floor.",
   "ga-sb476": "Reduces Georgia income tax rate to 4.99% and increases standard deductions to $50,000 for single filers and $100,000 for joint filers, effective January 1, 2026.",
