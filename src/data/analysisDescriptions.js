@@ -27,6 +27,7 @@ const descriptions = {
   "ga-hb1001": "Accelerates Georgia's income tax rate reduction to 4.99% starting in 2026. Removes the revenue trigger conditions that could delay the reduction. We do not model the reduction in corporate tax rate to 4.99% in this analysis.",
   "ga-sb168": "Reduces Georgia's flat income tax rate from 5.09% to 4.19% for 2026, with 1.0pp annual cuts to eliminate the tax by 2031. Removes revenue trigger conditions and rate floor.",
   "ga-sb476": "Reduces Georgia income tax rate to 4.99% and increases standard deductions to $50,000 for single filers and $100,000 for joint filers, effective January 1, 2026.",
+  "ga-hb880": "Hypothetical multi-year analysis of Georgia HB880 assuming all revenue growth triggers are met. Phases in annual income tax rate reductions from 4.99% (2027) to 4.19% (2035), increases standard deductions ($12,600/$25,200 single/joint in 2027 to $17,400/$34,800 in 2035), and raises dependent exemptions ($4,200 in 2027 to $5,800 in 2035).",
 
   // Iowa
   "ia-hf1020": "Modifies the Iowa child and dependent care credit by removing the $90,000 income cap and simplifying from 7 brackets to 4. Taxpayers with Iowa net income of $25,000 or more receive 50% of the federal credit (up from 30-40% for middle-income and 0% for high-income). Retroactive to January 1, 2025.",
