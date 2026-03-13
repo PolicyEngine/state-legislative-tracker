@@ -86,6 +86,7 @@ const descriptions = {
 
   // Rhode Island
   "ri-s2364": "Rhode Island S2364 increases the state earned-income tax credit from 16% to 30% of the federal earned-income credit, effective for tax years beginning on or after January 1, 2027.",
+  "ri-sb2672": "Rhode Island SB2672 reduces personal income tax rates by 10% phased in over five years (2027-2031). All three brackets are reduced by 2% annually: first bracket from 3.75% to 3.38%, second bracket from 4.75% to 4.28%, third bracket from 5.99% to 5.39%. This analysis assumes no pause to the income tax reductions under the fiscal oversight provisions.",
 
   // South Carolina
   "sc-h3492": "South Carolina H.3492 makes the state EITC partially refundable (50% of the nonrefundable amount), effective for tax year 2026.",
