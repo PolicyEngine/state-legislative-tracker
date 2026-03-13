@@ -13,6 +13,7 @@ const descriptions = {
   "co-hb1062": "Eliminates the $20,000 (age 55-64) and $24,000 (age 65+) caps on Colorado's pension and annuity income subtraction, allowing taxpayers age 55+ to deduct all qualifying retirement income (pensions, annuities, IRA distributions, Social Security) from state taxable income, effective tax year 2027.",
 
   // Connecticut
+  "ct-hb5114": "Connecticut HB5114 creates a refundable renter's tax credit equal to 20% of annual rent paid minus 4% of federal AGI, with a maximum credit of $2,500. Eligible renters must have federal AGI below $75,000 (single/MFS/HoH) or $150,000 (MFJ), rent a primary residence for the full year, and not be claimed as a dependent. Effective for tax years beginning January 1, 2027.",
   "ct-hb5133": "Increases Connecticut's top marginal income tax rate from 6.99% to 7.99% for high earners (single filers over $500,000, joint filers over $1,000,000).",
   "ct-sb78": "Eliminates the qualifying income thresholds for the personal income tax deductions for Social Security benefits. Currently, filers above $75K (single) / $100K (joint) can only deduct 75% of SS benefits; this bill makes 100% deductible for all.",
   "ct-sb69": "Eliminates Connecticut's state Earned Income Tax Credit (EITC), which currently provides 40% of the federal EITC to eligible low-income working families. We assume the $250 child bonus is also eliminated as the EITC statute is removed from the legal code.",
