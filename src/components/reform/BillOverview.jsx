@@ -191,13 +191,13 @@ const ProvisionCard = ({ provision }) => {
   );
 };
 
-export default function BillOverview({ bill, impact }) {
+export default function BillOverview({ bill, impact, reformId }) {
   const provisions = impact?.provisions || [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: spacing.xl }}>
       {/* Key Facts Section */}
-      <KeyFacts impact={impact} />
+      <KeyFacts impact={impact} reformId={reformId} />
 
       {/* Policy Overview Section */}
       <div style={{

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { colors, typography, spacing } from "../../designTokens";
+import { getKeyFacts } from "../../data/analysisKeyFacts";
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return null;
@@ -159,7 +160,7 @@ const FactIcon = ({ type }) => (
   </svg>
 );
 
-export default function KeyFacts({ impact }) {
+export default function KeyFacts({ impact, reformId }) {
   const availableYears = impact?.impactsByYear
     ? Object.keys(impact.impactsByYear).sort()
     : [];
@@ -177,8 +178,8 @@ export default function KeyFacts({ impact }) {
     ? impact.impactsByYear[selectedYear]
     : impact;
 
-  // Use custom key_facts from model_notes if provided, otherwise auto-generate
-  const customFacts = impact.modelNotes?.key_facts;
+  // Priority: local file > model_notes > auto-generated
+  const customFacts = getKeyFacts(reformId) || impact.modelNotes?.key_facts;
   const facts = customFacts
     ? customFacts.map((text) => ({ icon: "custom", parts: [{ text }] }))
     : generateKeyFacts(yearData, selectedYear);
