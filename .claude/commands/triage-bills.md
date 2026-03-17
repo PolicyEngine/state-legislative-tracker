@@ -23,8 +23,10 @@ from supabase import create_client
 supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
 
 # Get bills already in research table (already encoded)
-encoded = supabase.table("research").select("legiscan_bill_id").not_.is_("legiscan_bill_id", "null").execute()
-encoded_ids = {r["legiscan_bill_id"] for r in encoded.data}
+# Match by both legiscan_bill_id (legacy) and research.id (works for all sources)
+encoded = supabase.table("research").select("id, legiscan_bill_id").eq("type", "bill").execute()
+encoded_legiscan_ids = {r["legiscan_bill_id"] for r in encoded.data if r.get("legiscan_bill_id")}
+encoded_research_ids = {r["id"] for r in encoded.data}
 
 # Get unscored, non-skipped bills
 query = supabase.table("processed_bills") \
@@ -37,8 +39,15 @@ query = supabase.table("processed_bills") \
 
 result = query.order("state, bill_number").execute()
 
-# Filter out already-encoded bills
-bills = [b for b in result.data if b["bill_id"] not in encoded_ids]
+# Filter out already-encoded bills (check both bill_id FK and research ID pattern)
+def is_encoded(b):
+    if b["bill_id"] in encoded_legiscan_ids:
+        return True
+    # Match by research ID convention: "{state}-{bill_number}" e.g. "ga-sb168"
+    research_id = f"{b['state'].lower()}-{b['bill_number'].lower().replace(' ', '')}"
+    return research_id in encoded_research_ids
+
+bills = [b for b in result.data if not is_encoded(b)]
 
 print(json.dumps(bills, indent=2))
 print(f"\n--- {len(bills)} unscored bills ---")
@@ -127,9 +136,9 @@ PROPOSED SCORES — {N} bills (review before saving)
 
 | # | Bill       | Score | Type       | Reasoning                         | Link           |
 |---|------------|-------|------------|-----------------------------------|----------------|
-| 1 | GA HB1001  | 95    | parametric | Reduces flat income tax rate      | [LegiScan](…)  |
-| 2 | GA SB387   | 90    | parametric | Repeals state income tax entirely | [LegiScan](…)  |
-| 3 | GA SB448   | 5     | unknown    | Not a tax/benefit change          | [LegiScan](…)  |
+| 1 | GA HB1001  | 95    | parametric | Reduces flat income tax rate      | [View](…)  |
+| 2 | GA SB387   | 90    | parametric | Repeals state income tax entirely | [View](…)  |
+| 3 | GA SB448   | 5     | unknown    | Not a tax/benefit change          | [View](…)  |
 
 Bills scoring < 20 will be marked as `not_modelable` (permanently skipped).
 
@@ -240,14 +249,14 @@ Last updated: {date}
 
 | Bill | Score | Type | Title | Last Action | Link | Encode |
 |------|-------|------|-------|-------------|------|--------|
-| HB1001 | 95 | parametric | Reduce rate of income tax | Introduced 2026-02-10 | [LegiScan](url) | `/encode-bill GA HB1001` |
-| SB476 | 95 | parametric | Income Tax Reduction Act of 2026 | Introduced 2026-02-11 | [LegiScan](url) | `/encode-bill GA SB476` |
+| HB1001 | 95 | parametric | Reduce rate of income tax | Introduced 2026-02-10 | [View](url) | `/encode-bill GA HB1001` |
+| SB476 | 95 | parametric | Income Tax Reduction Act of 2026 | Introduced 2026-02-11 | [View](url) | `/encode-bill GA SB476` |
 
 ### May Need Work (score 50-79)
 
 | Bill | Score | Type | Title | Last Action | Link |
 |------|-------|------|-------|-------------|------|
-| SB474 | 65 | structural | Exclude overtime from taxation | Introduced 2026-02-11 | [LegiScan](url) |
+| SB474 | 65 | structural | Exclude overtime from taxation | Introduced 2026-02-11 | [View](url) |
 
 ### Needs Review (score 20-49)
 
