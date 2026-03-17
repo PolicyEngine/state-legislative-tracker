@@ -9,7 +9,7 @@ Score a legislative bill by extracting policy changes and running PolicyEngine a
 
 ### Step 1: Get Bill Text
 
-Since LegiScan API may hit rate limits, use multiple sources:
+Use multiple sources to find bill text:
 
 1. **Web Search** first to find bill details:
    ```

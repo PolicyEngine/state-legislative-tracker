@@ -207,7 +207,7 @@ Error: Could not find bill {state} {bill_number}
 Suggestions:
   - Check bill number format (SB60 vs S60 vs SB0060)
   - Verify bill exists in current session
-  - Try searching: https://legiscan.com/search?state={state}&q={bill_number}
+  - Try searching: https://openstates.org/{state}/bills/?query={bill_number}
 ```
 
 ### Parameter Not Found

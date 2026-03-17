@@ -3,7 +3,7 @@
 OpenStates Bill Monitor
 
 Searches OpenStates API for tax/benefit-related bills and saves them to Supabase
-for triage. Drop-in replacement for legiscan_monitor.py.
+for triage.
 
 Usage:
     export OPENSTATES_API_KEY="your_api_key"
@@ -39,7 +39,7 @@ from datetime import datetime
 OPENSTATES_API_KEY = os.environ.get("OPENSTATES_API_KEY")
 OPENSTATES_BASE_URL = "https://v3.openstates.org"
 
-# Search queries for PolicyEngine-relevant bills (same as legiscan_monitor.py)
+# Search queries for PolicyEngine-relevant bills
 SEARCH_QUERIES = [
     "income tax rate",
     "flat tax",
@@ -261,7 +261,7 @@ def normalize_bill(os_bill):
     latest_action = os_bill.get("latest_action_description", "")
     latest_action_date = os_bill.get("latest_action_date", "")
 
-    # Status — OpenStates doesn't have a simple status field like LegiScan
+    # Status — derive from latest action
     # We infer from latest_passage_date and classification
     latest_passage_date = os_bill.get("latest_passage_date")
     if latest_passage_date:
@@ -287,7 +287,7 @@ def normalize_bill(os_bill):
         "last_action_date": latest_action_date or None,
         "official_url": openstates_url,
         "session_name": session,
-        "legiscan_url": openstates_url,  # Reuse column for source URL
+        "legiscan_url": openstates_url,  # Reuses legacy column name for source URL
         "source": "openstates",
         "source_id": os_id,
     }
@@ -298,7 +298,7 @@ def _generate_bill_id(openstates_id):
     Generate a stable integer from an OpenStates ID string.
 
     Uses first 8 bytes of MD5 hash, offset by 10M to avoid collisions
-    with existing LegiScan integer IDs (which are typically < 2M).
+    with existing integer IDs (offset by 10M to avoid collisions).
     """
     hash_bytes = hashlib.md5(openstates_id.encode()).digest()
     # Take first 4 bytes as unsigned int, add offset
@@ -306,7 +306,7 @@ def _generate_bill_id(openstates_id):
     return int_id
 
 
-# ============== Relevance Filter (reused from legiscan_monitor.py) ==============
+# ============== Relevance Filter ==============
 
 def is_relevant_bill(bill):
     """
@@ -483,7 +483,7 @@ def get_processed_bill_keys(supabase):
     Get set of already-processed bill dedup keys (state + bill_number).
 
     Using state+bill_number instead of bill_id since OpenStates IDs
-    differ from LegiScan IDs. This prevents duplicates across sources.
+    This prevents duplicates when re-running.
     """
     try:
         all_keys = set()
@@ -601,8 +601,7 @@ def run_dataset_scan(supabase, states, dry_run, updated_since=None):
     """
     Dataset-based scan: bulk fetch all bills per state, filter locally.
 
-    Equivalent to LegiScan's getDatasetList + getDataset but uses
-    paginated API instead of ZIP downloads.
+    Bulk fetch all bills per state via paginated API, filter locally.
 
     Returns (new_bills, stats).
     """

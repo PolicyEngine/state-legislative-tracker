@@ -10,8 +10,8 @@ Tracks state tax and benefit legislation relevant to [PolicyEngine](https://poli
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         Data Pipeline                               │
 │                                                                     │
-│  legiscan_monitor.py  →  /triage-bills  →  /encode-bill            │
-│  (find new bills)        (score bills)     (compute impacts)        │
+│  openstates_monitor.py →  /triage-bills  →  /encode-bill            │
+│  (find new bills)         (score bills)     (compute impacts)       │
 │                                                                     │
 │  Runs in CI/cron         Human-in-loop     Human-triggered          │
 │  Saves to Supabase       Writes scores     Runs microsimulation     │
@@ -33,19 +33,19 @@ Tracks state tax and benefit legislation relevant to [PolicyEngine](https://poli
 
 ## Workflow
 
-### 1. Find bills — `legiscan_monitor.py`
+### 1. Find bills — `openstates_monitor.py`
 
-Searches LegiScan for tax/benefit bills across all 50 states. Filters by relevance keywords, saves to Supabase (unscored), and creates a GitHub digest issue.
+Searches OpenStates API for tax/benefit bills across all 50 states. Filters by relevance keywords, saves to Supabase (unscored).
 
 ```bash
-# Monitor specific states (uses dataset mode — 1 API call per state)
-python scripts/legiscan_monitor.py --states GA,NY,UT
+# Scan specific states
+python scripts/openstates_monitor.py --states GA,NY,CT
 
 # Dry run
-python scripts/legiscan_monitor.py --states GA --dry-run
+python scripts/openstates_monitor.py --states GA --dry-run
 
-# Single query (search mode)
-python scripts/legiscan_monitor.py --query "income tax rate" --states GA
+# Search mode (ad-hoc keyword query)
+python scripts/openstates_monitor.py --query "earned income tax credit"
 ```
 
 ### 2. Score bills — `/triage-bills`
@@ -96,7 +96,7 @@ SUPABASE_ANON_KEY=<your-anon-key>
 VITE_SUPABASE_URL=<your-supabase-url>
 VITE_SUPABASE_ANON_KEY=<your-anon-key>
 VITE_POSTHOG_KEY=<your-posthog-key>
-LEGISCAN_API_KEY=<your-legiscan-key>
+OPENSTATES_API_KEY=<your-openstates-key>
 ```
 
 ### Development
@@ -122,7 +122,7 @@ scripts/sql/005_add_reform_type.sql
 
 - **Frontend**: Modal (auto-deploys from `main` via GitHub Actions)
 - **Database**: Supabase (PostgreSQL with RLS)
-- **Bill monitor**: Run locally or in CI with `python scripts/legiscan_monitor.py`
+- **Bill monitor**: Run locally or in CI with `python scripts/openstates_monitor.py`
 
 ## Claude Code Commands
 
@@ -139,7 +139,7 @@ scripts/sql/005_add_reform_type.sql
 ├── src/                    # React frontend
 ├── scripts/
 │   ├── compute_impacts.py  # Microsimulation + database writes
-│   ├── legiscan_monitor.py # LegiScan bill discovery pipeline
+│   ├── openstates_monitor.py # OpenStates bill discovery pipeline
 │   ├── db_schema.py        # Schema formatting utilities
 │   └── sql/                # Database migrations
 ├── .claude/

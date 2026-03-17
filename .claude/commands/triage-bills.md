@@ -274,7 +274,7 @@ Key formatting rules:
 - Sort by score descending within each tier
 - Include last action + date (helps prioritize active vs stalled bills)
 - Include the `/encode-bill` command for high-confidence bills (copy-pasteable)
-- Include the LegiScan URL as a clickable link
+- Include the bill URL as a clickable link
 - Include title (truncated to 80 chars if needed)
 
 #### 7c. Create or update the issue

@@ -147,5 +147,5 @@ Also look for:
 - Fiscal notes often have clearer summaries than bill text
 - Look for "effective date" language to know when changes apply
 - Some bills have multiple sections affecting different programs
-- Always return both the state legislature URL and a LegiScan URL for cross-reference
+- Always return the state legislature URL for reference
 - For graduated-rate states with bracket parameters, all filing statuses (single, joint, separate, surviving_spouse, head_of_household) usually change together

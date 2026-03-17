@@ -32,7 +32,7 @@ This document outlines the migration from static JSON/JS data files to a Supabas
 
 Project: `ffgngqlgfsvqartilful`
 
-**`processed_bills` table** (from LegiScan monitor - PR #20):
+**`processed_bills` table** (from bill monitor - PR #20):
 ```sql
 bill_id           INTEGER PRIMARY KEY
 state             TEXT
@@ -59,7 +59,7 @@ skipped_reason    TEXT
 
 ```
 ┌─────────────────────┐
-│   processed_bills   │  <--- LegiScan monitor writes here
+│   processed_bills   │  <--- OpenStates monitor writes here
 ├─────────────────────┤
 │ bill_id (PK)        │
 │ state               │
@@ -293,7 +293,7 @@ CREATE POLICY "Public read validation" ON validation_metadata FOR SELECT USING (
         ┌──────────────────────────────┼──────────────────────────────┐
         ▼                              ▼                              ▼
 ┌───────────────┐            ┌───────────────┐            ┌───────────────┐
-│  LegiScan     │            │  Manual       │            │  News/Tips    │
+│  OpenStates   │            │  Manual       │            │  News/Tips    │
 │  Monitor      │            │  Discovery    │            │  (human)      │
 │  (scheduled)  │            │  (human)      │            │               │
 └───────┬───────┘            └───────┬───────┘            └───────┬───────┘
@@ -336,7 +336,7 @@ CREATE POLICY "Public read validation" ON validation_metadata FOR SELECT USING (
                               ┌─────────────────────────────────────┐
                               │  STEP 1: INTAKE                     │
                               │  • Fetch bill from processed_bills  │
-                              │  • Get bill text from LegiScan      │
+                              │  • Get bill text from legislature   │
                               └─────────────────┬───────────────────┘
                                                 │
                                                 ▼
@@ -460,7 +460,7 @@ CREATE POLICY "Public read validation" ON validation_metadata FOR SELECT USING (
 
 | Step | Automation | Method |
 |------|------------|--------|
-| 1. Discover bills | Fully automated | LegiScan monitor (daily cron) |
+| 1. Discover bills | Fully automated | OpenStates monitor (daily cron) |
 | 2. Triage bills | Human decision | Review GitHub digest issues |
 | 3. Research & validate | AI-assisted | Bill Encoder Agent |
 | 4. Create PE policy | AI-assisted | Bill Encoder Agent |
@@ -489,12 +489,12 @@ Step 1: INTAKE
     │
     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  Input: Bill ID (LegiScan) or Bill Number + State                           │
+│  Input: Bill ID or Bill Number + State                                      │
 │  Output: Structured bill metadata                                           │
 │                                                                             │
 │  Actions:                                                                   │
 │    - Query Supabase `processed_bills` table for existing bill info          │
-│    - If not found, query LegiScan API directly                              │
+│    - If not found, search OpenStates or state legislature                   │
 │    - Extract: state, bill_number, title, description, session               │
 └─────────────────────────────────────────────────────────────────────────────┘
     │
@@ -507,7 +507,7 @@ Step 2: FETCH BILL TEXT
 │  Output: Full bill text + fiscal note (if available)                        │
 │                                                                             │
 │  Actions:                                                                   │
-│    - Fetch bill text from LegiScan or state legislature                     │
+│    - Fetch bill text from state legislature website                         │
 │    - Search for official fiscal note / fiscal impact statement              │
 │    - Extract fiscal note estimates if found                                 │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -839,7 +839,7 @@ The agent assigns confidence to each provision:
 
 | Source Type | Examples | How to Access |
 |-------------|----------|---------------|
-| **Official Fiscal Notes** | State LFA, legislative budget office | State legislature websites, LegiScan documents |
+| **Official Fiscal Notes** | State LFA, legislative budget office | State legislature websites |
 | **Think Tanks** | Tax Foundation, ITEP, CBPP | Web search, their state pages |
 | **State-specific orgs** | Utah Foundation, Empire Center (NY) | Web search |
 | **News coverage** | Local papers, tax reporters | Web search |
@@ -882,7 +882,7 @@ The agent needs access to:
 
 | Script | Trigger | Function |
 |--------|---------|----------|
-| `legiscan_monitor.py` | Scheduled (daily) | Discover new bills → `processed_bills` |
+| `openstates_monitor.py` | Scheduled (daily) | Discover new bills → `processed_bills` |
 | `encode_bill.py` | Manual / agent | Run bill encoder agent |
 | `compute_impacts.py` | Manual / GH Action | Run PE simulation → `reform_impacts` |
 | `create_research.py` | Manual / agent | Create research item from bill |
@@ -906,11 +906,11 @@ python scripts/compute_impacts.py --recompute-stale 1.200.0
 
 ### `scripts/create_research.py`
 
-Creates research items from LegiScan bills or manually:
+Creates research items from discovered bills or manually:
 
 ```bash
-# From LegiScan bill
-python scripts/create_research.py --from-legiscan 12345 --policy-id 95604
+# From bill ID
+python scripts/create_research.py --from-bill 12345 --policy-id 95604
 
 # Manual entry
 python scripts/create_research.py \
@@ -968,7 +968,7 @@ jobs:
 ## Typical Workflow Example
 
 ```
-Day 1: LegiScan finds UT-SB60
+Day 1: OpenStates monitor finds UT-SB60
        → Saves to processed_bills
        → Creates GitHub digest issue #123
 
