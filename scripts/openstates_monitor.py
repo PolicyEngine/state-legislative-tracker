@@ -23,6 +23,10 @@ Usage:
     python scripts/openstates_monitor.py --dry-run
 
 Get a free API key at: https://openstates.org/accounts/signup/
+
+Rate limits (free tier): 10 requests/min, 250 requests/day.
+A single-state scan uses ~11 requests (one per query).
+An all-states scan uses ~11 requests (queries search all states by default).
 """
 
 import os
@@ -107,7 +111,7 @@ def openstates_request(endpoint, params=None, max_retries=3):
         response = requests.get(url, headers=headers, params=params or {})
 
         if response.status_code == 429:
-            wait = 5 * (attempt + 1)  # 5s, 10s, 15s
+            wait = 15 * (attempt + 1)  # 15s, 30s, 45s
             print(f"  Rate limited, waiting {wait}s...")
             time.sleep(wait)
             continue
@@ -162,8 +166,8 @@ def search_bills_openstates(query, jurisdiction=None, session=None, per_page=20,
             if page >= total_pages:
                 break
 
-            # Rate limit: free tier is strict, be conservative
-            time.sleep(1)
+            # Free tier: 10 requests/min, so ~6s between requests
+            time.sleep(6)
 
         except Exception as e:
             print(f"  Warning: Search page {page} failed for '{query}': {e}")
@@ -440,7 +444,7 @@ def get_processed_bill_keys(supabase):
                 .execute()
             )
             for r in result.data:
-                key = f"{r['state']}:{r['bill_number']}"
+                key = f"{r['state']}:{r['bill_number'].replace(' ', '')}"
                 all_keys.add(key)
             if len(result.data) < page_size:
                 break
@@ -503,7 +507,7 @@ def run_search_scan(supabase, states, queries, dry_run):
 
                 for os_bill in results:
                     normalized = normalize_bill(os_bill)
-                    dedup_key = f"{normalized['state']}:{normalized['bill_number']}"
+                    dedup_key = f"{normalized['state']}:{normalized['bill_number'].replace(' ', '')}"
 
                     if dedup_key in processed_keys:
                         skipped_processed += 1
@@ -517,14 +521,14 @@ def run_search_scan(supabase, states, queries, dry_run):
 
                 # Delay between states within a query
                 if si < len(states) - 1:
-                    time.sleep(2)
+                    time.sleep(6)
         else:
             results = search_bills_openstates(query)
             print(f"  All states: {len(results)} results")
 
             for os_bill in results:
                 normalized = normalize_bill(os_bill)
-                dedup_key = f"{normalized['state']}:{normalized['bill_number']}"
+                dedup_key = f"{normalized['state']}:{normalized['bill_number'].replace(' ', '')}"
 
                 if dedup_key in processed_keys:
                     skipped_processed += 1
@@ -536,9 +540,9 @@ def run_search_scan(supabase, states, queries, dry_run):
 
                 candidate_bills[dedup_key] = (normalized, query)
 
-        # Delay between queries to avoid rate limits
+        # Delay between queries (free tier: 10 req/min)
         if qi < len(queries) - 1:
-            time.sleep(3)
+            time.sleep(6)
 
     new_bills = list(candidate_bills.values())
     stats = {
