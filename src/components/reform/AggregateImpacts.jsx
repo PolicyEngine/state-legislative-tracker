@@ -97,7 +97,7 @@ export default function AggregateImpacts({ impacts }) {
           letterSpacing: "0.5px",
           color: colors.text.tertiary,
         }}>
-          Reform Impact Summary
+          Statewide Impacts
         </h3>
 
         {/* Year Tabs for multi-year reforms */}
