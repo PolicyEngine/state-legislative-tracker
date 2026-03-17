@@ -10,13 +10,13 @@ Usage:
     export SUPABASE_URL="https://your-project.supabase.co"
     export SUPABASE_KEY="your_service_key"
 
-    # Scan all states (dataset mode — paginated bulk fetch)
+    # Scan all states with standard keyword queries
     python scripts/openstates_monitor.py
 
     # Scan specific states
     python scripts/openstates_monitor.py --states NY,GA,CT
 
-    # Search mode (ad-hoc keyword query)
+    # Single ad-hoc query
     python scripts/openstates_monitor.py --query "earned income tax credit"
 
     # Dry run (show what would be saved, don't write to Supabase)
@@ -107,7 +107,7 @@ def openstates_request(endpoint, params=None, max_retries=3):
         response = requests.get(url, headers=headers, params=params or {})
 
         if response.status_code == 429:
-            wait = 2 ** attempt + 1  # 2s, 3s, 5s
+            wait = 5 * (attempt + 1)  # 5s, 10s, 15s
             print(f"  Rate limited, waiting {wait}s...")
             time.sleep(wait)
             continue
@@ -170,63 +170,6 @@ def search_bills_openstates(query, jurisdiction=None, session=None, per_page=20,
             break
 
     return all_results
-
-
-def fetch_all_bills_for_state(jurisdiction, updated_since=None, per_page=20, max_pages=50):
-    """
-    Fetch all bills for a state (bulk mode, no keyword filter).
-
-    Uses action_since or created_since to limit to recent/current session bills.
-
-    Args:
-        jurisdiction: State name (e.g., "New York")
-        updated_since: ISO date string to only get bills updated after this date
-        per_page: Results per page (max 20 on free tier)
-        max_pages: Max pages to fetch (20 bills/page * 50 = 1000 bills max)
-
-    Returns:
-        List of bill dicts
-    """
-    params = {
-        "jurisdiction": jurisdiction,
-        "per_page": per_page,
-        "include": "abstracts",
-        "sort": "updated_desc",
-        "classification": "bill",  # Skip resolutions, memorials, etc.
-    }
-
-    # Filter to current session bills
-    if updated_since:
-        params["updated_since"] = updated_since
-    else:
-        # Default: only bills created since start of current session year
-        params["created_since"] = f"{TARGET_SESSION_YEAR - 1}-11-01"
-
-    all_bills = []
-    for page in range(1, max_pages + 1):
-        params["page"] = page
-        try:
-            data = openstates_request("/bills", params)
-            results = data.get("results", [])
-            all_bills.extend(results)
-
-            pagination = data.get("pagination", {})
-            total_pages = pagination.get("max_page", 1)
-            if page >= total_pages:
-                break
-
-            time.sleep(1)
-        except requests.exceptions.HTTPError as e:
-            if e.response is not None and e.response.status_code == 404:
-                return []
-            # On rate limit or other error, return what we have so far
-            print(f"  Warning: Page {page} failed for {jurisdiction}: {e}")
-            break
-        except Exception as e:
-            print(f"  Warning: Page {page} failed for {jurisdiction}: {e}")
-            break
-
-    return all_bills
 
 
 # ============== Normalize to processed_bills format ==============
@@ -549,11 +492,11 @@ def run_search_scan(supabase, states, queries, dry_run):
     skipped_irrelevant = 0
     candidate_bills = {}  # dedup_key -> (normalized_bill, matched_query)
 
-    for query in queries:
+    for qi, query in enumerate(queries):
         print(f"Searching: '{query}'")
 
         if states:
-            for state_abbr in states:
+            for si, state_abbr in enumerate(states):
                 jurisdiction = ABBR_TO_STATE.get(state_abbr, state_abbr)
                 results = search_bills_openstates(query, jurisdiction=jurisdiction)
                 print(f"  {state_abbr}: {len(results)} results")
@@ -571,6 +514,10 @@ def run_search_scan(supabase, states, queries, dry_run):
                         continue
 
                     candidate_bills[dedup_key] = (normalized, query)
+
+                # Delay between states within a query
+                if si < len(states) - 1:
+                    time.sleep(2)
         else:
             results = search_bills_openstates(query)
             print(f"  All states: {len(results)} results")
@@ -589,76 +536,14 @@ def run_search_scan(supabase, states, queries, dry_run):
 
                 candidate_bills[dedup_key] = (normalized, query)
 
+        # Delay between queries to avoid rate limits
+        if qi < len(queries) - 1:
+            time.sleep(3)
+
     new_bills = list(candidate_bills.values())
     stats = {
         "skipped_processed": skipped_processed,
         "skipped_irrelevant": skipped_irrelevant,
-    }
-    return new_bills, stats
-
-
-def run_dataset_scan(supabase, states, dry_run, updated_since=None):
-    """
-    Dataset-based scan: bulk fetch all bills per state, filter locally.
-
-    Bulk fetch all bills per state via paginated API, filter locally.
-
-    Returns (new_bills, stats).
-    """
-    processed_keys = get_processed_bill_keys(supabase)
-    print(f"Previously processed: {len(processed_keys)} bills")
-    print()
-
-    skipped_processed = 0
-    skipped_irrelevant = 0
-    states_scanned = 0
-    total_fetched = 0
-
-    new_bills = []
-
-    for state_abbr in states:
-        jurisdiction = ABBR_TO_STATE.get(state_abbr, state_abbr)
-        print(f"Fetching bills for {state_abbr} ({jurisdiction})...")
-
-        try:
-            os_bills = fetch_all_bills_for_state(
-                jurisdiction,
-                updated_since=updated_since,
-            )
-        except Exception as e:
-            print(f"  Warning: Failed for {state_abbr}: {e}")
-            continue
-
-        states_scanned += 1
-        total_fetched += len(os_bills)
-        state_new = 0
-
-        for os_bill in os_bills:
-            normalized = normalize_bill(os_bill)
-            dedup_key = f"{normalized['state']}:{normalized['bill_number']}"
-
-            if dedup_key in processed_keys:
-                skipped_processed += 1
-                continue
-
-            if not is_relevant_bill(os_bill):
-                skipped_irrelevant += 1
-                continue
-
-            new_bills.append((normalized, "dataset_scan"))
-            processed_keys.add(dedup_key)
-            state_new += 1
-
-        print(f"  {state_abbr}: {len(os_bills)} total, {state_new} new relevant")
-
-        # Delay between states to avoid rate limits
-        time.sleep(2)
-
-    stats = {
-        "skipped_processed": skipped_processed,
-        "skipped_irrelevant": skipped_irrelevant,
-        "states_scanned": states_scanned,
-        "total_fetched": total_fetched,
     }
     return new_bills, stats
 
@@ -669,9 +554,7 @@ def main():
     parser = argparse.ArgumentParser(description="Monitor OpenStates for relevant bills")
     parser.add_argument("--states", help="Comma-separated state codes (e.g., NY,GA,CT)")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be saved without writing")
-    parser.add_argument("--query", help="Run a single search query (search mode)")
-    parser.add_argument("--updated-since", help="Only fetch bills updated after this date (YYYY-MM-DD)")
-    parser.add_argument("--dataset", action="store_true", help="Use bulk dataset mode instead of search (slower, more complete)")
+    parser.add_argument("--query", help="Run a single ad-hoc search query")
     args = parser.parse_args()
 
     if not OPENSTATES_API_KEY:
@@ -685,49 +568,25 @@ def main():
         return 1
 
     states = args.states.split(",") if args.states else None
-    use_dataset_mode = bool(args.updated_since) or args.dataset
-    use_single_query = bool(args.query)
+    queries = [args.query] if args.query else SEARCH_QUERIES
 
     print("OpenStates Bill Monitor")
     print("=======================")
-
-    if use_single_query:
-        # Single query search
-        queries = [args.query]
-        scan_states = states
-        print(f"Mode: Search (query: '{args.query}')")
-        print(f"States: {scan_states or 'All'}")
-        print(f"Dry run: {args.dry_run}")
-        print()
-        new_bills, stats = run_search_scan(supabase, scan_states, queries, args.dry_run)
-    elif use_dataset_mode:
-        # Bulk fetch: all bills for each state, filter locally
-        scan_states = states or [STATE_ABBR[s] for s in ALL_US_STATES]
-        print(f"Mode: Dataset (bulk fetch)")
-        print(f"States: {len(scan_states)} states")
-        print(f"Dry run: {args.dry_run}")
-        print()
-        new_bills, stats = run_dataset_scan(
-            supabase, scan_states, args.dry_run,
-            updated_since=args.updated_since,
-        )
+    if args.query:
+        print(f"Query: '{args.query}'")
     else:
-        # Default: search mode with all standard queries (most efficient)
-        scan_states = states
-        print(f"Mode: Search (all {len(SEARCH_QUERIES)} standard queries)")
-        print(f"States: {scan_states or 'All'}")
-        print(f"Dry run: {args.dry_run}")
-        print()
-        new_bills, stats = run_search_scan(supabase, scan_states, SEARCH_QUERIES, args.dry_run)
+        print(f"Queries: {len(queries)} standard keywords")
+    print(f"States: {states or 'All'}")
+    print(f"Dry run: {args.dry_run}")
+    print()
+
+    new_bills, stats = run_search_scan(supabase, states, queries, args.dry_run)
 
     # Summary
     print()
     print("Summary:")
     print(f"  Skipped (already in Supabase): {stats['skipped_processed']}")
     print(f"  Skipped (not relevant): {stats['skipped_irrelevant']}")
-    if use_dataset_mode:
-        print(f"  States scanned: {stats['states_scanned']}")
-        print(f"  Total bills fetched: {stats['total_fetched']}")
     print(f"  New relevant bills: {len(new_bills)}")
     print()
 
