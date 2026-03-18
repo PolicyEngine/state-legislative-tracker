@@ -4,7 +4,6 @@ import { useData } from "../context/DataContext";
 import ResearchCard from "./ResearchCard";
 import ReformAnalyzer from "./reform/ReformAnalyzer";
 import ManifoldBadge from "./ManifoldBadge";
-import manifoldMarkets from "../data/manifoldMarkets";
 import { colors, typography, spacing } from "../designTokens";
 import { track } from "../lib/analytics";
 import { BASE_PATH } from "../lib/basePath";
@@ -289,8 +288,8 @@ const StatePanel = memo(({ stateAbbr, onClose, initialBillId }) => {
                         fontWeight: typography.fontWeight.semibold,
                         fontFamily: typography.fontFamily.body,
                       }}>{bill.bill}</p>
-                      {manifoldMarkets[bill.id] && (
-                        <ManifoldBadge marketUrl={manifoldMarkets[bill.id]} />
+                      {bill.manifoldUrl && (
+                        <ManifoldBadge marketUrl={bill.manifoldUrl} />
                       )}
                     </div>
                     <p style={{

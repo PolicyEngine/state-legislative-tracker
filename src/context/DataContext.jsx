@@ -111,6 +111,7 @@ export function DataProvider({ children }) {
           description: description,
           url: item.url,
           status: formatStatus(item.status),
+          manifoldUrl: item.manifold_url || null,
           reformConfig: impact?.reformParams ? {
             id: item.id,
             label: item.title,
