@@ -298,7 +298,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
 
           {/* Statewide Tab */}
           {activeTab === "statewide" && (
-            <AggregateImpacts impacts={aggregateImpacts} />
+            <AggregateImpacts impacts={aggregateImpacts} billTitle={bill?.bill} />
           )}
 
           {/* Districts Tab */}

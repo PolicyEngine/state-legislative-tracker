@@ -112,7 +112,7 @@ function StackedRow({ label, data, height = 28 }) {
   );
 }
 
-function getTitle(allData) {
+export function getWinnersLosersTitle(allData) {
   const totalAhead = (allData.gainMore5Pct || 0) + (allData.gainLess5Pct || 0);
   const totalBehind = (allData.loseLess5Pct || 0) + (allData.loseMore5Pct || 0);
   const fmt = (n) => `${Math.round(n * 100)}%`;
@@ -129,7 +129,7 @@ function getTitle(allData) {
   return "This reform would have no effect on net income for the population";
 }
 
-export default function WinnersLosersChart({ winnersLosers }) {
+export default function WinnersLosersChart({ winnersLosers, hideTitle = false }) {
   if (!winnersLosers) return null;
 
   const intraDecile = winnersLosers.intraDecile;
@@ -143,20 +143,22 @@ export default function WinnersLosersChart({ winnersLosers }) {
     loseMore5Pct: winnersLosers.loseMore5Pct || 0,
   };
 
-  const title = getTitle(allData);
+  const title = getWinnersLosersTitle(allData);
 
   return (
     <div>
       {/* Title */}
-      <p style={{
-        margin: `0 0 ${spacing.md}`,
-        fontSize: typography.fontSize.base,
-        fontFamily: typography.fontFamily.body,
-        color: colors.text.secondary,
-        lineHeight: "1.4",
-      }}>
-        {title}
-      </p>
+      {!hideTitle && (
+        <p style={{
+          margin: `0 0 ${spacing.md}`,
+          fontSize: typography.fontSize.base,
+          fontFamily: typography.fontFamily.body,
+          color: colors.text.secondary,
+          lineHeight: "1.4",
+        }}>
+          {title}
+        </p>
+      )}
 
       {/* "All" row */}
       <StackedRow label="All" data={allData} height={32} />

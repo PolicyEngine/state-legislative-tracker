@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { colors, typography, spacing } from "../../designTokens";
 import DecileChart from "./DecileChart";
-import WinnersLosersChart from "./WinnersLosersChart";
+import WinnersLosersChart, { getWinnersLosersTitle } from "./WinnersLosersChart";
+import ChartExportWrapper from "./ChartExportWrapper";
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return "N/A";
@@ -29,7 +30,9 @@ const formatPctChange = (value, decimals = 1) => {
   return `${sign}${value.toFixed(decimals)}%`;
 };
 
-export default function AggregateImpacts({ impacts }) {
+export default function AggregateImpacts({ impacts, billTitle }) {
+  const filePrefix = (billTitle || "chart").replace(/[^a-zA-Z0-9]/g, "_");
+
   // Check for multi-year impacts
   const availableYears = impacts?.impactsByYear ? Object.keys(impacts.impactsByYear).sort() : [];
   const hasMultipleYears = availableYears.length > 1;
@@ -253,12 +256,25 @@ export default function AggregateImpacts({ impacts }) {
               Winners and Losers
             </h3>
           </div>
-          <div style={{
-            padding: spacing.xl,
-            borderBottom: decileImpact ? `1px solid ${colors.border.light}` : "none",
-          }}>
-            <WinnersLosersChart winnersLosers={winnersLosers} />
-          </div>
+          <ChartExportWrapper
+            title="Winners and Losers"
+            fileName={`${filePrefix}_winners_losers`}
+            header={
+              <div style={{ padding: `${spacing.lg} ${spacing.xl} 0` }}>
+                <p style={{
+                  margin: `0 0 ${spacing.md}`,
+                  fontSize: typography.fontSize.base,
+                  fontFamily: typography.fontFamily.body,
+                  color: colors.text.secondary,
+                  lineHeight: "1.4",
+                }}>
+                  {getWinnersLosersTitle(winnersLosers)}
+                </p>
+              </div>
+            }
+          >
+            <WinnersLosersChart winnersLosers={winnersLosers} hideTitle />
+          </ChartExportWrapper>
         </>
       )}
 
@@ -282,9 +298,9 @@ export default function AggregateImpacts({ impacts }) {
               Average Benefit by Income Decile
             </h3>
           </div>
-          <div style={{ padding: spacing.xl }}>
+          <ChartExportWrapper title="Average Benefit by Income Decile" fileName={`${filePrefix}_decile_impact`}>
             <DecileChart decileData={decileImpact} />
-          </div>
+          </ChartExportWrapper>
         </>
       )}
     </div>
