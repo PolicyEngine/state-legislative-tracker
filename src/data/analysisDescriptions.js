@@ -31,6 +31,9 @@ const descriptions = {
   "ga-hb880": "Hypothetical multi-year analysis of Georgia HB880 assuming all revenue growth triggers are met. Phases in annual income tax rate reductions from 4.99% (2027) to 4.19% (2035), increases standard deductions ($12,000/$24,000 single/joint in 2026 to $17,400/$34,800 in 2035), and raises the dependent exemption ($4,000 in 2026 to $5,800 in 2035). The bill also increases the retirement income exclusion cap from $65,000 to $70,000 for older retirees beginning in 2027.",
   "ga-sb520": "Shifts Georgia from a flat 5.19% income tax to a graduated system (2%-6%), increases standard deductions to $17,000/$34,000, creates a refundable state EITC at 20% of federal, and expands the child tax credit to $1,250 (refundable). Phase 1 (2026): Standard deduction, CTC, and EITC provisions. Phase 2 (2027): Progressive tax brackets.",
 
+  // Hawaii
+  "hi-hb2306": "Freezes Hawaii income tax bracket thresholds at 2025 levels, increases top three marginal rates by 1pp (9%→10%, 10%→11%, 11%→12%), expands the child and dependent care credit (50%-5% match up to $160k AGI vs current 25%-15% up to $50k), and extends Act 163 enhanced credits (40% EITC, expanded CDCC limits, food/excise credit) through 2033. Effective for taxable years beginning after December 31, 2026.",
+
   // Iowa
   "ia-hf1020": "Modifies the Iowa child and dependent care credit by removing the $90,000 income cap and simplifying from 7 brackets to 4. Taxpayers with Iowa net income of $25,000 or more receive 50% of the federal credit (up from 30-40% for middle-income and 0% for high-income). Retroactive to January 1, 2025.",
 
