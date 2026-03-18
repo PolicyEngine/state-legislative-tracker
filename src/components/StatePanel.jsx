@@ -3,6 +3,7 @@ import { stateData } from "../data/states";
 import { useData } from "../context/DataContext";
 import ResearchCard from "./ResearchCard";
 import ReformAnalyzer from "./reform/ReformAnalyzer";
+import ManifoldBadge from "./ManifoldBadge";
 import { colors, typography, spacing } from "../designTokens";
 import { track } from "../lib/analytics";
 import { BASE_PATH } from "../lib/basePath";
@@ -279,13 +280,18 @@ const StatePanel = memo(({ stateAbbr, onClose, initialBillId }) => {
                     <BillIcon />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <p style={{
-                      margin: 0,
-                      color: colors.secondary[900],
-                      fontSize: typography.fontSize.sm,
-                      fontWeight: typography.fontWeight.semibold,
-                      fontFamily: typography.fontFamily.body,
-                    }}>{bill.bill}</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
+                      <p style={{
+                        margin: 0,
+                        color: colors.secondary[900],
+                        fontSize: typography.fontSize.sm,
+                        fontWeight: typography.fontWeight.semibold,
+                        fontFamily: typography.fontFamily.body,
+                      }}>{bill.bill}</p>
+                      {bill.manifoldUrl && (
+                        <ManifoldBadge marketUrl={bill.manifoldUrl} />
+                      )}
+                    </div>
                     <p style={{
                       margin: `${spacing.xs} 0 0`,
                       color: colors.text.secondary,
