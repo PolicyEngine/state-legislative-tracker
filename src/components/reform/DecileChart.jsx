@@ -80,7 +80,7 @@ export default function DecileChart({ decileData }) {
 
   const tickPosition = (val) => {
     if (tickMin === 0) return ((tickMax - val) / tickMax) * 100;
-    if (tickMax === 0) return ((val - tickMin) / Math.abs(tickMin)) * 100;
+    if (tickMax === 0) return (Math.abs(val) / Math.abs(tickMin)) * 100;
     if (val >= 0) {
       return tickMax > 0 ? ((tickMax - val) / tickMax) * tickPositiveRatio * 100 : 0;
     }
@@ -226,13 +226,14 @@ export default function DecileChart({ decileData }) {
                 </div>
               )}
 
-              {/* Zero line */}
-              {tickMax > 0 && tickMin < 0 && (
+              {/* Zero line - show when mixed or all negative (at top for all-negative) */}
+              {((tickMax > 0 && tickMin < 0) || (tickMax === 0 && tickMin < 0)) && (
                 <div style={{
                   width: "100%",
                   height: "1px",
                   backgroundColor: colors.gray[400],
                   flexShrink: 0,
+                  ...(tickMax === 0 && { position: "absolute", top: 0 }),
                 }} />
               )}
 
