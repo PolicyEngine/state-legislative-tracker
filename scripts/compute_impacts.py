@@ -612,32 +612,13 @@ def compute_district_impacts(baseline, reformed, state: str, year: int = 2026) -
 # DATABASE WRITE
 # =============================================================================
 
-def get_changelog_version(repo_path: str) -> str:
-    """Read version from a PolicyEngine repo's changelog.yaml."""
-    changelog = Path(repo_path) / "changelog.yaml"
-    if not changelog.exists():
+def get_installed_version(package_name: str) -> str:
+    """Get version of an installed Python package."""
+    try:
+        from importlib.metadata import version
+        return version(package_name)
+    except Exception:
         return "unknown"
-    with open(changelog) as f:
-        entries = yaml.safe_load(f)
-    version = [0, 0, 1]
-    for entry in entries:
-        if "version" in entry:
-            version = [int(x) for x in str(entry["version"]).split(".")]
-        elif "bump" in entry:
-            bump = entry["bump"]
-            if bump == "major":
-                version = [version[0] + 1, 0, 0]
-            elif bump == "minor":
-                version = [version[0], version[1] + 1, 0]
-            elif bump == "patch":
-                version = [version[0], version[1], version[2] + 1]
-    return f"{version[0]}.{version[1]}.{version[2]}"
-
-
-# Repo paths (sibling directories of this project)
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_PE_US_REPO = _PROJECT_ROOT / "policyengine-us"
-_PE_US_DATA_REPO = _PROJECT_ROOT / "policyengine-us-data"
 
 
 def get_effective_year_from_params(reform_params: dict) -> int:
@@ -670,7 +651,7 @@ def _resolve_pe_us_version(supabase, reform_id: str, reform_params: dict) -> str
     existing version to avoid spuriously bumping it. The stored version acts
     as "minimum API version needed", not "version last computed with".
     """
-    current_version = get_changelog_version(str(_PE_US_REPO))
+    current_version = get_installed_version("policyengine-us")
 
     existing = supabase.table("reform_impacts").select(
         "policyengine_us_version, reform_params"
@@ -749,7 +730,7 @@ def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: di
             "model_notes": model_notes,
             "policyengine_us_version": pe_us_version,
             "dataset_name": "policyengine-us-data",
-            "dataset_version": get_changelog_version(str(_PE_US_DATA_REPO)),
+            "dataset_version": get_installed_version("policyengine-us-data"),
         }
     else:
         model_notes = {
@@ -770,7 +751,7 @@ def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: di
             "model_notes": model_notes,
             "policyengine_us_version": pe_us_version,
             "dataset_name": "policyengine-us-data",
-            "dataset_version": get_changelog_version(str(_PE_US_DATA_REPO)),
+            "dataset_version": get_installed_version("policyengine-us-data"),
         }
 
     result = supabase.table("reform_impacts").upsert(record).execute()
