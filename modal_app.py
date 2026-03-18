@@ -14,7 +14,7 @@ REPO_URL = "https://github.com/PolicyEngine/state-legislative-tracker.git"
 BRANCH = "main"
 
 # Bump this when source code changes to rebuild the app layer
-APP_VERSION = "v29"
+APP_VERSION = "v30"
 
 # Evaluated at deploy time — unique command string busts Modal's layer cache
 _now = datetime.datetime.utcnow().isoformat()
