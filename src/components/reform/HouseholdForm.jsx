@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { colors, typography, spacing } from "../../designTokens";
 
 function formatWithCommas(n) {
@@ -158,6 +159,15 @@ export default function HouseholdForm({
 }) {
   // Use provided years or fall back to defaults
   const taxYears = availableYears?.length > 0 ? availableYears : DEFAULT_TAX_YEARS;
+  const firstYear = taxYears[0];
+
+  // Sync selected year when it's not in the available options
+  useEffect(() => {
+    if (!taxYears.includes(values.year)) {
+      onChange({ ...values, year: firstYear });
+    }
+  }, [firstYear, values.year]);
+
   const handleChange = (field) => (e) => {
     const value = field === "income" || field === "headAge" || field === "spouseAge"
       ? parseInt(e.target.value, 10) || 0

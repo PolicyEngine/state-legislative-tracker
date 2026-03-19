@@ -91,10 +91,10 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
   // Get pre-computed aggregate impacts (used for version gating + rendering)
   const aggregateImpacts = getImpact(reformConfig.id);
 
-  // Disable household calc only for structural reforms (contrib paths,
-  // _use_reform) when the API version is too old. Parametric reforms
-  // (just changing existing parameter values) work on any API version.
-  // Fail closed: if we can't determine the API version, disable for structural.
+  // Structural reforms (contrib paths, _use_reform) need a minimum API version.
+  // Fail closed: disable while loading AND when version is too old.
+  // This avoids the old disabled→enabled flash by keeping the tab consistently
+  // disabled until the version check confirms support.
   const requiredVersion = aggregateImpacts?.policyengineUsVersion;
   const isStructural = reformNeedsStructuralCode(reformConfig.reform);
   const householdUnsupported =
@@ -253,7 +253,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill,
               <button
                 key={tab.id}
                 disabled={isDisabled}
-                title={isDisabled ? `Requires PolicyEngine US v${requiredVersion} (API is v${apiVersion})` : undefined}
+                title={isDisabled ? `Requires PolicyEngine US v${requiredVersion} (API is v${apiVersion || "loading..."})` : undefined}
                 onClick={() => {
                   if (isDisabled) return;
                   setActiveTab(tab.id);
