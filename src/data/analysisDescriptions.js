@@ -52,6 +52,7 @@ const descriptions = {
 
   // Michigan
   "mi-hb4170": "Amends the Income Tax Act to reduce Michigan's flat individual income tax rate from 4.25% to 4.05%, effective for tax years beginning after December 31, 2024 (retroactive to TY 2025).",
+  "mi-hb5519": "Reduces Michigan's flat individual income tax rate from 4.25% to 3.9%, effective January 1, 2026.",
   "mi-invest-in-kids": "Constitutional amendment imposing a 5% income tax surcharge on income above $500,000 (single) or $1 million (joint) to fund K-12 education.",
 
   // Minnesota
