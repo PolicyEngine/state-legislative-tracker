@@ -230,94 +230,54 @@ function App() {
                 marginBottom: spacing["2xl"],
               }}
             >
-              <USMap
-                selectedState={selectedState}
-                onStateSelect={handleStateSelect}
-              />
-              {/* Legend */}
-              <div style={{
-                display: "flex",
-                justifyContent: "center",
-                gap: spacing.lg,
-                marginTop: spacing.lg,
-                paddingTop: spacing.md,
-                borderTop: `1px solid ${colors.border.light}`,
-              }}>
-                <LegendItem color={mapColors.inSession} label="In Session" />
-                <LegendItem color={mapColors.upcoming} label="Upcoming" />
-                <LegendItem color={mapColors.ended} label="Ended" />
-                <LegendItem color={mapColors.noSession} label="No 2026 Session" />
-              </div>
-            </div>
-
-            {/* State chips */}
-            {activeStates.length > 0 && (
-              <div className="animate-fade-in-up" style={{ marginBottom: spacing["2xl"] }}>
-                <h4 style={{
-                  margin: `0 0 ${spacing.md}`,
-                  color: colors.text.tertiary,
-                  fontSize: typography.fontSize.xs,
-                  fontWeight: typography.fontWeight.semibold,
-                  fontFamily: typography.fontFamily.primary,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                }}>
-                  States with Published Analysis
-                </h4>
+              <div style={{ display: "flex", alignItems: "flex-start" }}>
+                <div style={{ flex: 1 }}>
+                  <USMap
+                    selectedState={selectedState}
+                    onStateSelect={handleStateSelect}
+                  />
+                </div>
+                {/* Legend */}
                 <div style={{
                   display: "flex",
-                  flexWrap: "wrap",
+                  flexDirection: "column",
                   gap: spacing.sm,
+                  paddingLeft: spacing.lg,
+                  marginLeft: spacing.lg,
+                  borderLeft: `1px solid ${colors.border.light}`,
+                  alignSelf: "center",
+                  flexShrink: 0,
                 }}>
-                  {activeStates.map((s) => (
-                    <button
-                      key={s.abbr}
-                      onClick={() => handleStateSelect(s.abbr)}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: spacing.xs,
-                        padding: `${spacing.xs} ${spacing.md}`,
-                        border: `1px solid ${colors.primary[200]}`,
-                        borderRadius: spacing.radius.xl,
-                        backgroundColor: colors.primary[50],
-                        color: colors.primary[700],
-                        fontSize: typography.fontSize.sm,
-                        fontWeight: typography.fontWeight.medium,
-                        fontFamily: typography.fontFamily.body,
-                        cursor: "pointer",
-                        transition: "all 0.15s ease",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = colors.primary[100];
-                        e.currentTarget.style.transform = "translateY(-1px)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = colors.primary[50];
-                        e.currentTarget.style.transform = "translateY(0)";
-                      }}
-                    >
-                      {s.abbr}
-                      <span style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        width: "18px",
-                        height: "18px",
-                        borderRadius: "50%",
-                        backgroundColor: colors.primary[200],
-                        color: colors.primary[800],
-                        fontSize: typography.fontSize.xs,
-                        fontWeight: typography.fontWeight.semibold,
-                        lineHeight: 1,
-                      }}>
-                        {s.count}
-                      </span>
-                    </button>
-                  ))}
+                  <LegendItem color={mapColors.inSession} label="In Session" />
+                  <LegendItem color={mapColors.upcoming} label="Upcoming" />
+                  <LegendItem color={mapColors.ended} label="Ended" />
+                  <LegendItem color={mapColors.noSession} label="No 2026 Session" />
                 </div>
               </div>
-            )}
+
+              {/* State chips by region */}
+              {activeStates.length > 0 && (
+                <div style={{
+                  marginTop: spacing.lg,
+                  paddingTop: spacing.md,
+                  borderTop: `1px solid ${colors.border.light}`,
+                }}>
+                  <h4 style={{
+                    margin: `0 0 ${spacing.md}`,
+                    color: colors.text.tertiary,
+                    fontSize: typography.fontSize.xs,
+                    fontWeight: typography.fontWeight.semibold,
+                    fontFamily: typography.fontFamily.primary,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    textAlign: "center",
+                  }}>
+                    States with Published Analysis
+                  </h4>
+                  <RegionChips states={activeStates} onSelect={handleStateSelect} />
+                </div>
+              )}
+            </div>
 
             {/* Quick Links */}
             <div style={{
@@ -383,6 +343,104 @@ function App() {
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+const REGIONS = {
+  Northeast: ["CT", "DC", "ME", "MD", "MA", "NH", "NJ", "NY", "PA", "RI", "VT"],
+  South: ["AL", "AR", "DE", "FL", "GA", "KY", "LA", "MS", "NC", "OK", "SC", "TN", "TX", "VA", "WV"],
+  Midwest: ["IL", "IN", "IA", "KS", "MI", "MN", "MO", "NE", "ND", "OH", "SD", "WI"],
+  West: ["AK", "AZ", "CA", "CO", "HI", "ID", "MT", "NV", "NM", "OR", "UT", "WA", "WY"],
+};
+
+function StateChip({ abbr, count, onSelect }) {
+  return (
+    <button
+      onClick={() => onSelect(abbr)}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: spacing.xs,
+        padding: `${spacing.xs} ${spacing.md}`,
+        border: `1px solid ${colors.primary[200]}`,
+        borderRadius: spacing.radius.xl,
+        backgroundColor: colors.primary[50],
+        color: colors.primary[700],
+        fontSize: typography.fontSize.sm,
+        fontWeight: typography.fontWeight.medium,
+        fontFamily: typography.fontFamily.body,
+        cursor: "pointer",
+        transition: "all 0.15s ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = colors.primary[100];
+        e.currentTarget.style.transform = "translateY(-1px)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = colors.primary[50];
+        e.currentTarget.style.transform = "translateY(0)";
+      }}
+    >
+      {abbr}
+      <span style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "18px",
+        height: "18px",
+        borderRadius: "50%",
+        backgroundColor: colors.primary[200],
+        color: colors.primary[800],
+        fontSize: typography.fontSize.xs,
+        fontWeight: typography.fontWeight.semibold,
+        lineHeight: 1,
+      }}>
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function RegionChips({ states, onSelect }) {
+  const stateMap = Object.fromEntries(states.map((s) => [s.abbr, s]));
+  const regions = Object.entries(REGIONS)
+    .map(([region, abbrs]) => ({
+      region,
+      states: abbrs.filter((a) => stateMap[a]).map((a) => stateMap[a]),
+    }))
+    .filter((r) => r.states.length > 0);
+
+  return (
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: `repeat(${regions.length}, 1fr)`,
+      gap: spacing.lg,
+    }}>
+      {regions.map(({ region, states: regionStates }) => (
+        <div key={region}>
+          <p style={{
+            margin: `0 0 ${spacing.sm}`,
+            color: colors.text.tertiary,
+            fontSize: typography.fontSize.xs,
+            fontFamily: typography.fontFamily.body,
+            fontWeight: typography.fontWeight.medium,
+            textAlign: "center",
+          }}>
+            {region}
+          </p>
+          <div style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: spacing.xs,
+            justifyContent: "center",
+          }}>
+            {regionStates.map((s) => (
+              <StateChip key={s.abbr} abbr={s.abbr} count={s.count} onSelect={onSelect} />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
