@@ -170,6 +170,7 @@ def get_builtin_reform(reform_name: str):
         "va_hb979": "policyengine_us.reforms.states.va.hb979.va_hb979_reform",
         "ny_s04487_newborn_credit": "policyengine_us.reforms.states.ny.s04487.ny_s04487_newborn_credit",
         "sc_h4216": "policyengine_us.reforms.states.sc.h4216.sc_h4216",
+        "ri_high_earner_tax": "policyengine_us.reforms.states.ri.high_earner_tax.ri_high_earner_tax_reform",
     }
 
     if reform_name not in builtin_reforms:
