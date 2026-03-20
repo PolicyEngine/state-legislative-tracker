@@ -62,6 +62,7 @@ const descriptions = {
 
   // Missouri
   "mo-sb458": "Replaces Missouri's graduated income tax brackets (0%-4.7%) with a flat 4.0% rate on all taxable income, effective January 1, 2026. Also eliminates Missouri's federal income tax deduction (\u00a7143.171), which currently allows filers to deduct 5-35% of federal taxes paid. Includes a trigger mechanism for further rate reductions toward zero contingent on a constitutional amendment (not modeled).",
+  "mo-sb1240": "Eliminates Missouri individual income tax for all tax years beginning on or after January 1, 2027, reducing rates from 2.0%-4.7% to 0%.",
 
   // Mississippi
   "ms-sb2869": "Freezes the Mississippi income tax rate at 4% permanently, reversing the HB1 (Build Up Mississippi Act) phase-out schedule that would reduce the rate to 3% by 2030 and eventually eliminate it.",
