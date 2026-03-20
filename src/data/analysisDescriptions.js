@@ -71,6 +71,7 @@ const descriptions = {
 
   // North Carolina
   "nc-h459": "Freezes the North Carolina flat individual income tax rate at 4.25% for tax years 2026 through 2028, preventing the scheduled reduction to 3.99%. Suspends the rate reduction trigger mechanism and reinstates it for 2029+ with a shortened trigger table. Motivated by Hurricane Helene recovery costs.",
+  "nc-s304": "Reenacts North Carolina state EITC at 10% of the federal credit. NC eliminated its EITC in 2014; this restores it at double the previous 5% rate. Effective January 1, 2025.",
 
   // North Dakota
   "nd-hb1388": "North Dakota HB1388 eliminates the marriage penalty by restructuring income tax bracket thresholds so MFJ equals 2x single, HoH equals 1.5x single, and MFS uses the single schedule. It also repeals the existing marriage penalty credit (capped at ~$312). The bill passed the House 91-0 but failed in the Senate 13-33.",
