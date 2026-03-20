@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import USMap from "./components/USMap";
 import StatePanel from "./components/StatePanel";
+import Breadcrumb from "./components/Breadcrumb";
 import StateSearchCombobox from "./components/StateSearchCombobox";
+import ReformAnalyzer from "./components/reform/ReformAnalyzer";
 import { useData } from "./context/DataContext";
 import { stateData } from "./data/states";
 import { colors, mapColors, typography, spacing } from "./designTokens";
@@ -21,10 +23,15 @@ function parsePath() {
   return { state: stateData[state] ? state : null, billId };
 }
 
+function notifyParent(path) {
+  window.parent.postMessage({ type: "pathchange", path }, "*");
+  window.parent.postMessage({ type: "hashchange", hash: path.replace(/^\//, "") }, "*");
+}
+
 function App() {
-  const { statesWithBills } = useData();
+  const { statesWithBills, getBillsForState } = useData();
   const [selectedState, setSelectedState] = useState(() => parsePath().state);
-  const [initialBillId, setInitialBillId] = useState(() => parsePath().billId);
+  const [billId, setBillId] = useState(() => parsePath().billId);
 
   const activeStates = useMemo(
     () =>
@@ -45,40 +52,58 @@ function App() {
 
   const handleStateSelect = useCallback((abbr) => {
     setSelectedState(abbr);
-    setInitialBillId(null);
+    setBillId(null);
     if (abbr) {
       history.pushState(null, "", BASE_PATH + "/" + abbr);
-      window.parent.postMessage({ type: "pathchange", path: "/" + abbr }, "*");
-      window.parent.postMessage({ type: "hashchange", hash: abbr }, "*");
+      notifyParent("/" + abbr);
       track("state_selected", { state_abbr: abbr, state_name: stateData[abbr]?.name });
     } else {
       history.pushState(null, "", BASE_PATH + "/");
-      window.parent.postMessage({ type: "pathchange", path: "/" }, "*");
-      window.parent.postMessage({ type: "hashchange", hash: "" }, "*");
+      notifyParent("/");
     }
   }, []);
 
+  const handleBillSelect = useCallback((stateAbbr, id) => {
+    setSelectedState(stateAbbr);
+    setBillId(id);
+    history.pushState(null, "", `${BASE_PATH}/${stateAbbr}/${id}`);
+    notifyParent(`/${stateAbbr}/${id}`);
+  }, []);
+
+  const handleNavigateHome = useCallback(() => {
+    handleStateSelect(null);
+  }, [handleStateSelect]);
+
+  const handleNavigateState = useCallback(() => {
+    if (selectedState) {
+      handleStateSelect(selectedState);
+    }
+  }, [selectedState, handleStateSelect]);
+
   useEffect(() => {
     const onPopState = () => {
-      const { state, billId } = parsePath();
+      const { state, billId: bid } = parsePath();
       setSelectedState(state);
-      setInitialBillId(billId);
-      // Notify parent frame of path change for deep linking
+      setBillId(bid);
       const strippedPath = BASE_PATH
         ? window.location.pathname.replace(BASE_PATH, "")
         : window.location.pathname;
-      window.parent.postMessage(
-        { type: "pathchange", path: strippedPath },
-        "*",
-      );
-      window.parent.postMessage(
-        { type: "hashchange", hash: strippedPath.replace(/^\//, "") },
-        "*",
-      );
+      notifyParent(strippedPath);
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
+
+  // Resolve bill for bill page
+  const activeBill = useMemo(() => {
+    if (!selectedState || !billId) return null;
+    const bills = getBillsForState(selectedState);
+    return bills.find((b) => b.id === billId) || null;
+  }, [selectedState, billId, getBillsForState]);
+
+  // Determine view
+  const isBillPage = selectedState && billId && activeBill?.reformConfig;
+  const isStatePage = selectedState && !isBillPage;
 
   return (
     <div style={{ minHeight: "100vh" }}>
@@ -131,216 +156,193 @@ function App() {
 
       {/* Main Content */}
       <main style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing["2xl"]} ${spacing["2xl"]} ${spacing["4xl"]}` }}>
-        {/* Intro */}
-        <div className="animate-fade-in-up" style={{ marginBottom: spacing["2xl"] }}>
-          <h2 style={{
-            margin: `0 0 ${spacing.sm}`,
-            color: colors.secondary[900],
-            fontSize: typography.fontSize["3xl"],
-            fontWeight: typography.fontWeight.bold,
-            fontFamily: typography.fontFamily.primary,
-            letterSpacing: "-0.02em",
-          }}>
-            State Tax Policy Research
-          </h2>
-          <p style={{
-            margin: 0,
-            color: colors.text.secondary,
-            fontSize: typography.fontSize.base,
-            fontFamily: typography.fontFamily.body,
-            maxWidth: "680px",
-            lineHeight: "1.6",
-          }}>
-            Explore state legislative sessions and PolicyEngine analysis. Click a state to see tax changes, active bills, and related research.
-          </p>
-        </div>
 
-        {/* Map and Panel */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: spacing["2xl"] }}>
-          {/* Map */}
-          <div
-            className="animate-fade-in-up"
-            style={{
-              backgroundColor: colors.white,
-              borderRadius: spacing.radius["2xl"],
-              boxShadow: "var(--shadow-elevation-low)",
-              border: `1px solid ${colors.border.light}`,
-              padding: spacing.lg,
-              transition: "box-shadow 0.3s ease",
-            }}
-          >
-            <USMap
-              selectedState={selectedState}
-              onStateSelect={handleStateSelect}
+        {/* === Bill Page === */}
+        {isBillPage && (
+          <div className="animate-fade-in-up">
+            <Breadcrumb
+              stateAbbr={selectedState}
+              billLabel={activeBill.reformConfig.label || activeBill.bill}
+              onNavigateHome={handleNavigateHome}
+              onNavigateState={handleNavigateState}
             />
-            {/* Legend */}
-            <div style={{
-              display: "flex",
-              justifyContent: "center",
-              gap: spacing.lg,
-              marginTop: spacing.lg,
-              paddingTop: spacing.md,
-              borderTop: `1px solid ${colors.border.light}`,
-            }}>
-              <LegendItem color={mapColors.inSession} label="In Session" />
-              <LegendItem color={mapColors.upcoming} label="Upcoming" />
-              <LegendItem color={mapColors.ended} label="Ended" />
-              <LegendItem color={mapColors.noSession} label="No 2026 Session" />
-            </div>
+            <ReformAnalyzer
+              reformConfig={activeBill.reformConfig}
+              stateAbbr={selectedState}
+              billUrl={activeBill.url}
+              bill={activeBill}
+            />
           </div>
+        )}
 
-          {/* State Panel or Placeholder */}
-          <div className="animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
-            {selectedState ? (
-              <StatePanel
-                stateAbbr={selectedState}
-                initialBillId={initialBillId}
-                onClose={() => handleStateSelect(null)}
-              />
-            ) : (
-              <div style={{
+        {/* === State Page === */}
+        {isStatePage && (
+          <div className="animate-fade-in-up">
+            <Breadcrumb
+              stateAbbr={selectedState}
+              onNavigateHome={handleNavigateHome}
+            />
+            <StatePanel
+              stateAbbr={selectedState}
+              onNavigateHome={handleNavigateHome}
+              onBillSelect={(id) => handleBillSelect(selectedState, id)}
+            />
+          </div>
+        )}
+
+        {/* === Home Page === */}
+        {!selectedState && (
+          <>
+            {/* Intro */}
+            <div className="animate-fade-in-up" style={{ marginBottom: spacing["2xl"] }}>
+              <h2 style={{
+                margin: `0 0 ${spacing.sm}`,
+                color: colors.secondary[900],
+                fontSize: typography.fontSize["3xl"],
+                fontWeight: typography.fontWeight.bold,
+                fontFamily: typography.fontFamily.primary,
+                letterSpacing: "-0.02em",
+              }}>
+                State Tax Policy Research
+              </h2>
+              <p style={{
+                margin: 0,
+                color: colors.text.secondary,
+                fontSize: typography.fontSize.base,
+                fontFamily: typography.fontFamily.body,
+                maxWidth: "680px",
+                lineHeight: "1.6",
+              }}>
+                Explore state legislative sessions and PolicyEngine analysis. Click a state to see tax changes, active bills, and related research.
+              </p>
+            </div>
+
+            {/* Map — full width */}
+            <div
+              className="animate-fade-in-up"
+              style={{
                 backgroundColor: colors.white,
                 borderRadius: spacing.radius["2xl"],
                 boxShadow: "var(--shadow-elevation-low)",
                 border: `1px solid ${colors.border.light}`,
-                padding: spacing["3xl"],
-                height: "100%",
+                padding: spacing.lg,
+                transition: "box-shadow 0.3s ease",
+                marginBottom: spacing["2xl"],
+              }}
+            >
+              <USMap
+                selectedState={selectedState}
+                onStateSelect={handleStateSelect}
+              />
+              {/* Legend */}
+              <div style={{
                 display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
                 justifyContent: "center",
-                textAlign: "center",
+                gap: spacing.lg,
+                marginTop: spacing.lg,
+                paddingTop: spacing.md,
+                borderTop: `1px solid ${colors.border.light}`,
               }}>
-                <div style={{
-                  width: "64px",
-                  height: "64px",
-                  borderRadius: "50%",
-                  backgroundColor: `${colors.primary[600]}15`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: spacing.lg,
-                }}>
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={colors.primary[600]} strokeWidth="1.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                  </svg>
-                </div>
-                <h3 style={{
-                  margin: `0 0 ${spacing.sm}`,
-                  color: colors.secondary[900],
-                  fontSize: typography.fontSize.lg,
+                <LegendItem color={mapColors.inSession} label="In Session" />
+                <LegendItem color={mapColors.upcoming} label="Upcoming" />
+                <LegendItem color={mapColors.ended} label="Ended" />
+                <LegendItem color={mapColors.noSession} label="No 2026 Session" />
+              </div>
+            </div>
+
+            {/* State chips */}
+            {activeStates.length > 0 && (
+              <div className="animate-fade-in-up" style={{ marginBottom: spacing["2xl"] }}>
+                <h4 style={{
+                  margin: `0 0 ${spacing.md}`,
+                  color: colors.text.tertiary,
+                  fontSize: typography.fontSize.xs,
                   fontWeight: typography.fontWeight.semibold,
                   fontFamily: typography.fontFamily.primary,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
                 }}>
-                  Select a State
-                </h3>
-                <p style={{
-                  margin: `0 0 ${spacing["2xl"]}`,
-                  color: colors.text.secondary,
-                  fontSize: typography.fontSize.sm,
-                  fontFamily: typography.fontFamily.body,
-                  maxWidth: "280px",
+                  States with Published Analysis
+                </h4>
+                <div style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: spacing.sm,
                 }}>
-                  Click any state to see legislative activity, tax changes, and available research.
-                </p>
-
-                {/* Active state chips */}
-                {activeStates.length > 0 && (
-                  <div style={{ width: "100%", maxWidth: "360px" }}>
-                    <h4 style={{
-                      margin: `0 0 ${spacing.md}`,
-                      color: colors.text.tertiary,
-                      fontSize: typography.fontSize.xs,
-                      fontWeight: typography.fontWeight.semibold,
-                      fontFamily: typography.fontFamily.primary,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    }}>
-                      States with Published Analysis
-                    </h4>
-                    <div style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: spacing.sm,
-                      justifyContent: "center",
-                    }}>
-                      {activeStates.map((s) => (
-                        <button
-                          key={s.abbr}
-                          onClick={() => handleStateSelect(s.abbr)}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: spacing.xs,
-                            padding: `${spacing.xs} ${spacing.md}`,
-                            border: `1px solid ${colors.primary[200]}`,
-                            borderRadius: spacing.radius.xl,
-                            backgroundColor: colors.primary[50],
-                            color: colors.primary[700],
-                            fontSize: typography.fontSize.sm,
-                            fontWeight: typography.fontWeight.medium,
-                            fontFamily: typography.fontFamily.body,
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = colors.primary[100];
-                            e.currentTarget.style.transform = "translateY(-1px)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = colors.primary[50];
-                            e.currentTarget.style.transform = "translateY(0)";
-                          }}
-                        >
-                          {s.abbr}
-                          <span style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: "18px",
-                            height: "18px",
-                            borderRadius: "50%",
-                            backgroundColor: colors.primary[200],
-                            color: colors.primary[800],
-                            fontSize: typography.fontSize.xs,
-                            fontWeight: typography.fontWeight.semibold,
-                            lineHeight: 1,
-                          }}>
-                            {s.count}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  {activeStates.map((s) => (
+                    <button
+                      key={s.abbr}
+                      onClick={() => handleStateSelect(s.abbr)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: spacing.xs,
+                        padding: `${spacing.xs} ${spacing.md}`,
+                        border: `1px solid ${colors.primary[200]}`,
+                        borderRadius: spacing.radius.xl,
+                        backgroundColor: colors.primary[50],
+                        color: colors.primary[700],
+                        fontSize: typography.fontSize.sm,
+                        fontWeight: typography.fontWeight.medium,
+                        fontFamily: typography.fontFamily.body,
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = colors.primary[100];
+                        e.currentTarget.style.transform = "translateY(-1px)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = colors.primary[50];
+                        e.currentTarget.style.transform = "translateY(0)";
+                      }}
+                    >
+                      {s.abbr}
+                      <span style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: "18px",
+                        height: "18px",
+                        borderRadius: "50%",
+                        backgroundColor: colors.primary[200],
+                        color: colors.primary[800],
+                        fontSize: typography.fontSize.xs,
+                        fontWeight: typography.fontWeight.semibold,
+                        lineHeight: 1,
+                      }}>
+                        {s.count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Quick Links */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: spacing.lg,
-          marginTop: spacing["3xl"],
-        }}>
-          <QuickLinkCard
-            href="https://policyengine.org/us/research"
-            title="Full Research Library"
-            description="Browse all PolicyEngine state and federal research"
-          />
-          <QuickLinkCard
-            href="https://app.policyengine.org/us/reports"
-            title="Build a Reform"
-            description="Model your own tax policy reforms"
-          />
-          <QuickLinkCard
-            href="mailto:hello@policyengine.org?subject=State Legislative Analysis Request"
-            title="Get in Contact"
-            description="Get custom analysis for your state's legislation"
-          />
-        </div>
+            {/* Quick Links */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: spacing.lg,
+            }}>
+              <QuickLinkCard
+                href="https://policyengine.org/us/research"
+                title="Full Research Library"
+                description="Browse all PolicyEngine state and federal research"
+              />
+              <QuickLinkCard
+                href="https://app.policyengine.org/us/reports"
+                title="Build a Reform"
+                description="Model your own tax policy reforms"
+              />
+              <QuickLinkCard
+                href="mailto:hello@policyengine.org?subject=State Legislative Analysis Request"
+                title="Get in Contact"
+                description="Get custom analysis for your state's legislation"
+              />
+            </div>
+          </>
+        )}
       </main>
 
       {/* Footer */}
