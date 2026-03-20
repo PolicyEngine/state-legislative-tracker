@@ -1,17 +1,9 @@
-import { memo, useState, useEffect } from "react";
+import { memo } from "react";
 import { stateData } from "../data/states";
 import { useData } from "../context/DataContext";
 import ResearchCard from "./ResearchCard";
-import ReformAnalyzer from "./reform/ReformAnalyzer";
 import { colors, typography, spacing } from "../designTokens";
 import { track } from "../lib/analytics";
-import { BASE_PATH } from "../lib/basePath";
-
-const CloseIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-  </svg>
-);
 
 const CalendarIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -56,24 +48,13 @@ function SectionHeader({ children }) {
   );
 }
 
-const StatePanel = memo(({ stateAbbr, onClose, initialBillId }) => {
+const StatePanel = memo(({ stateAbbr, onNavigateHome, onBillSelect }) => {
   const state = stateData[stateAbbr];
-  const { getBillsForState, getResearchForState, loading } = useData();
-  const [activeBill, setActiveBill] = useState(null);
+  const { getBillsForState, getResearchForState } = useData();
 
   if (!state) return null;
 
-  // Get bills and research from Supabase
   const bills = getBillsForState(stateAbbr);
-
-  // Open bill from URL hash on mount
-  useEffect(() => {
-    if (initialBillId && bills.length > 0 && !activeBill) {
-      const match = bills.find(b => b.id === initialBillId && b.reformConfig);
-      if (match) setActiveBill(match);
-    }
-  }, [initialBillId, bills.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const research = getResearchForState(stateAbbr);
 
   // Separate research by status
@@ -89,94 +70,73 @@ const StatePanel = memo(({ stateAbbr, onClose, initialBillId }) => {
   const federal = sortByDate(published.filter((r) => r.state === "all" || (r.relevantStates && r.relevantStates.includes(stateAbbr))));
 
   return (
-    <div
-      className="animate-fade-in"
-      style={{
-        backgroundColor: colors.white,
-        borderRadius: spacing.radius["2xl"],
-        boxShadow: "var(--shadow-elevation-medium)",
-        border: `1px solid ${colors.border.light}`,
-        overflow: "hidden",
-      }}
-    >
+    <div className="animate-fade-in">
       {/* Header */}
       <div style={{
         padding: `${spacing.lg} ${spacing["2xl"]}`,
         background: `linear-gradient(135deg, ${colors.primary[600]} 0%, ${colors.primary[700]} 100%)`,
-        position: "relative",
+        borderRadius: `${spacing.radius["2xl"]} ${spacing.radius["2xl"]} 0 0`,
       }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-          <div>
-            <h2 style={{
-              margin: 0,
+        <div>
+          <h2 style={{
+            margin: 0,
+            color: colors.white,
+            fontSize: typography.fontSize["2xl"],
+            fontWeight: typography.fontWeight.bold,
+            fontFamily: typography.fontFamily.primary,
+            letterSpacing: "-0.02em",
+          }}>{state.name}</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm, flexWrap: "wrap" }}>
+            <span style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: spacing.xs,
+              padding: `${spacing.xs} ${spacing.sm}`,
+              borderRadius: spacing.radius.md,
+              backgroundColor: "rgba(255,255,255,0.2)",
               color: colors.white,
-              fontSize: typography.fontSize["2xl"],
-              fontWeight: typography.fontWeight.bold,
-              fontFamily: typography.fontFamily.primary,
-              letterSpacing: "-0.02em",
-            }}>{state.name}</h2>
-            <div style={{ display: "flex", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm, flexWrap: "wrap" }}>
+              fontSize: typography.fontSize.xs,
+              fontFamily: typography.fontFamily.body,
+              fontWeight: typography.fontWeight.medium,
+            }}>
+              <CalendarIcon />
+              {state.session.dates}
+            </span>
+            {state.session.carryover !== undefined && (
               <span style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: spacing.xs,
                 padding: `${spacing.xs} ${spacing.sm}`,
                 borderRadius: spacing.radius.md,
-                backgroundColor: "rgba(255,255,255,0.2)",
+                backgroundColor: state.session.carryover ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)",
                 color: colors.white,
                 fontSize: typography.fontSize.xs,
                 fontFamily: typography.fontFamily.body,
                 fontWeight: typography.fontWeight.medium,
-              }}>
-                <CalendarIcon />
-                {state.session.dates}
+              }}
+              title={state.session.carryover ? "Bills from 2025 carry over to 2026" : "Bills do not carry over from 2025"}
+              >
+                {state.session.carryover ? "Carryover" : "No carryover"}
               </span>
-              {state.session.carryover !== undefined && (
-                <span style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  padding: `${spacing.xs} ${spacing.sm}`,
-                  borderRadius: spacing.radius.md,
-                  backgroundColor: state.session.carryover ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)",
-                  color: colors.white,
-                  fontSize: typography.fontSize.xs,
-                  fontFamily: typography.fontFamily.body,
-                  fontWeight: typography.fontWeight.medium,
-                }}
-                title={state.session.carryover ? "Bills from 2025 carry over to 2026" : "Bills do not carry over from 2025"}
-                >
-                  {state.session.carryover ? "Carryover" : "No carryover"}
-                </span>
-              )}
-            </div>
+            )}
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              padding: spacing.sm,
-              border: "none",
-              borderRadius: spacing.radius.lg,
-              backgroundColor: "rgba(255,255,255,0.1)",
-              color: colors.white,
-              cursor: "pointer",
-              transition: "background-color 0.2s ease",
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.2)"}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"}
-          >
-            <CloseIcon />
-          </button>
         </div>
       </div>
 
       {/* Content */}
-      <div style={{ padding: spacing["2xl"], maxHeight: "70vh", overflowY: "auto" }}>
+      <div style={{
+        padding: spacing["2xl"],
+        backgroundColor: colors.white,
+        borderRadius: `0 0 ${spacing.radius["2xl"]} ${spacing.radius["2xl"]}`,
+        border: `1px solid ${colors.border.light}`,
+        borderTop: "none",
+      }}>
 
         {/* 2026 Legislative Activity */}
         {(bills.length > 0 || state.taxChanges?.length > 0) && (
           <div style={{ marginBottom: spacing["2xl"] }}>
             <SectionHeader>2026 Legislative Activity</SectionHeader>
-            <div style={{ display: "flex", flexDirection: "column", gap: spacing.sm }}>
+            <div style={{ display: "grid", gridTemplateColumns: bills.length > 3 ? "1fr 1fr" : "1fr", gap: spacing.sm }}>
               {state.taxChanges?.map((change, i) => (
                 <a
                   key={i}
@@ -235,10 +195,7 @@ const StatePanel = memo(({ stateAbbr, onClose, initialBillId }) => {
                   onClick={() => {
                     if (bill.reformConfig) {
                       track("bill_clicked", { state_abbr: stateAbbr, bill_id: bill.bill, has_reform: true });
-                      setActiveBill(bill);
-                      history.pushState(null, "", `${BASE_PATH}/${stateAbbr}/${bill.id}`);
-                      window.parent.postMessage({ type: "pathchange", path: `/${stateAbbr}/${bill.id}` }, "*");
-                      window.parent.postMessage({ type: "hashchange", hash: `${stateAbbr}/${bill.id}` }, "*");
+                      onBillSelect(bill.id);
                     }
                   }}
                   style={{
@@ -357,8 +314,6 @@ const StatePanel = memo(({ stateAbbr, onClose, initialBillId }) => {
             </div>
           </div>
         )}
-
-
 
         {/* In Progress Research */}
         {inProgress.length > 0 && (
@@ -481,22 +436,6 @@ const StatePanel = memo(({ stateAbbr, onClose, initialBillId }) => {
           </div>
         </div>
       </div>
-
-      {/* Reform Analyzer Modal */}
-      {activeBill?.reformConfig && (
-        <ReformAnalyzer
-          reformConfig={activeBill.reformConfig}
-          stateAbbr={stateAbbr}
-          billUrl={activeBill.url}
-          bill={activeBill}
-          onClose={() => {
-            setActiveBill(null);
-            history.pushState(null, "", `${BASE_PATH}/${stateAbbr}`);
-            window.parent.postMessage({ type: "pathchange", path: `/${stateAbbr}` }, "*");
-            window.parent.postMessage({ type: "hashchange", hash: stateAbbr }, "*");
-          }}
-        />
-      )}
     </div>
   );
 });
