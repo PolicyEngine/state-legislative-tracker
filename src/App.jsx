@@ -211,17 +211,17 @@ function App() {
                 color: colors.text.secondary,
                 fontSize: typography.fontSize.base,
                 fontFamily: typography.fontFamily.body,
-                maxWidth: "680px",
+                maxWidth: "none",
                 lineHeight: "1.6",
               }}>
-                Explore state legislative sessions and PolicyEngine analysis. Click a state to see tax changes, active bills, and related research.
+                Explore state legislative sessions and PolicyEngine analysis. <strong>Select a state</strong> to see tax changes, active bills, and related research.
               </p>
             </div>
 
             {/* Two-column layout: Map + sidebar */}
             <div style={{
               display: "grid",
-              gridTemplateColumns: "1fr 340px",
+              gridTemplateColumns: "minmax(0, 1fr) 340px",
               gap: spacing.lg,
               alignItems: "start",
               marginBottom: spacing["2xl"],

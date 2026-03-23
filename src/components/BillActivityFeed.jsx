@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 import { useData } from "../context/DataContext";
-import { stateData } from "../data/states";
 import { colors, typography, spacing } from "../designTokens";
 
 // ============== Shared UI ==============
@@ -195,7 +194,7 @@ export function RecentActivitySidebar({ onStateSelect, onBillSelect }) {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
-          Recent Activity
+          Recent Legislative Activity
         </h3>
         {/* Tab toggle */}
         <div style={{
