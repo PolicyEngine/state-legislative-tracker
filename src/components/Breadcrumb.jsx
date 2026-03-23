@@ -16,7 +16,7 @@ const ChevronRight = () => (
 export default function Breadcrumb({ stateAbbr, billLabel, onNavigateHome, onNavigateState }) {
   const onBack = billLabel ? onNavigateState : onNavigateHome;
   return (
-    <nav style={{
+    <nav className="breadcrumb-nav" style={{
       display: "flex",
       alignItems: "center",
       gap: spacing.sm,

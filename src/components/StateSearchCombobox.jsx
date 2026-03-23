@@ -86,8 +86,9 @@ export default function StateSearchCombobox({ onSelect, statesWithBills }) {
   const billCount = (abbr) => statesWithBills[abbr] || 0;
 
   return (
-    <div ref={containerRef} style={{ position: "relative" }}>
+    <div ref={containerRef} className="state-search" style={{ position: "relative" }}>
       <div
+        className="state-search-input-wrap"
         style={{
           display: "flex",
           alignItems: "center",
@@ -169,6 +170,7 @@ export default function StateSearchCombobox({ onSelect, statesWithBills }) {
             listStyle: "none",
             zIndex: 100,
           }}
+          className="state-search-listbox"
         >
           {filtered.length === 0 ? (
             <li

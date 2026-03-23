@@ -107,7 +107,7 @@ function App() {
   const isStatePage = selectedState && !isBillPage;
 
   return (
-    <div style={{ minHeight: "100vh" }}>
+    <div className="app-shell" style={{ minHeight: "100vh" }}>
       {/* Header */}
       <header
         className="header-accent"
@@ -119,9 +119,9 @@ function App() {
           zIndex: 50,
         }}
       >
-        <div style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing.xl} ${spacing["2xl"]}` }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: spacing.lg }}>
+        <div className="app-header-inner" style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing.xl} ${spacing["2xl"]}` }}>
+          <div className="app-header-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div className="app-header-brand" style={{ display: "flex", alignItems: "center", gap: spacing.lg }}>
               <a href="https://policyengine.org" target="_blank" rel="noopener noreferrer">
                 <img
                   src="/policyengine-favicon.svg"
@@ -156,7 +156,7 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing["2xl"]} ${spacing["2xl"]} ${spacing["4xl"]}` }}>
+      <main className="app-main" style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing["2xl"]} ${spacing["2xl"]} ${spacing["4xl"]}` }}>
 
         {/* === Bill Page === */}
         {isBillPage && (
@@ -170,7 +170,6 @@ function App() {
             <ReformAnalyzer
               reformConfig={activeBill.reformConfig}
               stateAbbr={selectedState}
-              billUrl={activeBill.url}
               bill={activeBill}
             />
           </div>
@@ -185,7 +184,6 @@ function App() {
             />
             <StatePanel
               stateAbbr={selectedState}
-              onNavigateHome={handleNavigateHome}
               onBillSelect={(id) => handleBillSelect(selectedState, id)}
             />
           </div>
@@ -218,19 +216,16 @@ function App() {
               </p>
             </div>
 
-            {/* Two-column layout: Map + sidebar */}
-            <div style={{
+            <div className="app-home-grid" style={{
               display: "grid",
               gridTemplateColumns: "minmax(0, 1fr) 340px",
               gap: spacing.lg,
               alignItems: "start",
               marginBottom: spacing["2xl"],
             }}>
-              {/* Left column: Map + chips + quick links */}
               <div style={{ display: "flex", flexDirection: "column", gap: spacing.lg }}>
-                {/* Map */}
                 <div
-                  className="animate-fade-in-up"
+                  className="app-map-card animate-fade-in-up"
                   style={{
                     backgroundColor: colors.white,
                     borderRadius: spacing.radius["2xl"],
@@ -240,15 +235,14 @@ function App() {
                     transition: "box-shadow 0.3s ease",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "flex-start" }}>
+                  <div className="app-map-layout" style={{ display: "flex", alignItems: "flex-start" }}>
                     <div style={{ flex: 1 }}>
                       <USMap
                         selectedState={selectedState}
                         onStateSelect={handleStateSelect}
                       />
                     </div>
-                    {/* Legend */}
-                    <div style={{
+                    <div className="app-map-legend" style={{
                       display: "flex",
                       flexDirection: "column",
                       gap: spacing.sm,
@@ -265,7 +259,6 @@ function App() {
                     </div>
                   </div>
 
-                  {/* State chips by region */}
                   {activeStates.length > 0 && (
                     <div style={{
                       marginTop: spacing.lg,
@@ -289,8 +282,11 @@ function App() {
                   )}
                 </div>
 
-                {/* Quick Links */}
-                <div style={{
+                <div className="animate-fade-in-up app-recent-activity-mobile">
+                  <RecentActivitySidebar onStateSelect={handleStateSelect} onBillSelect={handleBillSelect} />
+                </div>
+
+                <div className="app-quick-links" style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(3, 1fr)",
                   gap: spacing.md,
@@ -313,8 +309,7 @@ function App() {
                 </div>
               </div>
 
-              {/* Right column: Recent Activity */}
-              <div className="animate-fade-in-up" style={{ position: "sticky", top: "80px" }}>
+              <div className="animate-fade-in-up app-sidebar-sticky app-recent-activity-desktop" style={{ position: "sticky", top: "80px" }}>
                 <RecentActivitySidebar onStateSelect={handleStateSelect} onBillSelect={handleBillSelect} />
               </div>
             </div>
@@ -338,7 +333,7 @@ function App() {
           height: "3px",
           background: "linear-gradient(90deg, #2C7A7B 0%, #38B2AC 50%, #0EA5E9 100%)",
         }} />
-        <div style={{
+        <div className="app-footer-inner" style={{
           maxWidth: "1400px",
           margin: "0 auto",
           padding: `${spacing["2xl"]} ${spacing["2xl"]}`,
@@ -354,7 +349,7 @@ function App() {
           }}>
             © {new Date().getFullYear()} PolicyEngine. Open-source tax and benefit policy simulation.
           </p>
-          <div style={{ display: "flex", gap: spacing.lg }}>
+          <div className="app-footer-links" style={{ display: "flex", gap: spacing.lg }}>
             <FooterLink href="https://github.com/policyengine">GitHub</FooterLink>
             <FooterLink href="https://policyengine.org">PolicyEngine.org</FooterLink>
           </div>
@@ -429,7 +424,7 @@ function RegionChips({ states, onSelect }) {
     .filter((r) => r.states.length > 0);
 
   return (
-    <div style={{
+    <div className="region-chips-grid" style={{
       display: "grid",
       gridTemplateColumns: `repeat(${regions.length}, 1fr)`,
       gap: spacing.lg,

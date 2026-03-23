@@ -76,7 +76,7 @@ const TABS = [
   { id: "household", label: "Your Household", icon: UserIcon },
 ];
 
-export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill }) {
+export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
   const { compareReform, loading, error, apiVersion } = usePolicyEngineAPI();
   const { getImpact } = useData();
   const [activeTab, setActiveTab] = useState("overview");
@@ -166,7 +166,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill 
       }}
     >
       {/* Header */}
-      <div style={{
+      <div className="reform-header" style={{
         padding: `${spacing.lg} ${spacing["2xl"]}`,
         borderBottom: `1px solid ${colors.border.light}`,
         display: "flex",
@@ -187,7 +187,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill 
       </div>
 
       {/* Tabs */}
-      <div style={{
+      <div className="reform-tabs" style={{
         display: "flex",
         gap: spacing.xs,
         padding: `0 ${spacing["2xl"]}`,
@@ -208,6 +208,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill 
                 setActiveTab(tab.id);
                 track("tab_switched", { tab_id: tab.id, reform_id: reformConfig.id, state_abbr: stateAbbr });
               }}
+              className="reform-tab"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -234,7 +235,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill 
       </div>
 
       {/* Content */}
-      <div style={{
+      <div className="reform-content" style={{
         padding: spacing["2xl"],
         ...(activeTab === "districts" ? { display: "flex", flexDirection: "column" } : {}),
       }}>
@@ -250,7 +251,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill 
 
         {/* Districts Tab */}
         {activeTab === "districts" && (
-          <div style={{ height: "70vh", display: "flex", flexDirection: "column" }}>
+          <div className="reform-districts-panel" style={{ height: "70vh", display: "flex", flexDirection: "column" }}>
             <DistrictMap
               stateAbbr={stateAbbr}
               reformId={reformConfig.id}
@@ -261,7 +262,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill 
 
         {/* Household Tab */}
         {activeTab === "household" && (
-          <div style={{
+          <div className="reform-household-grid" style={{
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
             gap: spacing["3xl"],
@@ -367,7 +368,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill 
       </div>
 
       {/* Footer */}
-      <div style={{
+      <div className="reform-footer" style={{
         padding: `${spacing.sm} ${spacing["2xl"]}`,
         borderTop: `1px solid ${colors.border.light}`,
         backgroundColor: colors.background.secondary,

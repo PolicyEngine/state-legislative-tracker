@@ -19,11 +19,6 @@ const formatCurrency = (value) => {
   return `${sign}$${absValue.toFixed(0)}`;
 };
 
-const formatPercent = (value, decimals = 1) => {
-  if (value === null || value === undefined) return "N/A";
-  return `${(value * 100).toFixed(decimals)}%`;
-};
-
 const formatPctChange = (value, decimals = 1) => {
   if (value === null || value === undefined) return "N/A";
   const sign = value > 0 ? "+" : "";
@@ -83,7 +78,7 @@ export default function AggregateImpacts({ impacts, billTitle }) {
       overflow: "hidden",
     }}>
       {/* Header */}
-      <div style={{
+      <div className="aggregate-impacts-header" style={{
         padding: `${spacing.md} ${spacing.xl}`,
         borderBottom: `1px solid ${colors.border.light}`,
         backgroundColor: colors.background.secondary,
@@ -105,7 +100,7 @@ export default function AggregateImpacts({ impacts, billTitle }) {
 
         {/* Year Tabs for multi-year reforms */}
         {hasMultipleYears ? (
-          <div style={{
+          <div className="aggregate-year-tabs" style={{
             display: "flex",
             gap: spacing.xs,
           }}>
@@ -146,11 +141,11 @@ export default function AggregateImpacts({ impacts, billTitle }) {
       </div>
 
       {/* Budgetary Impact */}
-      <div style={{
+      <div className="aggregate-budget-row" style={{
         padding: spacing.xl,
         borderBottom: `1px solid ${colors.border.light}`,
       }}>
-        <div style={{
+        <div className="aggregate-budget-metric" style={{
           display: "flex",
           alignItems: "baseline",
           gap: spacing.sm,
@@ -182,7 +177,7 @@ export default function AggregateImpacts({ impacts, billTitle }) {
       </div>
 
       {/* Poverty Metrics - Side by Side */}
-      <div style={{
+      <div className="aggregate-poverty-grid" style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
         borderBottom: `1px solid ${colors.border.light}`,

@@ -132,11 +132,13 @@ const USMap = memo(({ selectedState, onStateSelect }) => {
   return (
     <div
       ref={containerRef}
+      className="us-map-shell"
       style={{ position: "relative", width: "100%" }}
       onWheel={handleWheel}
     >
       <ComposableMap
         projection="geoAlbersUsa"
+        className="us-map-svg"
         style={{ width: "100%", height: "auto", maxHeight: "500px" }}
       >
         <ZoomableGroup

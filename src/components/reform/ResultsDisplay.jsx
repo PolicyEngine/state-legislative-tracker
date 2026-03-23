@@ -162,7 +162,7 @@ export default function ResultsDisplay({ baseline, reform, error }) {
       </div>
 
       {/* Breakdown */}
-      <div style={{
+      <div className="results-breakdown-grid" style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr 1fr",
         gap: spacing.md,

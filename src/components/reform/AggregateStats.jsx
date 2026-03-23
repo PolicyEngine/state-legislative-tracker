@@ -96,7 +96,7 @@ export default function AggregateStats({ stats }) {
         )}
       </div>
 
-      <div style={{
+      <div className="aggregate-stats-grid" style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr 1fr",
         gap: spacing.md,

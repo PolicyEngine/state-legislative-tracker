@@ -76,6 +76,10 @@ body {
   min-height: 100vh;
 }
 
+#root {
+  min-height: 100vh;
+}
+
 /* Smooth transitions */
 button,
 a {
@@ -246,10 +250,152 @@ input:focus-visible {
   -webkit-backdrop-filter: blur(12px);
 }
 
+.app-recent-activity-mobile {
+  display: none;
+}
+
 /* Responsive adjustments */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .animate-fade-in-up {
     animation: none;
     opacity: 1;
+  }
+
+  .app-header-inner,
+  .app-main,
+  .app-footer-inner,
+  .state-panel-header,
+  .state-panel-content,
+  .reform-header,
+  .reform-content,
+  .reform-footer {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  .app-header-row,
+  .app-footer-inner,
+  .reform-header,
+  .reform-footer,
+  .aggregate-impacts-header,
+  .aggregate-budget-metric {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  .app-header-row,
+  .app-footer-inner,
+  .reform-header,
+  .reform-footer,
+  .aggregate-impacts-header {
+    gap: 12px !important;
+  }
+
+  .app-header-brand {
+    min-width: 0;
+  }
+
+  .app-home-grid,
+  .app-quick-links,
+  .region-chips-grid,
+  .reform-household-grid,
+  .aggregate-stats-grid,
+  .results-breakdown-grid,
+  .aggregate-poverty-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .app-home-grid > * {
+    min-width: 0;
+  }
+
+  .app-map-layout {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+
+  .app-map-card {
+    padding: 12px !important;
+  }
+
+  .us-map-shell {
+    width: 100% !important;
+    margin-left: 0;
+  }
+
+  .us-map-svg {
+    max-height: none !important;
+  }
+
+  .app-map-legend {
+    width: 100%;
+    padding-left: 0 !important;
+    margin-left: 0 !important;
+    border-left: none !important;
+    border-top: 1px solid var(--pe-gray-200);
+    padding-top: 16px;
+    align-self: stretch !important;
+  }
+
+  .app-sidebar-sticky {
+    position: static !important;
+    top: auto !important;
+  }
+
+  .app-recent-activity-desktop {
+    display: none !important;
+  }
+
+  .app-recent-activity-mobile {
+    display: block !important;
+  }
+
+  .app-footer-links {
+    flex-wrap: wrap;
+    gap: 12px !important;
+  }
+
+  .state-search,
+  .state-search-input-wrap,
+  .state-search-listbox {
+    width: 100% !important;
+  }
+
+  .state-search-listbox {
+    right: auto !important;
+    left: 0 !important;
+  }
+
+  .breadcrumb-nav,
+  .reform-tabs {
+    flex-wrap: wrap;
+  }
+
+  .reform-tabs {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  .reform-tab {
+    padding: 12px 14px !important;
+  }
+
+  .reform-districts-panel {
+    height: auto !important;
+    min-height: 70vh;
+  }
+
+  .aggregate-impacts-header,
+  .aggregate-budget-row {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  .aggregate-budget-metric {
+    align-items: flex-start !important;
+  }
+
+  .state-panel-activity-grid {
+    grid-template-columns: 1fr !important;
   }
 }

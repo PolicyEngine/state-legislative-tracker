@@ -49,7 +49,7 @@ function SectionHeader({ children }) {
   );
 }
 
-const StatePanel = memo(({ stateAbbr, onNavigateHome, onBillSelect }) => {
+const StatePanel = memo(({ stateAbbr, onBillSelect }) => {
   const state = stateData[stateAbbr];
   const { getBillsForState, getResearchForState } = useData();
   const { bills: pipelineBills } = useProcessedBills(stateAbbr);
@@ -83,7 +83,7 @@ const StatePanel = memo(({ stateAbbr, onNavigateHome, onBillSelect }) => {
   return (
     <div className="animate-fade-in">
       {/* Header */}
-      <div style={{
+      <div className="state-panel-header" style={{
         padding: `${spacing.lg} ${spacing["2xl"]}`,
         background: `linear-gradient(135deg, ${colors.primary[600]} 0%, ${colors.primary[700]} 100%)`,
         borderRadius: `${spacing.radius["2xl"]} ${spacing.radius["2xl"]} 0 0`,
@@ -135,7 +135,7 @@ const StatePanel = memo(({ stateAbbr, onNavigateHome, onBillSelect }) => {
       </div>
 
       {/* Content */}
-      <div style={{
+      <div className="state-panel-content" style={{
         padding: spacing["2xl"],
         backgroundColor: colors.white,
         borderRadius: `0 0 ${spacing.radius["2xl"]} ${spacing.radius["2xl"]}`,
@@ -147,7 +147,7 @@ const StatePanel = memo(({ stateAbbr, onNavigateHome, onBillSelect }) => {
         {(bills.length > 0 || state.taxChanges?.length > 0) && (
           <div style={{ marginBottom: spacing["2xl"] }}>
             <SectionHeader>2026 Legislative Activity</SectionHeader>
-            <div style={{ display: "grid", gridTemplateColumns: bills.length > 3 ? "1fr 1fr" : "1fr", gap: spacing.sm }}>
+            <div className="state-panel-activity-grid" style={{ display: "grid", gridTemplateColumns: bills.length > 3 ? "1fr 1fr" : "1fr", gap: spacing.sm }}>
               {state.taxChanges?.map((change, i) => (
                 <a
                   key={i}
