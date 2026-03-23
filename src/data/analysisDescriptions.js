@@ -90,6 +90,7 @@ const descriptions = {
   "or-sb1507": "One provision of Oregon state budget bill SB1507 raises the EITC match rate effective for tax year 2026. The match rate increases to 17% for families with young children (under 3) and 14% for others.",
 
   // Rhode Island
+  "ri-hb8338": "Rhode Island HB8338 creates a refundable child tax credit of $660 per qualifying child (age 18 or under) for tax year 2027. The credit phases out by 20 percentage points for each $7,590 above $265,965 AGI. Amounts adjust annually for inflation.",
   "ri-s2364": "Rhode Island S2364 increases the state earned-income tax credit from 16% to 30% of the federal earned-income credit, effective for tax years beginning on or after January 1, 2027.",
   "ri-sb2672": "Rhode Island SB2672 reduces personal income tax rates by 10% phased in over five years (2027-2031). All three brackets are reduced by 2% annually: first bracket from 3.75% to 3.38%, second bracket from 4.75% to 4.28%, third bracket from 5.99% to 5.39%. This analysis assumes no pause to the income tax reductions under the fiscal oversight provisions.",
 
