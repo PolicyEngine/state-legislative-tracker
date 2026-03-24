@@ -9,6 +9,7 @@ import datetime
 import modal
 
 app = modal.App("state-research-tracker")
+RUNTIME_SECRET_NAME = "state-research-tracker-runtime"
 
 REPO_URL = "https://github.com/PolicyEngine/state-legislative-tracker.git"
 BRANCH = "main"
@@ -51,20 +52,22 @@ image = (
         f"cd /app && SUPABASE_ANON_KEY={SUPABASE_ANON_KEY}"
         " node scripts/prerender.mjs",
     )
-    .pip_install("fastapi", "uvicorn", "aiofiles", "httpx")
+    .pip_install("fastapi", "uvicorn", "aiofiles", "httpx", "resend")
 )
 
 
 @app.function(
     image=image,
     allow_concurrent_inputs=100,
+    secrets=[modal.Secret.from_name(RUNTIME_SECRET_NAME)],
 )
 @modal.asgi_app(label="state-legislative-tracker")
 def web():
     """Serve static files with FastAPI."""
-    from fastapi import FastAPI, Request
+    from fastapi import FastAPI, HTTPException, Request
     from fastapi.staticfiles import StaticFiles
     from fastapi.responses import FileResponse, Response
+    from pydantic import BaseModel
     import httpx
     import json
     import os
@@ -85,6 +88,76 @@ def web():
     # PostHog reverse proxy — routes analytics through our domain to avoid ad blockers
     POSTHOG_HOST = "https://us.i.posthog.com"
     POSTHOG_ASSETS_HOST = "https://us-assets.i.posthog.com"
+
+    class BillAnalysisRequest(BaseModel):
+        state: str
+        bill_number: str
+        title: str
+        bill_url: str
+        requester_email: str
+        subscribe_newsletter: bool = False
+        request_source: str | None = None
+
+    async def store_request(payload: BillAnalysisRequest, request: Request):
+        supabase_url = os.environ.get("SUPABASE_URL")
+        supabase_key = os.environ.get("SUPABASE_KEY")
+        if not supabase_url or not supabase_key:
+            return False
+
+        row = {
+            "state": payload.state,
+            "bill_number": payload.bill_number,
+            "title": payload.title,
+            "bill_url": payload.bill_url,
+            "requester_email": payload.requester_email,
+            "subscribe_newsletter": payload.subscribe_newsletter,
+            "request_source": payload.request_source,
+            "origin": str(request.base_url).rstrip("/"),
+            "user_agent": request.headers.get("user-agent"),
+        }
+
+        response = await http_client.post(
+            f"{supabase_url}/rest/v1/bill_analysis_requests",
+            headers={
+                "apikey": supabase_key,
+                "Authorization": f"Bearer {supabase_key}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation",
+            },
+            json=row,
+        )
+        response.raise_for_status()
+        return True
+
+    def send_notification_email(payload: BillAnalysisRequest):
+        import resend
+
+        api_key = os.environ.get("RESEND_API_KEY")
+        if not api_key:
+            return False
+
+        resend.api_key = api_key
+        smtp_to = os.environ.get(
+            "BILL_REQUEST_NOTIFICATION_TO",
+            "hello@policyengine.org,pavel@policyengine.org",
+        )
+        recipients = [email.strip() for email in smtp_to.split(",") if email.strip()]
+
+        resend.Emails.send({
+            "from": "PolicyEngine Team <hello@policyengine.org>",
+            "to": recipients,
+            "subject": f"Score bill request: {payload.state} {payload.bill_number}",
+            "html": (
+                f"<p>A new bill analysis request was submitted.</p>"
+                f"<p><strong>Requester:</strong> {payload.requester_email}</p>"
+                f"<p><strong>Newsletter opt-in:</strong> {'yes' if payload.subscribe_newsletter else 'no'}</p>"
+                f"<p><strong>Source:</strong> {payload.request_source or 'unknown'}</p>"
+                f"<p><strong>Bill:</strong> {payload.state} {payload.bill_number}</p>"
+                f"<p><strong>Title:</strong> {payload.title}</p>"
+                f"<p><strong>Link:</strong> <a href='{payload.bill_url}'>{payload.bill_url}</a></p>"
+            ),
+        })
+        return True
 
     @api.api_route("/ingest/{path:path}", methods=["GET", "POST", "OPTIONS"])
     async def posthog_proxy(path: str, request: Request):
@@ -119,6 +192,28 @@ def web():
             status_code=resp.status_code,
             headers=resp_headers,
         )
+
+    @api.post("/api/bill-analysis-request")
+    async def bill_analysis_request(payload: BillAnalysisRequest, request: Request):
+        if "@" not in payload.requester_email or "." not in payload.requester_email.split("@")[-1]:
+            raise HTTPException(status_code=400, detail="Please enter a valid email address.")
+
+        result = {
+            "stored": False,
+            "notification_sent": False,
+        }
+
+        try:
+            result["stored"] = await store_request(payload, request)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Could not store request: {exc}") from exc
+
+        try:
+            result["notification_sent"] = send_notification_email(payload)
+        except Exception:
+            result["notification_sent"] = False
+
+        return result
 
     @api.get("/{full_path:path}")
     async def serve_spa(full_path: str):

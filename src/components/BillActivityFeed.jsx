@@ -3,19 +3,52 @@ import { supabase } from "../lib/supabase";
 import { useData } from "../context/DataContext";
 import { colors, typography, spacing } from "../designTokens";
 
+const REQUEST_API_PATH = "/api/bill-analysis-request";
+const MAILCHIMP_SUBSCRIBE_URL =
+  "https://policyengine.us5.list-manage.com/subscribe/post-json?u=e5ad35332666289a0f48013c5&id=71ed1f89d8&f_id=00f173e6f0";
+
+function subscribeToMailchimp(email) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `mailchimpCallback_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const script = document.createElement("script");
+    const cleanup = () => {
+      delete window[callbackName];
+      script.remove();
+    };
+
+    window[callbackName] = (data) => {
+      cleanup();
+      if (data?.result !== "error") {
+        resolve({ isSuccessful: true, message: data?.msg || "Subscribed." });
+        return;
+      }
+      resolve({ isSuccessful: false, message: data?.msg || "Subscription failed." });
+    };
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("There was an issue processing your subscription; please try again later."));
+    };
+
+    const encodedEmail = encodeURIComponent(email);
+    script.src = `${MAILCHIMP_SUBSCRIBE_URL}&EMAIL=${encodedEmail}&c=${callbackName}`;
+    document.body.appendChild(script);
+  });
+}
+
 // ============== Shared UI ==============
 
 const STAGE_COLORS = {
   "Introduced": { bg: colors.gray[100], text: colors.gray[700], dot: colors.gray[400] },
-  "In Committee": { bg: "#FEF3C7", text: "#92400E", dot: "#F59E0B" },
-  "Passed Committee": { bg: "#DBEAFE", text: "#1E40AF", dot: "#3B82F6" },
-  "First Reading": { bg: "#FEF3C7", text: "#92400E", dot: "#F59E0B" },
-  "Second Reading": { bg: "#FEF3C7", text: "#92400E", dot: "#F59E0B" },
-  "Third Reading": { bg: "#DBEAFE", text: "#1E40AF", dot: "#3B82F6" },
-  "Passed One Chamber": { bg: "#D1FAE5", text: "#065F46", dot: "#10B981" },
-  "Passed Both Chambers": { bg: "#A7F3D0", text: "#065F46", dot: "#059669" },
-  "Sent to Governor": { bg: "#C7D2FE", text: "#3730A3", dot: "#6366F1" },
-  "Signed into Law": { bg: "#D1FAE5", text: "#065F46", dot: "#059669" },
+  "In Committee": { bg: colors.primary[50], text: colors.primary[700], dot: colors.primary[400] },
+  "Passed Committee": { bg: colors.primary[50], text: colors.primary[700], dot: colors.primary[500] },
+  "First Reading": { bg: colors.primary[50], text: colors.primary[700], dot: colors.primary[400] },
+  "Second Reading": { bg: colors.primary[50], text: colors.primary[700], dot: colors.primary[500] },
+  "Third Reading": { bg: colors.primary[100], text: colors.primary[700], dot: colors.primary[500] },
+  "Passed One Chamber": { bg: colors.primary[100], text: colors.primary[800], dot: colors.primary[600] },
+  "Passed Both Chambers": { bg: colors.primary[200], text: colors.primary[800], dot: colors.primary[600] },
+  "Sent to Governor": { bg: colors.primary[100], text: colors.primary[800], dot: colors.primary[700] },
+  "Signed into Law": { bg: colors.primary[200], text: colors.primary[900], dot: colors.primary[700] },
   "Vetoed": { bg: "#FEE2E2", text: "#991B1B", dot: "#EF4444" },
   "Dead/Withdrawn": { bg: colors.gray[100], text: colors.gray[500], dot: colors.gray[400] },
 };
@@ -112,7 +145,9 @@ export function RecentActivitySidebar({ onStateSelect, onBillSelect }) {
   const { bills, loading } = useProcessedBills(null);
   const { statesWithBills, research } = useData();
   const encodedStates = useMemo(() => new Set(Object.keys(statesWithBills)), [statesWithBills]);
-  const [tab, setTab] = useState("recent"); // "recent" | "analyzed"
+  const [tab, setTab] = useState("analyzed"); // "recent" | "analyzed"
+  const [actionBill, setActionBill] = useState(null);
+  const [requestBill, setRequestBill] = useState(null);
 
   const recentBills = useMemo(() => bills.slice(0, 25), [bills]);
 
@@ -168,93 +203,95 @@ export function RecentActivitySidebar({ onStateSelect, onBillSelect }) {
   if (!recentBills.length) return null;
 
   return (
-    <div style={{
-      backgroundColor: colors.white,
-      borderRadius: spacing.radius["2xl"],
-      boxShadow: "var(--shadow-elevation-low)",
-      border: `1px solid ${colors.border.light}`,
-      overflow: "hidden",
-    }}>
-      {/* Header */}
+    <>
       <div style={{
-        padding: `${spacing.md} ${spacing.lg}`,
-        borderBottom: `1px solid ${colors.border.light}`,
-        backgroundColor: colors.background.secondary,
+        backgroundColor: colors.white,
+        borderRadius: spacing.radius["2xl"],
+        boxShadow: "var(--shadow-elevation-low)",
+        border: `1px solid ${colors.border.light}`,
+        overflow: "hidden",
       }}>
+        {/* Header */}
+        <div style={{
+          padding: `${spacing.md} ${spacing.lg}`,
+          borderBottom: `1px solid ${colors.border.light}`,
+          backgroundColor: colors.background.secondary,
+        }}>
         <h3 style={{
           margin: 0,
           fontSize: typography.fontSize.sm,
           fontWeight: typography.fontWeight.bold,
           fontFamily: typography.fontFamily.primary,
           color: colors.secondary[900],
-          display: "flex",
-          alignItems: "center",
-          gap: spacing.xs,
         }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
           Recent Legislative Activity
         </h3>
-        {/* Tab toggle */}
-        <div style={{
-          display: "flex",
-          gap: "2px",
-          marginTop: spacing.sm,
-          backgroundColor: colors.gray[100],
-          borderRadius: spacing.radius.md,
-          padding: "2px",
-        }}>
-          {[
-            { id: "recent", label: "All Bills" },
-            { id: "analyzed", label: "Analyzed" },
-          ].map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              style={{
-                flex: 1,
-                padding: `3px ${spacing.sm}`,
-                border: "none",
-                borderRadius: spacing.radius.sm,
-                backgroundColor: tab === t.id ? colors.white : "transparent",
-                boxShadow: tab === t.id ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
-                color: tab === t.id ? colors.secondary[900] : colors.text.tertiary,
-                fontSize: "11px",
-                fontWeight: typography.fontWeight.medium,
-                fontFamily: typography.fontFamily.body,
-                cursor: "pointer",
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
+          {/* Tab toggle */}
+          <div style={{
+            display: "flex",
+            gap: "2px",
+            marginTop: spacing.sm,
+            backgroundColor: colors.gray[100],
+            borderRadius: spacing.radius.md,
+            padding: "2px",
+          }}>
+            {[
+              { id: "analyzed", label: "Analyzed" },
+              { id: "recent", label: "All Bills" },
+            ].map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                style={{
+                  flex: 1,
+                  padding: `3px ${spacing.sm}`,
+                  border: "none",
+                  borderRadius: spacing.radius.sm,
+                  backgroundColor: tab === t.id ? colors.white : "transparent",
+                  boxShadow: tab === t.id ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+                  color: tab === t.id ? colors.secondary[900] : colors.text.tertiary,
+                  fontSize: "11px",
+                  fontWeight: typography.fontWeight.medium,
+                  fontFamily: typography.fontFamily.body,
+                  cursor: "pointer",
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* List */}
-      <div style={{ maxHeight: "600px", overflowY: "auto" }}>
-        {displayBills.map((bill, i) => {
-          const normKey = `${bill.state}:${bill.bill_number.replace(/\s+/g, "").replace(/^([A-Z]+)0+(\d)/, "$1$2").toUpperCase()}`;
-          const match = billToResearchId[normKey];
-          const isClickable = !!match && !!onBillSelect;
+        {/* List */}
+        <div style={{ maxHeight: "600px", overflowY: "auto" }}>
+          {displayBills.map((bill, i) => {
+            const normKey = `${bill.state}:${bill.bill_number.replace(/\s+/g, "").replace(/^([A-Z]+)0+(\d)/, "$1$2").toUpperCase()}`;
+            const match = billToResearchId[normKey];
+            const isClickable = !!match && !!onBillSelect;
+            const showBillActions = tab === "recent";
 
-          return (
-          <div
-            key={`${bill.state}-${bill.bill_number}-${i}`}
-            onClick={isClickable ? () => onBillSelect(match.state, match.researchId) : undefined}
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: spacing.sm,
-              padding: `${spacing.sm} ${spacing.md}`,
-              borderBottom: `1px solid ${colors.border.light}`,
-              transition: "background-color 0.1s",
-              cursor: isClickable ? "pointer" : "default",
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.gray[50]}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-          >
+            return (
+            <div
+              key={`${bill.state}-${bill.bill_number}-${i}`}
+              onClick={() => {
+                if (showBillActions && !isClickable) {
+                  setActionBill({ ...bill, isAnalyzed: isClickable, analysisMatch: match || null });
+                  return;
+                }
+                if (isClickable) onBillSelect(match.state, match.researchId);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: spacing.sm,
+                padding: `${spacing.sm} ${spacing.md}`,
+                borderBottom: `1px solid ${colors.border.light}`,
+                transition: "background-color 0.1s",
+                cursor: showBillActions || isClickable ? "pointer" : "default",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.gray[50]}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+            >
             {/* State chip */}
             <button
               onClick={(e) => { e.stopPropagation(); onStateSelect?.(bill.state); }}
@@ -279,7 +316,27 @@ export function RecentActivitySidebar({ onStateSelect, onBillSelect }) {
             {/* Bill info */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
-                {isClickable ? (
+                {tab === "recent" && !isClickable ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActionBill({ ...bill, isAnalyzed: isClickable, analysisMatch: match || null });
+                    }}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      padding: 0,
+                      color: colors.secondary[900],
+                      fontSize: "12px",
+                      fontWeight: typography.fontWeight.semibold,
+                      fontFamily: typography.fontFamily.body,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {bill.bill_number}
+                  </button>
+                ) : isClickable ? (
                   <span
                     style={{
                       color: colors.primary[600],
@@ -338,12 +395,313 @@ export function RecentActivitySidebar({ onStateSelect, onBillSelect }) {
 
             <TimeAgo dateStr={bill.last_action_date} />
           </div>
-          );
-        })}
+            );
+          })}
+        </div>
+      </div>
+      {actionBill && (
+        <BillActionModal
+          bill={actionBill}
+          onClose={() => setActionBill(null)}
+          onViewAnalysis={() => {
+            if (actionBill.analysisMatch && onBillSelect) {
+              onBillSelect(actionBill.analysisMatch.state, actionBill.analysisMatch.researchId);
+            }
+            setActionBill(null);
+          }}
+          onRequestAnalysis={() => {
+            setRequestBill(actionBill);
+            setActionBill(null);
+          }}
+        />
+      )}
+      {requestBill && (
+        <AnalysisRequestModal
+          bill={requestBill}
+          onClose={() => setRequestBill(null)}
+        />
+      )}
+    </>
+  );
+}
+
+function BillActionModal({ bill, onClose, onViewAnalysis, onRequestAnalysis }) {
+  return (
+    <ModalFrame title={`${bill.state} ${bill.bill_number}`} onClose={onClose}>
+      <p style={{
+        margin: `0 0 ${spacing.md}`,
+        color: colors.text.secondary,
+        fontSize: typography.fontSize.sm,
+        fontFamily: typography.fontFamily.body,
+        lineHeight: 1.5,
+      }}>
+        {bill.title}
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: spacing.sm }}>
+        <a
+          href={bill.legiscan_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={primaryActionStyle}
+        >
+          View Bill Text
+        </a>
+        {bill.isAnalyzed ? (
+          <button type="button" onClick={onViewAnalysis} style={secondaryActionStyle}>
+            View PolicyEngine Analysis
+          </button>
+        ) : (
+          <button type="button" onClick={onRequestAnalysis} style={secondaryActionStyle}>
+            Request Analysis
+          </button>
+        )}
+      </div>
+    </ModalFrame>
+  );
+}
+
+function AnalysisRequestModal({ bill, onClose }) {
+  const [email, setEmail] = useState("");
+  const [subscribeNewsletter, setSubscribeNewsletter] = useState(true);
+  const [status, setStatus] = useState({ type: "idle", message: "" });
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setStatus({ type: "idle", message: "" });
+
+    try {
+      let newsletterMessage = "";
+      if (subscribeNewsletter) {
+        const newsletterResult = await subscribeToMailchimp(email);
+        if (!newsletterResult.isSuccessful && !/is already subscribed/i.test(newsletterResult.message)) {
+          throw new Error(newsletterResult.message);
+        }
+        newsletterMessage = newsletterResult.message;
+      }
+
+      const response = await fetch(REQUEST_API_PATH, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          state: bill.state,
+          bill_number: bill.bill_number,
+          title: bill.title,
+          bill_url: bill.legiscan_url,
+          requester_email: email,
+          subscribe_newsletter: subscribeNewsletter,
+          request_source: "recent_activity_all_bills",
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.detail || "Could not submit request.");
+      }
+
+      setStatus({
+        type: "success",
+        message: "Request received. We’ll notify you when analysis is available for this bill.",
+      });
+    } catch (error) {
+      setStatus({
+        type: "error",
+        message: error.message || "Could not submit request.",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <ModalFrame title={`Request analysis for ${bill.state} ${bill.bill_number}`} onClose={onClose}>
+      <p style={{
+        margin: `0 0 ${spacing.lg}`,
+        color: colors.text.secondary,
+        fontSize: typography.fontSize.sm,
+        fontFamily: typography.fontFamily.body,
+        lineHeight: 1.5,
+      }}>
+        Enter your email and we’ll log the request for scoring. If you opt in, we’ll also add you to the newsletter.
+      </p>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: spacing.md }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: spacing.xs }}>
+          <span style={fieldLabelStyle}>Email address</span>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.org"
+            style={fieldInputStyle}
+          />
+        </label>
+        <label style={{
+          display: "flex",
+          alignItems: "center",
+          gap: spacing.sm,
+          color: colors.text.secondary,
+          fontSize: typography.fontSize.xs,
+          fontFamily: typography.fontFamily.body,
+          cursor: "pointer",
+        }}>
+          <input
+            type="checkbox"
+            checked={subscribeNewsletter}
+            onChange={(e) => setSubscribeNewsletter(e.target.checked)}
+            style={{ margin: 0, accentColor: colors.primary[600], flexShrink: 0 }}
+          />
+          <span>Get notified when analysis is added for this bill, and receive related PolicyEngine updates.</span>
+        </label>
+        {status.message && (
+          <div style={{
+            padding: spacing.sm,
+            borderRadius: spacing.radius.md,
+            backgroundColor: status.type === "success" ? colors.green[50] : colors.red[50],
+            color: status.type === "success" ? colors.green[700] : colors.red[700],
+            fontSize: typography.fontSize.xs,
+            fontFamily: typography.fontFamily.body,
+          }}>
+            {status.message}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: spacing.sm, justifyContent: "flex-end" }}>
+          <button type="button" onClick={onClose} style={tertiaryActionStyle}>
+            Cancel
+          </button>
+          <button type="submit" disabled={submitting} style={secondaryActionStyle}>
+            {submitting ? "Submitting..." : "Submit Request"}
+          </button>
+        </div>
+      </form>
+    </ModalFrame>
+  );
+}
+
+function ModalFrame({ title, children, onClose }) {
+  return (
+    <div style={{
+      position: "fixed",
+      inset: 0,
+      backgroundColor: "rgba(15, 23, 42, 0.45)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: spacing.lg,
+      zIndex: 100,
+    }}>
+      <div style={{
+        width: "100%",
+        maxWidth: "460px",
+        backgroundColor: colors.white,
+        borderRadius: spacing.radius["2xl"],
+        boxShadow: "var(--shadow-elevation-medium)",
+        border: `1px solid ${colors.border.light}`,
+        padding: spacing.xl,
+      }}>
+        <div style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: spacing.md,
+          marginBottom: spacing.md,
+        }}>
+          <h3 style={{
+            margin: 0,
+            color: colors.secondary[900],
+            fontSize: typography.fontSize.base,
+            fontWeight: typography.fontWeight.bold,
+            fontFamily: typography.fontFamily.primary,
+            lineHeight: 1.3,
+          }}>
+            {title}
+          </h3>
+          <button type="button" onClick={onClose} style={closeButtonStyle} aria-label="Close">
+            ×
+          </button>
+        </div>
+        {children}
       </div>
     </div>
   );
 }
+
+const fieldLabelStyle = {
+  color: colors.text.secondary,
+  fontSize: typography.fontSize.xs,
+  fontWeight: typography.fontWeight.medium,
+  fontFamily: typography.fontFamily.body,
+};
+
+const fieldInputStyle = {
+  width: "100%",
+  padding: `${spacing.sm} ${spacing.md}`,
+  borderRadius: spacing.radius.lg,
+  border: `1px solid ${colors.border.light}`,
+  backgroundColor: colors.white,
+  fontSize: typography.fontSize.sm,
+  fontFamily: typography.fontFamily.body,
+  color: colors.secondary[900],
+  outline: "none",
+};
+
+const primaryActionStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: `${spacing.sm} ${spacing.md}`,
+  borderRadius: spacing.radius.lg,
+  border: "none",
+  backgroundColor: colors.primary[600],
+  color: colors.white,
+  textDecoration: "none",
+  fontSize: typography.fontSize.sm,
+  fontWeight: typography.fontWeight.semibold,
+  fontFamily: typography.fontFamily.body,
+  cursor: "pointer",
+};
+
+const secondaryActionStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: `${spacing.sm} ${spacing.md}`,
+  borderRadius: spacing.radius.lg,
+  border: `1px solid ${colors.border.light}`,
+  backgroundColor: colors.white,
+  color: colors.secondary[900],
+  fontSize: typography.fontSize.sm,
+  fontWeight: typography.fontWeight.semibold,
+  fontFamily: typography.fontFamily.body,
+  cursor: "pointer",
+};
+
+const tertiaryActionStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: `${spacing.sm} ${spacing.md}`,
+  borderRadius: spacing.radius.lg,
+  border: "none",
+  backgroundColor: "transparent",
+  color: colors.text.secondary,
+  fontSize: typography.fontSize.sm,
+  fontWeight: typography.fontWeight.medium,
+  fontFamily: typography.fontFamily.body,
+  cursor: "pointer",
+};
+
+const closeButtonStyle = {
+  border: "none",
+  background: "transparent",
+  color: colors.text.tertiary,
+  fontSize: "24px",
+  lineHeight: 1,
+  cursor: "pointer",
+  padding: 0,
+  flexShrink: 0,
+};
 
 // ============== StateBillActivity (State page section) ==============
 
