@@ -77,6 +77,7 @@ const descriptions = {
 
   // New York
   "ny-a05435": "Increases the personal income tax rate on taxable income between $5M and $25M from 10.30% to 10.80%, and on income over $25M from 10.90% to 11.40%. Also updates the supplemental tax incremental benefit to reflect the higher rates.",
+  "ny-s9110": "New York S9110 phases in over 10 years (2026-2035) an exemption of the first $100,000 of income for joint filers ($50,000 for single filers) from state income tax. The bill also simplifies the rate structure from 9 brackets to 6 and includes a 4% rate on income above the exempt threshold up to $500,000, with higher rates for millionaires. Top brackets (10.30% and 10.90%) expire in 2033.",
   "ny-a06774": "Increases the NY child and dependent care credit to 110% of the federal credit for taxpayers with NY AGI up to $50,000.",
   "ny-a5661": "Increases New York's Earned Income Tax Credit match rate from 30% to 45% of the federal EITC.",
   "ny-s4487": "Creates a $1,000 refundable supplemental credit for each qualifying newborn (child born in current or previous tax year, ages 0-1). This is in addition to the existing Empire State Child Credit. Effective April 1, 2026.",
