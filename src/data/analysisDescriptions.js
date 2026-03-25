@@ -99,7 +99,7 @@ const descriptions = {
   "sc-h4216": "South Carolina H.4216 would replace the graduated income tax structure with two brackets: 1.99% up to $30,000 of AGI, and 5.21%. The bill would also eliminate the usage of the federal standard and itemized deductions for SC income tax purposes and replace them with the South Carolina Income Adjusted Deduction (SCIAD). Finally, H4216 would cap the state's EITC at a maximum benefit of $200, regardless of what the 125% federal match amount actually equals. H4216 is effective beginning for tax year 2026.",
 
   // Utah
-  "ut-sb60": "Utah Senate Bill 60 would reduce the state flat income tax rate from 4.5% to 4.45%.",
+  "ut-sb60": "Utah Senate Bill 60 reduced the state flat income tax rate from 4.5% to 4.45%, effective 2026.",
   "ut-hb210": "Removes marriage penalties in Utah tax credits by equalizing phase-out thresholds for single and head-of-household filers, and creates a new marriage tax credit. Effective January 1, 2026.",
   "ut-hb290": "Utah HB290 raises child tax credit phaseout thresholds effective for tax year 2026. Single/HOH increases to $49k, Joint to $61k, and MFS to $30.5k, benefiting more middle-income families.",
 
