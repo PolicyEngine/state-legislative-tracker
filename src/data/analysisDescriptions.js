@@ -69,6 +69,9 @@ const descriptions = {
   // New Jersey
   "nj-a1185-marriage-penalty-elimination": "Revises joint filer rate brackets to eliminate the marriage penalty by widening the 1.4% and 1.75% brackets and removing the 2.45% bracket for joint, head of household, and surviving spouse filers.",
 
+  // Nebraska
+  "ne-lb710": "Nebraska LB710 doubles the state earned income tax credit match rate from 10% to 20% of the federal EITC, effective January 1, 2025.",
+
   // North Carolina
   "nc-h459": "Freezes the North Carolina flat individual income tax rate at 4.25% for tax years 2026 through 2028, preventing the scheduled reduction to 3.99%. Suspends the rate reduction trigger mechanism and reinstates it for 2029+ with a shortened trigger table. Motivated by Hurricane Helene recovery costs.",
 
