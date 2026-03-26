@@ -15,7 +15,7 @@ REPO_URL = "https://github.com/PolicyEngine/state-legislative-tracker.git"
 BRANCH = "main"
 
 # Bump this when source code changes to rebuild the app layer
-APP_VERSION = "v34"
+APP_VERSION = "v35"
 
 # Evaluated at deploy time — unique command string busts Modal's layer cache
 _now = datetime.datetime.utcnow().isoformat()
@@ -58,9 +58,9 @@ image = (
 
 @app.function(
     image=image,
-    allow_concurrent_inputs=100,
     secrets=[modal.Secret.from_name(RUNTIME_SECRET_NAME)],
 )
+@modal.concurrent(max_inputs=100)
 @modal.asgi_app(label="state-legislative-tracker")
 def web():
     """Serve static files with FastAPI."""
