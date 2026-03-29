@@ -100,7 +100,8 @@ const descriptions = {
 
   // South Carolina
   "sc-h3492": "South Carolina H.3492 makes the state EITC partially refundable (50% of the nonrefundable amount), effective for tax year 2026.",
-  "sc-h4216": "South Carolina H.4216 would replace the graduated income tax structure with two brackets: 1.99% up to $30,000 of AGI, and 5.21%. The bill would also eliminate the usage of the federal standard and itemized deductions for SC income tax purposes and replace them with the South Carolina Income Adjusted Deduction (SCIAD). Finally, H4216 would cap the state's EITC at a maximum benefit of $200, regardless of what the 125% federal match amount actually equals. H4216 is effective beginning for tax year 2026.",
+  // H4216 amended Feb 24, 2026 - uses structural reform in policyengine-us
+  "sc-h4216": "South Carolina H.4216 replaces the graduated income tax structure with two brackets: 1.99% up to $30,000, and 5.21% above. The bill eliminates federal standard/itemized deductions for SC purposes, replacing them with the South Carolina Income Adjusted Deduction (SCIAD) with phase-outs. It also caps the state EITC at $200 maximum. Effective tax year 2026.",
 
   // Utah
   "ut-sb60": "Utah Senate Bill 60 reduced the state flat income tax rate from 4.5% to 4.45%, effective 2026.",
