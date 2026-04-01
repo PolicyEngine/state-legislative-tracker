@@ -90,6 +90,30 @@ def classify_reform(reform_params: dict, provisions: list | None = None) -> dict
 
     combined = param_keys + " " + prov_text
 
+    # Marriage/joint-related reforms (check before CTC/EITC so joint CTC reforms
+    # use a married archetype rather than single parent)
+    if "joint" in param_keys or "married" in param_keys or "filing_status" in param_keys:
+        has_children = any(
+            kw in combined for kw in ["ctc", "child", "cwfc", "dependent"]
+        )
+        if has_children:
+            return {
+                "archetype": "Married couple, 2 children (ages 6, 14)",
+                "adults": [40, 38],
+                "children": [6, 14],
+                "is_married": True,
+                "earnings_max": 250_000,
+                "thresholds": thresholds,
+            }
+        return {
+            "archetype": "Married couple, no children",
+            "adults": [40, 38],
+            "children": [],
+            "is_married": True,
+            "earnings_max": 400_000,
+            "thresholds": thresholds,
+        }
+
     # EITC reforms
     if "eitc" in combined or "earned_income" in combined:
         return {
@@ -109,17 +133,6 @@ def classify_reform(reform_params: dict, provisions: list | None = None) -> dict
             "children": [6, 14],
             "is_married": False,
             "earnings_max": 250_000,
-            "thresholds": thresholds,
-        }
-
-    # Marriage/joint-related reforms
-    if "joint" in combined or "married" in combined or "filing_status" in combined:
-        return {
-            "archetype": "Married couple, no children",
-            "adults": [40, 38],
-            "children": [],
-            "is_married": True,
-            "earnings_max": 400_000,
             "thresholds": thresholds,
         }
 
