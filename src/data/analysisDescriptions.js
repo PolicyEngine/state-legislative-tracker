@@ -34,6 +34,9 @@ const descriptions = {
   // Hawaii
   "hi-hb2306": "Freezes Hawaii income tax bracket thresholds at 2025 levels, increases top three marginal rates by 1pp (9%→10%, 10%→11%, 11%→12%), expands the child and dependent care credit (50%-5% match up to $160k AGI vs current 25%-15% up to $50k), and extends Act 163 enhanced credits (40% EITC, expanded CDCC limits, food/excise credit) through 2033. Effective for taxable years beginning after December 31, 2026.",
 
+  // Idaho
+  "id-sb1450": "Extends Idaho's $205 nonrefundable child tax credit indefinitely by removing the January 1, 2026 sunset date.",
+
   // Iowa
   "ia-hf1020": "Modifies the Iowa child and dependent care credit by removing the $90,000 income cap and simplifying from 7 brackets to 4. Taxpayers with Iowa net income of $25,000 or more receive 50% of the federal credit (up from 30-40% for middle-income and 0% for high-income). Retroactive to January 1, 2025.",
 
