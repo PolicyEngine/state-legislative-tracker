@@ -24,7 +24,7 @@ if (!SUPABASE_ANON_KEY) {
   process.exit(1);
 }
 
-const BASE_URL = "https://policyengine--state-legislative-tracker.modal.run";
+const BASE_URL = "https://www.policyengine.org/us/state-legislative-tracker";
 const DIST = join(dirname(new URL(import.meta.url).pathname), "..", "dist");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
