@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
 import USMap from "./components/USMap";
-import StatePanel from "./components/StatePanel";
 import Breadcrumb from "./components/Breadcrumb";
 import StateSearchCombobox from "./components/StateSearchCombobox";
-import ReformAnalyzer from "./components/reform/ReformAnalyzer";
 import { RecentActivitySidebar } from "./components/BillActivityFeed";
+
+const StatePanel = lazy(() => import("./components/StatePanel"));
+const ReformAnalyzer = lazy(() => import("./components/reform/ReformAnalyzer"));
 import { useData } from "./context/DataContext";
 import { stateData } from "./data/states";
 import { colors, mapColors, typography, spacing } from "./designTokens";
@@ -27,6 +28,22 @@ function parsePath() {
 function notifyParent(path) {
   window.parent.postMessage({ type: "pathchange", path }, "*");
   window.parent.postMessage({ type: "hashchange", hash: path.replace(/^\//, "") }, "*");
+}
+
+function LoadingPlaceholder() {
+  return (
+    <div style={{
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: spacing["4xl"],
+      color: colors.text.tertiary,
+      fontSize: typography.fontSize.sm,
+      fontFamily: typography.fontFamily.body,
+    }}>
+      Loading…
+    </div>
+  );
 }
 
 function App() {
@@ -167,11 +184,13 @@ function App() {
               onNavigateHome={handleNavigateHome}
               onNavigateState={handleNavigateState}
             />
-            <ReformAnalyzer
-              reformConfig={activeBill.reformConfig}
-              stateAbbr={selectedState}
-              bill={activeBill}
-            />
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <ReformAnalyzer
+                reformConfig={activeBill.reformConfig}
+                stateAbbr={selectedState}
+                bill={activeBill}
+              />
+            </Suspense>
           </div>
         )}
 
@@ -182,10 +201,12 @@ function App() {
               stateAbbr={selectedState}
               onNavigateHome={handleNavigateHome}
             />
-            <StatePanel
-              stateAbbr={selectedState}
-              onBillSelect={(id) => handleBillSelect(selectedState, id)}
-            />
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <StatePanel
+                stateAbbr={selectedState}
+                onBillSelect={(id) => handleBillSelect(selectedState, id)}
+              />
+            </Suspense>
           </div>
         )}
 
@@ -265,7 +286,7 @@ function App() {
                       paddingTop: spacing.md,
                       borderTop: `1px solid ${colors.border.light}`,
                     }}>
-                      <h4 style={{
+                      <h3 style={{
                         margin: `0 0 ${spacing.md}`,
                         color: colors.text.tertiary,
                         fontSize: typography.fontSize.xs,
@@ -276,7 +297,7 @@ function App() {
                         textAlign: "center",
                       }}>
                         States with Published Analysis
-                      </h4>
+                      </h3>
                       <RegionChips states={activeStates} onSelect={handleStateSelect} />
                     </div>
                   )}
@@ -366,10 +387,11 @@ const REGIONS = {
   West: ["AK", "AZ", "CA", "CO", "HI", "ID", "MT", "NV", "NM", "OR", "UT", "WA", "WY"],
 };
 
-function StateChip({ abbr, count, onSelect }) {
+function StateChip({ abbr, name, count, onSelect }) {
   return (
     <button
       onClick={() => onSelect(abbr)}
+      aria-label={`${name || abbr} — ${count} ${count === 1 ? "bill" : "bills"}`}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -448,7 +470,7 @@ function RegionChips({ states, onSelect }) {
             justifyContent: "center",
           }}>
             {regionStates.map((s) => (
-              <StateChip key={s.abbr} abbr={s.abbr} count={s.count} onSelect={onSelect} />
+              <StateChip key={s.abbr} abbr={s.abbr} name={s.name} count={s.count} onSelect={onSelect} />
             ))}
           </div>
         </div>
@@ -496,14 +518,14 @@ function QuickLinkCard({ href, title, description }) {
         boxShadow: "var(--shadow-elevation-low)",
       }}
     >
-      <h4 style={{
+      <h3 style={{
         margin: `0 0 ${spacing.xs}`,
         color: colors.secondary[900],
         fontSize: typography.fontSize.base,
         fontWeight: typography.fontWeight.semibold,
         fontFamily: typography.fontFamily.primary,
         transition: "color 0.2s ease",
-      }}>{title}</h4>
+      }}>{title}</h3>
       <p style={{
         margin: 0,
         color: colors.text.secondary,
