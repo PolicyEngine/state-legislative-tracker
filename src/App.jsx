@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { Header, logos } from "@policyengine/ui-kit";
 import USMap from "./components/USMap";
 import StatePanel from "./components/StatePanel";
 import Breadcrumb from "./components/Breadcrumb";
@@ -10,6 +11,21 @@ import { stateData } from "./data/states";
 import { colors, mapColors, typography, spacing } from "./designTokens";
 import { track } from "./lib/analytics";
 import { BASE_PATH } from "./lib/basePath";
+
+const PE_NAV_ITEMS = [
+  { label: "Research", href: "https://policyengine.org/us/research" },
+  { label: "Model", href: "https://policyengine.org/us/model" },
+  { label: "API", href: "https://policyengine.org/us/api" },
+  {
+    label: "About",
+    children: [
+      { label: "Team", href: "https://policyengine.org/us/team" },
+      { label: "Supporters", href: "https://policyengine.org/us/supporters" },
+      { label: "Citations", href: "https://policyengine.org/us/citations" },
+    ],
+  },
+  { label: "Donate", href: "https://policyengine.org/us/donate" },
+];
 
 function parsePath() {
   // Support old hash URLs for backward compat
@@ -109,51 +125,11 @@ function App() {
   return (
     <div className="app-shell" style={{ minHeight: "100vh" }}>
       {/* Header */}
-      <header
-        className="header-accent"
-        style={{
-          backgroundColor: colors.white,
-          boxShadow: "var(--shadow-elevation-low)",
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-        }}
-      >
-        <div className="app-header-inner" style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing.xl} ${spacing["2xl"]}` }}>
-          <div className="app-header-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div className="app-header-brand" style={{ display: "flex", alignItems: "center", gap: spacing.lg }}>
-              <a href="https://policyengine.org" target="_blank" rel="noopener noreferrer">
-                <img
-                  src="/policyengine-favicon.svg"
-                  alt="PolicyEngine"
-                  style={{ height: "40px", width: "auto" }}
-                />
-              </a>
-              <div>
-                <h1 style={{
-                  margin: 0,
-                  color: colors.secondary[900],
-                  fontSize: typography.fontSize["2xl"],
-                  fontWeight: typography.fontWeight.bold,
-                  fontFamily: typography.fontFamily.primary,
-                  letterSpacing: "-0.02em",
-                }}>
-                  2026 State Legislative Tracker
-                </h1>
-                <p style={{
-                  margin: "2px 0 0",
-                  color: colors.text.secondary,
-                  fontSize: typography.fontSize.sm,
-                  fontFamily: typography.fontFamily.body,
-                }}>
-                  PolicyEngine State Tax Research
-                </p>
-              </div>
-            </div>
-            <StateSearchCombobox onSelect={handleStateSelect} statesWithBills={statesWithBills} />
-          </div>
-        </div>
-      </header>
+      <Header
+        navItems={PE_NAV_ITEMS}
+        logoSrc={logos.whiteWordmark}
+        logoHref="https://policyengine.org/us"
+      />
 
       {/* Main Content */}
       <main className="app-main" style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing["2xl"]} ${spacing["2xl"]} ${spacing["4xl"]}` }}>
