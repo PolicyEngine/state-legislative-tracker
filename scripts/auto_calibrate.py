@@ -311,6 +311,161 @@ def write_harness_output(reform_id: str, harness_result: HarnessResult):
 
 
 # =============================================================================
+# DATABASE PERSISTENCE
+# =============================================================================
+
+def write_calibration_to_db(
+    reform_id: str,
+    state: str,
+    harness_result: HarnessResult,
+    history: list[dict],
+    diagnosis: dict = None,
+):
+    """Persist calibration results to Supabase.
+
+    Writes to three places:
+    1. validation_metadata — fiscal note, target, PE estimate, iterations, discrepancy
+    2. reform_impacts.model_notes.calibration — summary for frontend display
+    3. calibration_learnings — extracted patterns for the outer loop
+    """
+    supabase = get_supabase_client()
+    if not supabase:
+        print("  Warning: No Supabase connection, skipping DB write")
+        return
+
+    harness_dict = harness_result.to_dict()
+    kept = [h for h in history if h["status"] in ("keep", "accept")]
+    final = kept[-1] if kept else history[-1] if history else None
+    initial = history[0] if history else None
+
+    if not final:
+        return
+
+    # --- 1. validation_metadata ---
+    fiscal_strategy = next((s for s in harness_dict["strategies"] if s["name"] == "fiscal_note"), None)
+    envelope_strategy = next((s for s in harness_dict["strategies"] if s["name"] == "back_of_envelope"), None)
+    non_fiscal = [s for s in harness_dict["strategies"] if s["name"] not in ("fiscal_note", "back_of_envelope")]
+
+    vm_record = {
+        "id": reform_id,
+        "pe_estimate": final["pe_estimate"],
+        "within_range": final["pct_diff"] <= harness_result.tolerance,
+        "difference_from_fiscal_note_pct": round(final["pct_diff"] * 100, 2),
+        "iterations": len(history),
+        "iteration_log": [
+            {
+                "attempt": h["attempt"],
+                "pe_estimate": h["pe_estimate"],
+                "pct_diff": round(h["pct_diff"] * 100, 1),
+                "status": h["status"],
+                "description": h["description"],
+            }
+            for h in history
+        ],
+        "target_range_low": harness_dict["target"] * (1 - harness_result.tolerance),
+        "target_range_high": harness_dict["target"] * (1 + harness_result.tolerance),
+    }
+
+    if fiscal_strategy:
+        vm_record["fiscal_note_source"] = fiscal_strategy.get("source", "")
+        vm_record["fiscal_note_estimate"] = fiscal_strategy["estimate"]
+        vm_record["fiscal_note_url"] = fiscal_strategy.get("source", "")
+
+    if envelope_strategy:
+        vm_record["envelope_estimate"] = envelope_strategy["estimate"]
+        vm_record["envelope_methodology"] = envelope_strategy.get("reasoning", "")
+
+    if non_fiscal:
+        vm_record["external_analyses"] = non_fiscal
+
+    if diagnosis:
+        vm_record["discrepancy_explanation"] = diagnosis.get("root_cause") or diagnosis.get("explanation", "")
+
+    try:
+        supabase.table("validation_metadata").upsert(vm_record).execute()
+        print(f"  Written to validation_metadata")
+    except Exception as e:
+        print(f"  Warning: validation_metadata write failed: {e}")
+
+    # --- 2. reform_impacts.model_notes.calibration ---
+    try:
+        existing = supabase.table("reform_impacts").select("model_notes").eq("id", reform_id).execute()
+        model_notes = {}
+        if existing.data:
+            mn = existing.data[0].get("model_notes")
+            if isinstance(mn, dict):
+                model_notes = mn
+            elif isinstance(mn, str):
+                try:
+                    model_notes = json.loads(mn)
+                except json.JSONDecodeError:
+                    model_notes = {}
+
+        model_notes["calibration"] = {
+            "converged": final["status"] == "accept",
+            "attempts": len(history),
+            "initial_diff_pct": round(initial["pct_diff"] * 100, 1) if initial else None,
+            "final_diff_pct": round(final["pct_diff"] * 100, 1),
+            "target": harness_dict["target"],
+            "target_source": fiscal_strategy["source"] if fiscal_strategy else harness_dict["reasoning"],
+            "target_confidence": harness_dict["confidence"],
+            "diagnosis_category": diagnosis.get("category", "") if diagnosis else "",
+            "root_cause": diagnosis.get("root_cause", "") if diagnosis else "",
+            "calibrated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        supabase.table("reform_impacts").update(
+            {"model_notes": model_notes}
+        ).eq("id", reform_id).execute()
+        print(f"  Written to reform_impacts.model_notes.calibration")
+    except Exception as e:
+        print(f"  Warning: model_notes write failed: {e}")
+
+    # --- 3. calibration_learnings (if diagnosis has actionable patterns) ---
+    if diagnosis and diagnosis.get("category"):
+        learning_record = {
+            "reform_id": reform_id,
+            "state": state.upper(),
+            "pattern": _categorize_pattern(diagnosis),
+            "learning": diagnosis.get("root_cause") or diagnosis.get("explanation", ""),
+            "details": {
+                "final_pct_diff": final["pct_diff"],
+                "attempts": len(history),
+                "key_findings": diagnosis.get("key_findings", {}),
+                "suggestions": diagnosis.get("suggestions", []),
+            },
+            "category": diagnosis.get("category", ""),
+            "scope": "state",
+        }
+
+        try:
+            supabase.table("calibration_learnings").insert(learning_record).execute()
+            print(f"  Written to calibration_learnings")
+        except Exception as e:
+            # Table might not exist yet — fall back silently
+            print(f"  Note: calibration_learnings write skipped ({e})")
+
+
+def _categorize_pattern(diagnosis: dict) -> str:
+    """Extract a pattern label from a diagnosis."""
+    category = diagnosis.get("category", "")
+    root_cause = (diagnosis.get("root_cause") or "").lower()
+
+    if "baseline mismatch" in root_cause or "pre-scheduled" in root_cause:
+        return "baseline_mismatch"
+    elif "data" in category:
+        return "data_gap"
+    elif "per-person" in root_cause or "per-return" in root_cause:
+        return "per_person_vs_return"
+    elif "period" in root_cause or "cola" in root_cause.lower():
+        return "period_or_cola"
+    elif category == "parameter-solvable":
+        return "parameter_mapping"
+    else:
+        return "other"
+
+
+# =============================================================================
 # REFORM PARAMS MANAGEMENT (keep/revert)
 # =============================================================================
 
@@ -473,6 +628,68 @@ def run_calibration_step(
             "best_pct": best_pct,
             "best_params": best_params,
         }
+
+
+# =============================================================================
+# FINALIZE: persist results to DB after calibration completes
+# =============================================================================
+
+def finalize_calibration(reform_id: str, state: str = None):
+    """Persist calibration results to DB after the agent finishes.
+
+    Call this after the calibration loop completes (converged, plateaued, or
+    max iterations). Reads local results files and writes to Supabase.
+
+    Args:
+        reform_id: Bill identifier
+        state: Two-letter state code (auto-detected from reform_id if not given)
+    """
+    if state is None:
+        state = reform_id.split("-")[0]
+
+    print(f"\n--- Finalizing calibration: {reform_id} ---")
+
+    # Load local results
+    history = load_calibration_history(reform_id)
+    if not history:
+        print("  No calibration history to persist")
+        return
+
+    # Load harness output
+    harness_path = RESULTS_DIR / reform_id / "harness_output.json"
+    if not harness_path.exists():
+        print("  No harness output found")
+        return
+
+    with open(harness_path) as f:
+        harness_dict = json.load(f)
+
+    # Reconstruct HarnessResult from dict
+    harness_result = HarnessResult(
+        target=harness_dict["target"],
+        confidence=harness_dict["confidence"],
+        tolerance=harness_dict["tolerance"],
+        strategies=[],  # Not needed for DB write
+        reasoning=harness_dict["reasoning"],
+        auto_loop=harness_dict["auto_loop"],
+    )
+
+    # Load diagnosis if exists
+    diagnosis = None
+    diagnosis_path = RESULTS_DIR / reform_id / "diagnosis.json"
+    if diagnosis_path.exists():
+        with open(diagnosis_path) as f:
+            diagnosis = json.load(f)
+
+    write_calibration_to_db(
+        reform_id=reform_id,
+        state=state,
+        harness_result=harness_result,
+        history=history,
+        diagnosis=diagnosis,
+    )
+
+    print(f"  Calibration persisted to DB")
 
 
 # =============================================================================
@@ -680,11 +897,16 @@ Examples:
     parser.add_argument("--year", type=int, help="Override simulation year")
     parser.add_argument("--dry-run", action="store_true", help="Build target only, don't run simulation")
     parser.add_argument("--show-results", action="store_true", help="Show calibration results and exit")
+    parser.add_argument("--finalize", action="store_true", help="Persist calibration results to DB (run after agent finishes)")
 
     args = parser.parse_args()
 
     if args.show_results:
         show_results(args.reform_id)
+        return 0
+
+    if args.finalize:
+        finalize_calibration(args.reform_id)
         return 0
 
     # Load fiscal data

@@ -42,12 +42,110 @@ if _env_path.exists():
 RESULTS_DIR = _script_dir.parent / "results"
 
 
+def get_supabase_client():
+    """Get Supabase client."""
+    try:
+        from supabase import create_client
+    except ImportError:
+        return None
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_KEY")
+    if not url or not key:
+        return None
+    return create_client(url, key)
+
+
 # =============================================================================
 # DATA LOADING
 # =============================================================================
 
+def load_all_calibrations_from_db() -> list[dict]:
+    """Load calibration results from Supabase validation_metadata + reform_impacts.
+
+    This is the primary data source. Falls back to local files if DB unavailable.
+    """
+    supabase = get_supabase_client()
+    if not supabase:
+        return []
+
+    try:
+        rows = supabase.table("validation_metadata").select(
+            "id, pe_estimate, fiscal_note_estimate, fiscal_note_source, "
+            "envelope_estimate, within_range, difference_from_fiscal_note_pct, "
+            "iterations, iteration_log, discrepancy_explanation, "
+            "external_analyses, target_range_low, target_range_high"
+        ).not_.is_("pe_estimate", "null").execute()
+
+        if not rows.data:
+            return []
+
+        all_results = []
+        for row in rows.data:
+            reform_id = row["id"]
+            state = reform_id.split("-")[0].upper()
+            log = row.get("iteration_log") or []
+
+            # Reconstruct history-like structure from iteration_log
+            initial = log[0] if log else None
+            final = None
+            for entry in reversed(log):
+                if entry.get("status") in ("keep", "accept"):
+                    final = entry
+                    break
+            if not final and log:
+                final = log[-1]
+            if not final:
+                continue
+
+            target = row.get("fiscal_note_estimate") or (
+                (row.get("target_range_low", 0) + row.get("target_range_high", 0)) / 2
+            )
+
+            # Load harness confidence from model_notes
+            mn_result = supabase.table("reform_impacts").select("model_notes").eq("id", reform_id).execute()
+            calibration_meta = {}
+            if mn_result.data:
+                mn = mn_result.data[0].get("model_notes")
+                if isinstance(mn, dict):
+                    calibration_meta = mn.get("calibration", {})
+
+            all_results.append({
+                "reform_id": reform_id,
+                "state": state,
+                "target": target,
+                "initial_pe": initial.get("pe_estimate", 0) if initial else 0,
+                "initial_diff": initial.get("pct_diff", 0) / 100 if initial else 0,
+                "final_pe": row.get("pe_estimate", 0),
+                "final_diff": row.get("difference_from_fiscal_note_pct", 0) / 100,
+                "final_status": "accept" if row.get("within_range") else "plateau",
+                "total_attempts": row.get("iterations", 0),
+                "kept": sum(1 for e in log if e.get("status") in ("keep", "accept")),
+                "discarded": sum(1 for e in log if e.get("status") == "discard"),
+                "crashed": sum(1 for e in log if e.get("status") == "crash"),
+                "improvement": (
+                    (initial.get("pct_diff", 0) / 100 - row.get("difference_from_fiscal_note_pct", 0) / 100)
+                    if initial else 0
+                ),
+                "harness_confidence": calibration_meta.get("target_confidence", "unknown"),
+                "harness_strategies": [],  # Not stored in DB per-strategy
+                "diagnosis_category": calibration_meta.get("diagnosis_category", ""),
+                "diagnosis_explanation": row.get("discrepancy_explanation", ""),
+            })
+
+        return all_results
+
+    except Exception as e:
+        print(f"  DB load failed ({e}), falling back to local files")
+        return []
+
+
 def load_all_calibrations() -> list[dict]:
-    """Load calibration results for all reforms that have been calibrated."""
+    """Load calibration results. Tries DB first, falls back to local files."""
+    results = load_all_calibrations_from_db()
+    if results:
+        return results
+
+    # Fall back to local files
     if not RESULTS_DIR.exists():
         return []
 
@@ -396,6 +494,49 @@ def save_corrections(results: list[dict]):
         print("State bias corrections:")
         for state, c in corrections["state_bias_corrections"].items():
             print(f"  {state}: expected {c['avg_residual']:+.1%} {c['direction']} (based on {c['based_on']} bills)")
+
+    # Also write to DB
+    _save_corrections_to_db(corrections)
+
+
+def _save_corrections_to_db(corrections: dict):
+    """Write correction factors to calibration_learnings table."""
+    supabase = get_supabase_client()
+    if not supabase:
+        return
+
+    try:
+        # Strategy corrections
+        for name, data in corrections.get("strategy_corrections", {}).items():
+            supabase.table("calibration_learnings").upsert({
+                "state": "ALL",
+                "pattern": "strategy_bias",
+                "learning": f"{name} strategy overestimates by {data['avg_error']:+.1%} on average",
+                "category": "strategy_correction",
+                "scope": "global",
+                "strategy_name": name,
+                "correction_factor": data["factor"],
+                "based_on_count": data["based_on"],
+                "details": {"avg_error": data["avg_error"]},
+            }, on_conflict="strategy_name,scope").execute()
+
+        # State bias corrections
+        for state, data in corrections.get("state_bias_corrections", {}).items():
+            supabase.table("calibration_learnings").upsert({
+                "state": state,
+                "pattern": "state_systematic",
+                "learning": f"{state} PE estimates are {data['avg_residual']:+.1%} vs fiscal notes ({data['direction']})",
+                "category": "data-level:state-systematic",
+                "scope": "state",
+                "avg_residual": data["avg_residual"],
+                "residual_direction": data["direction"],
+                "based_on_count": data["based_on"],
+                "details": data,
+            }, on_conflict="state,pattern").execute()
+
+        print("  Corrections also written to DB (calibration_learnings)")
+    except Exception as e:
+        print(f"  Note: DB write skipped ({e})")
 
 
 # =============================================================================
