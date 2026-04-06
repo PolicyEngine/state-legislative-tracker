@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { Header, Footer, logos } from "@policyengine/ui-kit";
 import USMap from "./components/USMap";
 import StatePanel from "./components/StatePanel";
 import Breadcrumb from "./components/Breadcrumb";
@@ -10,6 +11,21 @@ import { stateData } from "./data/states";
 import { colors, mapColors, typography, spacing } from "./designTokens";
 import { track } from "./lib/analytics";
 import { BASE_PATH } from "./lib/basePath";
+
+const PE_NAV_ITEMS = [
+  { label: "Research", href: "https://policyengine.org/us/research" },
+  { label: "Model", href: "https://policyengine.org/us/model" },
+  { label: "API", href: "https://policyengine.org/us/api" },
+  {
+    label: "About",
+    children: [
+      { label: "Team", href: "https://policyengine.org/us/team" },
+      { label: "Supporters", href: "https://policyengine.org/us/supporters" },
+      { label: "Citations", href: "https://policyengine.org/us/citations" },
+    ],
+  },
+  { label: "Donate", href: "https://policyengine.org/us/donate" },
+];
 
 function parsePath() {
   // Support old hash URLs for backward compat
@@ -109,51 +125,11 @@ function App() {
   return (
     <div className="app-shell" style={{ minHeight: "100vh" }}>
       {/* Header */}
-      <header
-        className="header-accent"
-        style={{
-          backgroundColor: colors.white,
-          boxShadow: "var(--shadow-elevation-low)",
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-        }}
-      >
-        <div className="app-header-inner" style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing.xl} ${spacing["2xl"]}` }}>
-          <div className="app-header-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div className="app-header-brand" style={{ display: "flex", alignItems: "center", gap: spacing.lg }}>
-              <a href="https://policyengine.org" target="_blank" rel="noopener noreferrer">
-                <img
-                  src="/policyengine-favicon.svg"
-                  alt="PolicyEngine"
-                  style={{ height: "40px", width: "auto" }}
-                />
-              </a>
-              <div>
-                <h1 style={{
-                  margin: 0,
-                  color: colors.secondary[900],
-                  fontSize: typography.fontSize["2xl"],
-                  fontWeight: typography.fontWeight.bold,
-                  fontFamily: typography.fontFamily.primary,
-                  letterSpacing: "-0.02em",
-                }}>
-                  2026 State Legislative Tracker
-                </h1>
-                <p style={{
-                  margin: "2px 0 0",
-                  color: colors.text.secondary,
-                  fontSize: typography.fontSize.sm,
-                  fontFamily: typography.fontFamily.body,
-                }}>
-                  PolicyEngine State Tax Research
-                </p>
-              </div>
-            </div>
-            <StateSearchCombobox onSelect={handleStateSelect} statesWithBills={statesWithBills} />
-          </div>
-        </div>
-      </header>
+      <Header
+        navItems={PE_NAV_ITEMS}
+        logoSrc={logos.whiteWordmark}
+        logoHref="https://policyengine.org/us"
+      />
 
       {/* Main Content */}
       <main className="app-main" style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing["2xl"]} ${spacing["2xl"]} ${spacing["4xl"]}` }}>
@@ -318,43 +294,14 @@ function App() {
       </main>
 
       {/* Footer */}
-      <footer style={{
-        backgroundColor: colors.secondary[900],
-        color: colors.white,
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        {/* Gradient accent at top */}
-        <div style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: "3px",
-          background: "linear-gradient(90deg, #2C7A7B 0%, #38B2AC 50%, #0EA5E9 100%)",
-        }} />
-        <div className="app-footer-inner" style={{
-          maxWidth: "1400px",
-          margin: "0 auto",
-          padding: `${spacing["2xl"]} ${spacing["2xl"]}`,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}>
-          <p style={{
-            margin: 0,
-            fontSize: typography.fontSize.sm,
-            fontFamily: typography.fontFamily.body,
-            color: colors.gray[400],
-          }}>
-            © {new Date().getFullYear()} PolicyEngine. Open-source tax and benefit policy simulation.
-          </p>
-          <div className="app-footer-links" style={{ display: "flex", gap: spacing.lg }}>
-            <FooterLink href="https://github.com/policyengine">GitHub</FooterLink>
-            <FooterLink href="https://policyengine.org">PolicyEngine.org</FooterLink>
-          </div>
-        </div>
-      </footer>
+      <Footer
+        links={[
+          { href: "https://policyengine.org/us/team", text: "About us" },
+          { href: "https://policyengine.org/us/donate", text: "Donate" },
+          { href: "https://policyengine.org/us/privacy", text: "Privacy policy" },
+          { href: "https://policyengine.org/us/terms", text: "Terms and conditions" },
+        ]}
+      />
     </div>
   );
 }
@@ -510,29 +457,6 @@ function QuickLinkCard({ href, title, description }) {
         fontSize: typography.fontSize.sm,
         fontFamily: typography.fontFamily.body,
       }}>{description}</p>
-    </a>
-  );
-}
-
-// Footer Link Component
-function FooterLink({ href, children }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{
-        color: colors.gray[400],
-        textDecoration: "none",
-        fontSize: typography.fontSize.sm,
-        fontFamily: typography.fontFamily.body,
-        fontWeight: typography.fontWeight.medium,
-        transition: "color 0.2s ease",
-      }}
-      onMouseEnter={(e) => e.currentTarget.style.color = colors.primary[300]}
-      onMouseLeave={(e) => e.currentTarget.style.color = colors.gray[400]}
-    >
-      {children}
     </a>
   );
 }

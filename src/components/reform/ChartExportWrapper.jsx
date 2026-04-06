@@ -1,8 +1,9 @@
 import { useRef, useCallback } from "react";
 import { toPng } from "html-to-image";
+import { logos } from "@policyengine/ui-kit";
 import { colors, typography, spacing } from "../../designTokens";
 
-const PE_LOGO_URL = "/policyengine-logo.svg";
+const PE_LOGO_URL = logos.tealWordmark;
 
 const DownloadIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
