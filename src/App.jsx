@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Header, logos } from "@policyengine/ui-kit";
+import { Header, Footer, logos } from "@policyengine/ui-kit";
 import USMap from "./components/USMap";
 import StatePanel from "./components/StatePanel";
 import Breadcrumb from "./components/Breadcrumb";
@@ -294,43 +294,14 @@ function App() {
       </main>
 
       {/* Footer */}
-      <footer style={{
-        backgroundColor: colors.secondary[900],
-        color: colors.white,
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        {/* Gradient accent at top */}
-        <div style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: "3px",
-          background: "linear-gradient(90deg, #2C7A7B 0%, #38B2AC 50%, #0EA5E9 100%)",
-        }} />
-        <div className="app-footer-inner" style={{
-          maxWidth: "1400px",
-          margin: "0 auto",
-          padding: `${spacing["2xl"]} ${spacing["2xl"]}`,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}>
-          <p style={{
-            margin: 0,
-            fontSize: typography.fontSize.sm,
-            fontFamily: typography.fontFamily.body,
-            color: colors.gray[400],
-          }}>
-            © {new Date().getFullYear()} PolicyEngine. Open-source tax and benefit policy simulation.
-          </p>
-          <div className="app-footer-links" style={{ display: "flex", gap: spacing.lg }}>
-            <FooterLink href="https://github.com/policyengine">GitHub</FooterLink>
-            <FooterLink href="https://policyengine.org">PolicyEngine.org</FooterLink>
-          </div>
-        </div>
-      </footer>
+      <Footer
+        links={[
+          { href: "https://policyengine.org/us/team", text: "About us" },
+          { href: "https://policyengine.org/us/donate", text: "Donate" },
+          { href: "https://policyengine.org/us/privacy", text: "Privacy policy" },
+          { href: "https://policyengine.org/us/terms", text: "Terms and conditions" },
+        ]}
+      />
     </div>
   );
 }
@@ -486,29 +457,6 @@ function QuickLinkCard({ href, title, description }) {
         fontSize: typography.fontSize.sm,
         fontFamily: typography.fontFamily.body,
       }}>{description}</p>
-    </a>
-  );
-}
-
-// Footer Link Component
-function FooterLink({ href, children }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{
-        color: colors.gray[400],
-        textDecoration: "none",
-        fontSize: typography.fontSize.sm,
-        fontFamily: typography.fontFamily.body,
-        fontWeight: typography.fontWeight.medium,
-        transition: "color 0.2s ease",
-      }}
-      onMouseEnter={(e) => e.currentTarget.style.color = colors.primary[300]}
-      onMouseLeave={(e) => e.currentTarget.style.color = colors.gray[400]}
-    >
-      {children}
     </a>
   );
 }
