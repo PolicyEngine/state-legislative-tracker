@@ -6,6 +6,8 @@ import { RecentActivitySidebar } from "./components/BillActivityFeed";
 
 const StatePanel = lazy(() => import("./components/StatePanel"));
 const ReformAnalyzer = lazy(() => import("./components/reform/ReformAnalyzer"));
+const CalibrationDashboard = lazy(() => import("./components/calibration/CalibrationDashboard"));
+const CalibrationStory = lazy(() => import("./components/calibration/CalibrationStory"));
 import { useData } from "./context/DataContext";
 import { stateData } from "./data/states";
 import { colors, mapColors, typography, spacing } from "./designTokens";
@@ -18,11 +20,14 @@ function parsePath() {
   // Strip BASE_PATH prefix before parsing
   const raw = hash || window.location.pathname;
   const path = (BASE_PATH ? raw.replace(BASE_PATH, "") : raw).replace(/^\//, "");
-  if (!path) return { state: null, billId: null };
+  if (!path) return { state: null, billId: null, page: null };
+  // Check for special pages
+  if (path === "calibration") return { state: null, billId: null, page: "calibration" };
+  if (path === "calibration/story") return { state: null, billId: null, page: "calibration-story" };
   const parts = path.split("/");
   const state = parts[0].toUpperCase();
   const billId = parts[1] || null;
-  return { state: stateData[state] ? state : null, billId };
+  return { state: stateData[state] ? state : null, billId, page: null };
 }
 
 function notifyParent(path) {
@@ -48,8 +53,10 @@ function LoadingPlaceholder() {
 
 function App() {
   const { statesWithBills, getBillsForState } = useData();
-  const [selectedState, setSelectedState] = useState(() => parsePath().state);
-  const [billId, setBillId] = useState(() => parsePath().billId);
+  const initialPath = parsePath();
+  const [selectedState, setSelectedState] = useState(() => initialPath.state);
+  const [billId, setBillId] = useState(() => initialPath.billId);
+  const [page, setPage] = useState(() => initialPath.page);
 
   const activeStates = useMemo(
     () =>
@@ -100,9 +107,10 @@ function App() {
 
   useEffect(() => {
     const onPopState = () => {
-      const { state, billId: bid } = parsePath();
+      const { state, billId: bid, page: pg } = parsePath();
       setSelectedState(state);
       setBillId(bid);
+      setPage(pg);
       const strippedPath = BASE_PATH
         ? window.location.pathname.replace(BASE_PATH, "")
         : window.location.pathname;
@@ -120,8 +128,10 @@ function App() {
   }, [selectedState, billId, getBillsForState]);
 
   // Determine view
-  const isBillPage = selectedState && billId && activeBill?.reformConfig;
-  const isStatePage = selectedState && !isBillPage;
+  const isCalibrationPage = page === "calibration";
+  const isCalibrationStory = page === "calibration-story";
+  const isBillPage = !page && selectedState && billId && activeBill?.reformConfig;
+  const isStatePage = !page && selectedState && !isBillPage;
 
   return (
     <div className="app-shell" style={{ minHeight: "100vh" }}>
@@ -174,6 +184,24 @@ function App() {
 
       {/* Main Content */}
       <main className="app-main" style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing["2xl"]} ${spacing["2xl"]} ${spacing["4xl"]}` }}>
+
+        {/* === Calibration Dashboard === */}
+        {isCalibrationPage && (
+          <div className="animate-fade-in-up">
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <CalibrationDashboard />
+            </Suspense>
+          </div>
+        )}
+
+        {/* === Calibration Story === */}
+        {isCalibrationStory && (
+          <div className="animate-fade-in-up">
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <CalibrationStory />
+            </Suspense>
+          </div>
+        )}
 
         {/* === Bill Page === */}
         {isBillPage && (
