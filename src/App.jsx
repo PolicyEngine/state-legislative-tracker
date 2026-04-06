@@ -6,9 +6,6 @@ import { RecentActivitySidebar } from "./components/BillActivityFeed";
 
 const StatePanel = lazy(() => import("./components/StatePanel"));
 const ReformAnalyzer = lazy(() => import("./components/reform/ReformAnalyzer"));
-const CalibrationDashboard = lazy(() => import("./components/calibration/CalibrationDashboard"));
-const CalibrationStory = lazy(() => import("./components/calibration/CalibrationStory"));
-const PipelineVisual = lazy(() => import("./components/calibration/PipelineVisual"));
 import { useData } from "./context/DataContext";
 import { stateData } from "./data/states";
 import { colors, mapColors, typography, spacing } from "./designTokens";
@@ -23,13 +20,10 @@ function parsePath() {
   const path = (BASE_PATH ? raw.replace(BASE_PATH, "") : raw).replace(/^\//, "");
   if (!path) return { state: null, billId: null, page: null };
   // Check for special pages
-  if (path === "calibration") return { state: null, billId: null, page: "calibration" };
-  if (path === "calibration/story") return { state: null, billId: null, page: "calibration-story" };
-  if (path === "calibration/pipeline") return { state: null, billId: null, page: "pipeline" };
   const parts = path.split("/");
   const state = parts[0].toUpperCase();
   const billId = parts[1] || null;
-  return { state: stateData[state] ? state : null, billId, page: null };
+  return { state: stateData[state] ? state : null, billId };
 }
 
 function notifyParent(path) {
@@ -55,10 +49,8 @@ function LoadingPlaceholder() {
 
 function App() {
   const { statesWithBills, getBillsForState } = useData();
-  const initialPath = parsePath();
-  const [selectedState, setSelectedState] = useState(() => initialPath.state);
-  const [billId, setBillId] = useState(() => initialPath.billId);
-  const [page, setPage] = useState(() => initialPath.page);
+  const [selectedState, setSelectedState] = useState(() => parsePath().state);
+  const [billId, setBillId] = useState(() => parsePath().billId);
 
   const activeStates = useMemo(
     () =>
@@ -109,10 +101,9 @@ function App() {
 
   useEffect(() => {
     const onPopState = () => {
-      const { state, billId: bid, page: pg } = parsePath();
+      const { state, billId: bid } = parsePath();
       setSelectedState(state);
       setBillId(bid);
-      setPage(pg);
       const strippedPath = BASE_PATH
         ? window.location.pathname.replace(BASE_PATH, "")
         : window.location.pathname;
@@ -130,25 +121,8 @@ function App() {
   }, [selectedState, billId, getBillsForState]);
 
   // Determine view
-  const isCalibrationPage = page === "calibration";
-  const isCalibrationStory = page === "calibration-story";
-  const isPipeline = page === "pipeline";
-  const isStandalonePage = isCalibrationPage || isCalibrationStory || isPipeline;
-  const isBillPage = !page && selectedState && billId && activeBill?.reformConfig;
-  const isStatePage = !page && selectedState && !isBillPage;
-
-  // Standalone pages render without the app shell
-  if (isStandalonePage) {
-    return (
-      <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
-        <Suspense fallback={<LoadingPlaceholder />}>
-          {isCalibrationPage && <CalibrationDashboard />}
-          {isCalibrationStory && <CalibrationStory />}
-          {isPipeline && <PipelineVisual />}
-        </Suspense>
-      </div>
-    );
-  }
+  const isBillPage = selectedState && billId && activeBill?.reformConfig;
+  const isStatePage = selectedState && !isBillPage;
 
   return (
     <div className="app-shell" style={{ minHeight: "100vh" }}>
