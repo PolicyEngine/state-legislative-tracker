@@ -691,6 +691,43 @@ def finalize_calibration(reform_id: str, state: str = None):
 
     print(f"  Calibration persisted to DB")
 
+    # --- Layer 2: Automatic baseline data validation ---
+    # If encoding is correct but gap remains, check the data
+    kept = [h for h in history if h["status"] in ("keep", "accept")]
+    final = kept[-1] if kept else None
+    if final and final["pct_diff"] > 0.10:
+        print(f"\n--- Layer 2: Baseline Data Validation ---")
+        print(f"  Reform correctly encoded but {final['pct_diff']:.0%} gap remains.")
+        print(f"  Checking PE data quality for {state.upper()}...")
+        try:
+            from validate_baseline import validate_baseline_for_reform
+            report = validate_baseline_for_reform(reform_id)
+            report.print_report()
+
+            # Add data quality context to diagnosis
+            if diagnosis_path.exists():
+                with open(diagnosis_path) as f:
+                    diag = json.load(f)
+                diag["baseline_validation"] = {
+                    "overall_status": report.overall_status,
+                    "data_quality_factor": report.data_quality_factor,
+                    "checks": {c.name: c.to_dict() for c in report.checks},
+                }
+                if report.data_quality_factor != 1.0:
+                    factor = report.data_quality_factor
+                    direction = "higher" if factor > 1 else "lower"
+                    diag["data_explanation"] = (
+                        f"PE baseline data for {state.upper()} runs "
+                        f"{abs(factor-1)*100:.0f}% {direction} than public sources. "
+                        f"This accounts for ~{abs(factor-1)*100:.0f}% of the "
+                        f"{final['pct_diff']:.0%} reform-level gap."
+                    )
+                with open(diagnosis_path, "w") as f:
+                    json.dump(diag, f, indent=2)
+                print(f"  Data explanation added to diagnosis")
+        except Exception as e:
+            print(f"  Baseline validation skipped: {e}")
+
 
 # =============================================================================
 # MAIN: HARNESS SETUP + INITIAL RUN
