@@ -50,6 +50,7 @@ export default function Breadcrumb({ stateAbbr, billLabel, onNavigateHome, onNav
           e.currentTarget.style.borderColor = colors.border.light;
         }}
         title="Go back"
+        aria-label="Go back"
       >
         <ArrowLeft />
       </button>

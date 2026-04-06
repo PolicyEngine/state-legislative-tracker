@@ -319,7 +319,7 @@ async function main() {
   // Update homepage with noscript navigation links
   const homeParts = [
     "<h1>2026 State Legislative Tracker | PolicyEngine</h1>",
-    "<p>Track PolicyEngine&apos;s state-level tax and benefit policy research across all 50 states.</p>",
+    "<p>Track state-level tax and benefit legislation across all 50 states. See fiscal impacts, winners and losers, and district-level analysis powered by PolicyEngine microsimulation.</p>",
     "<h2>States with Analyzed Legislation</h2>",
     "<nav><ul>",
   ];
