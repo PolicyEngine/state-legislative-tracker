@@ -133,8 +133,22 @@ function App() {
   const isCalibrationPage = page === "calibration";
   const isCalibrationStory = page === "calibration-story";
   const isPipeline = page === "pipeline";
+  const isStandalonePage = isCalibrationPage || isCalibrationStory || isPipeline;
   const isBillPage = !page && selectedState && billId && activeBill?.reformConfig;
   const isStatePage = !page && selectedState && !isBillPage;
+
+  // Standalone pages render without the app shell
+  if (isStandalonePage) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
+        <Suspense fallback={<LoadingPlaceholder />}>
+          {isCalibrationPage && <CalibrationDashboard />}
+          {isCalibrationStory && <CalibrationStory />}
+          {isPipeline && <PipelineVisual />}
+        </Suspense>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell" style={{ minHeight: "100vh" }}>
@@ -187,33 +201,6 @@ function App() {
 
       {/* Main Content */}
       <main className="app-main" style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing["2xl"]} ${spacing["2xl"]} ${spacing["4xl"]}` }}>
-
-        {/* === Calibration Dashboard === */}
-        {isCalibrationPage && (
-          <div className="animate-fade-in-up">
-            <Suspense fallback={<LoadingPlaceholder />}>
-              <CalibrationDashboard />
-            </Suspense>
-          </div>
-        )}
-
-        {/* === Calibration Story === */}
-        {isCalibrationStory && (
-          <div className="animate-fade-in-up">
-            <Suspense fallback={<LoadingPlaceholder />}>
-              <CalibrationStory />
-            </Suspense>
-          </div>
-        )}
-
-        {/* === Pipeline Visual === */}
-        {isPipeline && (
-          <div className="animate-fade-in-up">
-            <Suspense fallback={<LoadingPlaceholder />}>
-              <PipelineVisual />
-            </Suspense>
-          </div>
-        )}
 
         {/* === Bill Page === */}
         {isBillPage && (
