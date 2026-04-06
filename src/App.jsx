@@ -8,6 +8,7 @@ const StatePanel = lazy(() => import("./components/StatePanel"));
 const ReformAnalyzer = lazy(() => import("./components/reform/ReformAnalyzer"));
 const CalibrationDashboard = lazy(() => import("./components/calibration/CalibrationDashboard"));
 const CalibrationStory = lazy(() => import("./components/calibration/CalibrationStory"));
+const PipelineVisual = lazy(() => import("./components/calibration/PipelineVisual"));
 import { useData } from "./context/DataContext";
 import { stateData } from "./data/states";
 import { colors, mapColors, typography, spacing } from "./designTokens";
@@ -24,6 +25,7 @@ function parsePath() {
   // Check for special pages
   if (path === "calibration") return { state: null, billId: null, page: "calibration" };
   if (path === "calibration/story") return { state: null, billId: null, page: "calibration-story" };
+  if (path === "calibration/pipeline") return { state: null, billId: null, page: "pipeline" };
   const parts = path.split("/");
   const state = parts[0].toUpperCase();
   const billId = parts[1] || null;
@@ -130,6 +132,7 @@ function App() {
   // Determine view
   const isCalibrationPage = page === "calibration";
   const isCalibrationStory = page === "calibration-story";
+  const isPipeline = page === "pipeline";
   const isBillPage = !page && selectedState && billId && activeBill?.reformConfig;
   const isStatePage = !page && selectedState && !isBillPage;
 
@@ -199,6 +202,15 @@ function App() {
           <div className="animate-fade-in-up">
             <Suspense fallback={<LoadingPlaceholder />}>
               <CalibrationStory />
+            </Suspense>
+          </div>
+        )}
+
+        {/* === Pipeline Visual === */}
+        {isPipeline && (
+          <div className="animate-fade-in-up">
+            <Suspense fallback={<LoadingPlaceholder />}>
+              <PipelineVisual />
             </Suspense>
           </div>
         )}
