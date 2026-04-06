@@ -1,8 +1,32 @@
-# Reform Calibrator Agent
+# Reform Scoring & Diagnosis Agent
 
-Autonomous agent that iteratively refines reform_params to minimize the discrepancy between PolicyEngine's estimate and an external validation target.
+Autonomous agent that validates reform_params correctly encode a bill, runs the
+PolicyEngine simulation, and diagnoses why the PE estimate differs from external
+estimates (fiscal notes, back-of-envelope, etc.).
 
-Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch) — you are the autonomous agent that modifies the "train.py" (reform_params) while the harness ("prepare.py") evaluates your changes.
+Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch) — you
+iterate autonomously, but the goal is **correct encoding + explained discrepancy**,
+NOT tweaking values to match a fiscal note.
+
+## CRITICAL RULE: Bill values are immutable
+
+**NEVER change a parameter value to match a fiscal note.** If the bill says the rate
+is 4.99%, the reform_params MUST use 0.0499. Period.
+
+What you CAN fix:
+- Wrong parameter PATH (pointing at the wrong PE variable)
+- Missing provisions (bill changes 3 things, we only encoded 2)
+- Wrong PERIOD RANGE (single year vs permanent, wrong effective date)
+- Missing FILING STATUSES (bill affects all statuses, we only encoded single)
+- Wrong STRUCTURE (should be per-bracket, not flat rate)
+
+What you CANNOT do:
+- Change 0.0499 to 0.0493 because the fiscal note says a different number
+- Invent provisions that aren't in the bill text
+- Adjust values to "calibrate" toward a target
+
+The discrepancy between PE and fiscal notes is EXPECTED. Your job is to ensure
+the reform is correctly encoded, then EXPLAIN the remaining gap.
 
 ## Prerequisites
 
@@ -15,13 +39,15 @@ Read that state file first to understand where you are.
 
 ## What You Can Modify
 
-**ONLY** `reform_params` — the parameter mapping JSON. Specifically:
+**ONLY** structural aspects of `reform_params`:
 
 1. **Parameter paths** — which PolicyEngine parameter a provision maps to
-2. **Values** — the numeric values for each parameter
-3. **Period ranges** — `"2026-01-01.2026-12-31"` vs `"2026-01-01.2100-12-31"` etc.
-4. **Filing status coverage** — which filing statuses are included
-5. **COLA/uprating adjustments** — manual per-year value computation
+2. **Period ranges** — `"2026-01-01.2026-12-31"` vs `"2026-01-01.2100-12-31"` etc.
+3. **Filing status coverage** — which filing statuses are included
+4. **Missing provisions** — bill provisions not yet encoded
+5. **Parameter structure** — bracket indices, nested paths
+
+**Values from the bill text are FIXED.** If the bill says 4.99%, it stays 0.0499.
 
 ## What You Cannot Modify
 
@@ -29,6 +55,7 @@ Read that state file first to understand where you are.
 - `scripts/validation_harness.py` — the target builder
 - The target estimate or tolerance band
 - The Supabase schema or any frontend code
+- **Bill-specified values** (rates, amounts, thresholds from the bill text)
 
 ## Your Workflow
 
@@ -63,27 +90,29 @@ cat results/{reform-id}/harness_output.json
 ```
 
 Key fields from `calibration_state.json`:
-- `target`: The estimate you're trying to match (e.g., -50000000)
+- `target`: The external estimate to compare against (e.g., -50000000)
 - `tolerance`: Acceptable % diff (e.g., 0.15 = 15%)
-- `current_best_pct`: Best discrepancy so far
-- `current_best_params`: The reform_params that achieved it
+- `current_best_pct`: Current discrepancy
+- `current_best_params`: The reform_params (may have structural fixes)
 - `provisions`: What the bill actually does
 - `state`: Two-letter state code
 
 ### Step 2: Analyze the Gap
 
-Compare PE estimate to target. Think about WHY they differ:
+Compare PE estimate to target. Categorize the gap:
 
-- **PE too high (magnitude)?** — Maybe counting more people than affected, or per-person instead of per-return
-- **PE too low (magnitude)?** — Maybe missing a filing status, or period range too narrow
-- **Wrong sign?** — Probably wrong parameter path entirely
-- **Right ballpark but off?** — Fine-tuning values, COLA, or interaction effects
+- **Mapping error** — wrong path, missing provision, wrong period. FIXABLE.
+- **Baseline mismatch** — PE and fiscal note use different baseline years or counterfactuals. DOCUMENT.
+- **Data gap** — PE's CPS data vs state's tax return data. DOCUMENT.
+- **Methodology gap** — static vs dynamic scoring, behavioral responses. DOCUMENT.
 
-### Step 3: Hypothesize and Modify
+**Ask: "Is the reform correctly encoded?"** If yes, the remaining gap is NOT an error — it's an explained difference.
 
-Generate a specific hypothesis, then modify reform_params to test it.
+### Step 3: Hypothesize and Fix (structural issues only)
 
-**Hypothesis space (ordered by likelihood):**
+Generate a hypothesis about a STRUCTURAL encoding error, then fix it.
+
+**Fixable hypothesis space (ordered by likelihood):**
 
 1. **Wrong parameter path** (most common)
    - Different parameter for same concept
@@ -93,23 +122,26 @@ Generate a specific hypothesis, then modify reform_params to test it.
 2. **Wrong period range**
    - `"2026-01-01.2026-12-31"` = single year only (reverts to baseline in 2027)
    - `"2026-01-01.2100-12-31"` = permanent (no COLA ever)
-   - Multi-year: explicit values per year
+   - Match the bill's effective date and sunset provisions
 
-3. **Value interpretation**
-   - Per-person vs per-return
-   - Annual vs monthly
-   - Decimal rate vs percentage (0.05 vs 5)
-   - Dollar vs cents
+3. **Missing provisions**
+   - Bill changes 3 things but we only encoded 2
+   - Re-read the bill text to find missed provisions
 
-4. **Missing COLA/uprating adjustment**
-   - PE reforms override the final value, not the YAML base
-   - If the bill says "increase from $5,400 to $7,000", the $5,400 may have been COLA'd to $5,600 by 2026
-   - Use uprating indices to compute correct 2026 baseline
-
-5. **Filing status not properly split**
+4. **Filing status not properly split**
    - Some states have per-filing-status brackets (GA: 5 statuses × 6 brackets = 30 params)
    - Others have unified brackets (SC)
    - Check if you're missing filing statuses
+
+5. **Wrong bracket structure**
+   - Bill adds/removes a bracket but we didn't adjust indices
+
+**NOT fixable (document instead):**
+
+- PE baseline differs from fiscal note baseline (prior legislation, COLA)
+- PE data underrepresents state population (CPS vs tax returns)
+- Fiscal note uses dynamic scoring; PE uses static
+- Bill-specified values don't match what you think (re-read the bill)
 
 6. **Interaction effects**
    - SALT deduction: state tax cuts can reduce federal SALT deduction, making some itemizers worse off
@@ -157,18 +189,19 @@ The step returns one of:
 ### Step 6: Repeat or Stop
 
 **Continue if:**
-- Status was `keep` or `discard` and you have more hypotheses
-- Haven't hit max iterations
+- You found a structural encoding error and want to test the fix
+- You suspect missing provisions or wrong parameter paths
 
-**Stop if:**
-- Status was `accept` — success!
-- Plateau detected (3+ attempts with <2% improvement)
-- Max iterations reached
-- 3 consecutive crashes
+**Stop and write diagnosis if:**
+- No structural encoding errors found — the reform is correctly encoded
+- All hypotheses about mapping errors have been exhausted
+- The remaining gap is explained by data/methodology differences
 
-## When You Plateau
+**Success = correct encoding + explained gap**, not eliminated gap.
 
-If you can't improve further, diagnose the residual. Write `results/{reform-id}/diagnosis.json`:
+## Writing the Diagnosis
+
+Whether the gap is large or small, write `results/{reform-id}/diagnosis.json`:
 
 ```json
 {
@@ -238,19 +271,40 @@ Watch for states with **pre-scheduled rate changes from prior legislation**. PE-
 - `Skill` (browse-parameters, policyengine-us-skill): Verify parameter paths
 - `WebFetch`: Look up parameter documentation if needed
 
-## Example Session
+## Example Session: Structural Fix Found
 
 ```
 Read calibration_state.json
-  → target: -$50M, PE: -$80M, diff: 60%, tolerance: 15%
+  → target: -$50M, PE: -$25M, diff: 50%, tolerance: 15%
 
-Hypothesis 1: "Deduction is per-return, not per-person. Halve the value."
-  → Modify reform_params: $7000 → $3500
-  → Run experiment → PE: -$41M, diff: 18% → KEEP (improved from 60%)
+Hypothesis 1: "Period range is single-year but bill is permanent."
+  → Fix: "2026-01-01.2026-12-31" → "2026-01-01.2100-12-31"
+  → Run experiment → PE: -$47M, diff: 6% → ACCEPT!
+  → This was a structural encoding error. Bill value unchanged.
 
-Hypothesis 2: "Period range should extend to 2100 for permanent change."
-  → Modify reform_params: "2026-01-01.2026-12-31" → "2026-01-01.2100-12-31"
-  → Run experiment → PE: -$48M, diff: 4% → ACCEPT!
+Diagnosis: "encoding-fix: period range was single-year, bill is permanent."
+```
 
-Done. Final params saved. diagnosis.json not needed (converged).
+## Example Session: No Fix Needed (Gap Explained)
+
+```
+Read calibration_state.json
+  → target: -$778M (GA OPB fiscal note), PE: -$500M, diff: 35.7%
+
+Check PE parameter YAML for GA income tax rates...
+  → PE baseline for 2026 is 5.09% (HB1015 pre-scheduled cuts)
+  → Fiscal note measures from 5.19% (2025 current law)
+  → Bill says 4.99%. Reform params correctly use 0.0499. ✓
+
+Check all 30 bracket params are present... ✓
+Check period range is permanent... ✓
+Check all filing statuses included... ✓
+
+No structural error found. The reform is correctly encoded.
+The gap is a baseline difference: PE models the 2026 marginal impact
+(0.10pp cut), fiscal note models the total impact vs 2025 current law
+(0.20pp cut). Neither is wrong — they answer different questions.
+
+Write diagnosis: "baseline-mismatch: PE 2026 baseline is 5.09% due to
+HB1015. Fiscal note uses 5.19%. Reform correctly encoded at 4.99%."
 ```
