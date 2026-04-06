@@ -1,12 +1,30 @@
-# Autonomous Reform Calibration
+# Autonomous Reform Scoring & Data Diagnostic
 
 **Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch)**
 
+> **CRITICAL DESIGN PRINCIPLE**: Bill values are immutable. The system validates
+> encoding correctness and diagnoses data gaps — it does NOT tweak reform values
+> to match fiscal notes. See "Design Correction" below.
+
+**Related docs:**
+- [data-diagnostic-architecture.md](data-diagnostic-architecture.md) — Reform-specific, durable data diagnostics
+
 ## 1. Core Concept
 
-Apply the autoresearch pattern — autonomous iterative experimentation with a clear metric and automatic keep/discard — to reform parameter mapping in the state legislative tracker.
+Apply the autoresearch pattern to two layers of reform scoring:
 
-**The problem**: When encoding a bill, the first parameter mapping attempt often produces PE estimates that diverge significantly from external estimates. Currently this is a manual, single-shot process with human review. An autonomous loop could iterate on the mapping until the estimate converges, or diagnose why it can't.
+**Layer 1 — Encoding validation**: Iteratively check that reform_params correctly encode the bill (right paths, periods, filing statuses). Fix structural errors only.
+
+**Layer 2 — Data diagnostic**: When encoding is correct but PE differs from external estimates, iteratively diagnose WHERE in the data the gap comes from. Reform-specific checks that build a durable knowledge base.
+
+**The problem**: PE estimates diverge from fiscal notes for two reasons: (1) encoding errors in reform_params (fixable), and (2) data differences between PE's enhanced CPS and state tax return data (explainable, not fixable per-bill).
+
+## Design Correction (2026-04-06)
+
+Early prototype incorrectly changed bill-specified values (e.g., 4.99% rate to 4.93%) to match fiscal notes. This was wrong. The bill says what it says. The system now:
+- **Fixes** structural encoding errors (wrong path, missing provision, wrong period)
+- **Explains** remaining gaps via reform-specific data diagnostics
+- **Never** changes values that come from the bill text
 
 **The autoresearch analogy**:
 
