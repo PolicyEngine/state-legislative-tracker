@@ -1,29 +1,28 @@
 #!/usr/bin/env python3
 """
-Iterative baseline data diagnostic.
+Reform-specific, durable data diagnostic engine.
 
-Decomposes the gap between PE and public data sources step by step,
-where each finding informs what to check next. Like autoresearch
-but for data: each iteration narrows the diagnosis until the gap
-is fully attributed.
+Instead of generic checks, this engine:
+1. Detects what kind of reform is being scored (rate change, EITC, CTC, etc.)
+2. Selects diagnostic checks relevant to THAT reform's variables
+3. Checks the data_findings table for cached results (skip if fresh)
+4. Runs fresh checks only where needed, stores findings durably
+5. Produces reform-specific attribution of the PE vs external gap
+
+Findings persist across reforms: "GA AGI is 19% above IRS SOI" is a fact
+about the data, not about any one bill. Every future GA reform that depends
+on AGI gets this finding for free.
 
 Usage:
-    python scripts/validate_baseline.py --state GA --year 2026
     python scripts/validate_baseline.py --reform-id ga-hb1001
+    python scripts/validate_baseline.py --state GA --year 2026
     python scripts/validate_baseline.py --state GA --year 2026 --json
-
-Diagnostic chain:
-    1. Total revenue gap → decompose into rate vs base
-    2. Rate gap → check bracket population distribution
-    3. Base gap → check income distribution by decile
-    4. Weight gap → check population weights vs Census
-    5. Attribution → sum up explained portions
 """
 
 import argparse
-import csv
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,13 +39,13 @@ if _env_path.exists():
 from validation_harness import STATE_PIT_REVENUE, NO_INCOME_TAX_STATES
 
 RESULTS_DIR = _script_dir.parent / "results"
+MAX_FINDING_AGE_DAYS = 30
 
 
 # =============================================================================
-# PUBLIC DATA
+# PUBLIC BENCHMARKS
 # =============================================================================
 
-# IRS SOI state-level returns (2022 filing year, thousands)
 STATE_TAX_RETURNS_K = {
     "AL": 2130, "AZ": 3280, "AR": 1340, "CA": 18500, "CO": 2950,
     "CT": 1830, "DE": 480, "GA": 4900, "HI": 700, "ID": 870,
@@ -59,7 +58,6 @@ STATE_TAX_RETURNS_K = {
     "WI": 2950, "DC": 380,
 }
 
-# Census ACS median household income by state (2023)
 ACS_MEDIAN_INCOME = {
     "AL": 59609, "AZ": 72581, "AR": 56335, "CA": 91905, "CO": 87598,
     "CT": 90213, "DE": 75675, "GA": 71355, "HI": 94814, "ID": 72580,
@@ -74,394 +72,632 @@ ACS_MEDIAN_INCOME = {
 
 
 # =============================================================================
-# DIAGNOSTIC FINDING
+# REFORM TYPE DETECTION
+# =============================================================================
+
+def detect_reform_type(reform_params, provisions=None):
+    """Classify reform from params to select relevant diagnostics."""
+    types = set()
+    for path in reform_params.keys():
+        if path.startswith("_"):
+            continue
+        p = path.lower()
+        if "rate" in p and "bracket" in p:
+            types.add("rate_change")
+            # Detect top vs bottom bracket
+            bracket_match = re.search(r"brackets\[(\d+)\]", p)
+            if bracket_match and int(bracket_match.group(1)) >= 4:
+                types.add("top_bracket_change")
+            if bracket_match and int(bracket_match.group(1)) <= 1:
+                types.add("bottom_bracket_change")
+        elif "rate" in p:
+            types.add("rate_change")
+        if "eitc" in p or "earned_income" in p:
+            types.add("eitc_change")
+        if "ctc" in p or "child_tax_credit" in p or ("child" in p and "credit" in p):
+            types.add("ctc_change")
+        if "deduction" in p or "standard" in p:
+            types.add("deduction_change")
+        if "exemption" in p:
+            types.add("exemption_change")
+        if "property" in p:
+            types.add("property_tax_change")
+        if "threshold" in p or "bracket" in p:
+            types.add("bracket_change")
+
+    if not types:
+        types.add("general")
+    return types
+
+
+# =============================================================================
+# FINDING
 # =============================================================================
 
 class Finding:
-    """One step in the diagnostic chain."""
-    def __init__(self, step, check, pe_value, public_value, public_source,
-                 pct_diff, attribution_pct, explanation, next_check=None):
-        self.step = step
-        self.check = check
+    def __init__(self, variable, pe_value, benchmark_value, benchmark_source,
+                 pct_diff, finding_text, relevant_to=None, cached=False):
+        self.variable = variable
         self.pe_value = pe_value
-        self.public_value = public_value
-        self.public_source = public_source
-        self.pct_diff = pct_diff  # PE vs public
-        self.attribution_pct = attribution_pct  # How much of total gap this explains
-        self.explanation = explanation
-        self.next_check = next_check  # What to investigate next
+        self.benchmark_value = benchmark_value
+        self.benchmark_source = benchmark_source
+        self.pct_diff = pct_diff
+        self.finding_text = finding_text
+        self.relevant_to = relevant_to or []
+        self.cached = cached
 
     def to_dict(self):
         return {
-            "step": self.step,
-            "check": self.check,
+            "variable": self.variable,
             "pe_value": self.pe_value,
-            "public_value": self.public_value,
-            "public_source": self.public_source,
-            "pct_diff": round(self.pct_diff, 4) if self.pct_diff else None,
-            "attribution_pct": round(self.attribution_pct, 4) if self.attribution_pct else None,
-            "explanation": self.explanation,
-            "next_check": self.next_check,
+            "benchmark_value": self.benchmark_value,
+            "benchmark_source": self.benchmark_source,
+            "pct_diff": round(self.pct_diff, 4) if self.pct_diff is not None else None,
+            "finding": self.finding_text,
+            "cached": self.cached,
         }
 
 
-class DiagnosticReport:
-    """Full iterative diagnostic report."""
-    def __init__(self, state, year):
-        self.state = state
-        self.year = year
-        self.findings = []
-        self.total_gap_pct = 0  # Set after step 1
-        self.attributed_pct = 0  # Sum of attribution_pct across findings
-        self.generated_at = datetime.now(timezone.utc).isoformat()
-
-    def add(self, finding):
-        self.findings.append(finding)
-        if finding.attribution_pct:
-            self.attributed_pct += abs(finding.attribution_pct)
-
-    @property
-    def unattributed_pct(self):
-        return max(0, abs(self.total_gap_pct) - self.attributed_pct)
-
-    @property
-    def data_quality_factor(self):
-        """PE runs this factor relative to public data."""
-        if self.findings and self.findings[0].pct_diff is not None:
-            return 1.0 + self.findings[0].pct_diff
-        return 1.0
-
-    def to_dict(self):
-        return {
-            "state": self.state,
-            "year": self.year,
-            "total_gap_pct": round(self.total_gap_pct, 4),
-            "attributed_pct": round(self.attributed_pct, 4),
-            "unattributed_pct": round(self.unattributed_pct, 4),
-            "data_quality_factor": round(self.data_quality_factor, 3),
-            "findings": [f.to_dict() for f in self.findings],
-            "generated_at": self.generated_at,
-        }
-
-    def print_report(self):
-        print(f"\n{'=' * 70}")
-        print(f"Baseline Data Diagnostic: {self.state} ({self.year})")
-        print(f"{'=' * 70}")
-
-        for f in self.findings:
-            status = "XX" if abs(f.pct_diff or 0) > 0.20 else "!!" if abs(f.pct_diff or 0) > 0.10 else "OK"
-            attr = f"  → Explains {f.attribution_pct:.0%} of gap" if f.attribution_pct else ""
-            print(f"\n  Step {f.step}: {f.check}")
-            print(f"    [{status}] PE: {_fmt(f.pe_value)} vs Public: {_fmt(f.public_value)} ({f.pct_diff:+.1%})")
-            print(f"    {f.explanation}{attr}")
-            if f.next_check:
-                print(f"    → Next: {f.next_check}")
-
-        print(f"\n{'-' * 70}")
-        print(f"  Total gap: {self.total_gap_pct:+.1%}")
-        print(f"  Attributed: {self.attributed_pct:.1%}")
-        print(f"  Unattributed: {self.unattributed_pct:.1%}")
-        factor = self.data_quality_factor
-        if abs(factor - 1.0) > 0.05:
-            direction = "higher" if factor > 1 else "lower"
-            print(f"  Data quality factor: {factor:.2f} (PE runs {abs(factor-1)*100:.0f}% {direction})")
-
-
-def _fmt(v):
-    """Format a number for display."""
-    if v is None:
-        return "N/A"
-    if abs(v) >= 1e9:
-        return f"${v/1e9:.2f}B"
-    if abs(v) >= 1e6:
-        return f"${v/1e6:.1f}M"
-    if abs(v) >= 1000:
-        return f"{v:,.0f}"
-    return f"{v:.4f}"
-
-
 # =============================================================================
-# DIAGNOSTIC STEPS
+# DIAGNOSTIC CHECKS (the registry)
 # =============================================================================
 
-def step1_total_revenue(baseline, state, year, report):
-    """Step 1: Compare total state income tax revenue."""
-    state_upper = state.upper()
-    census_revenue = STATE_PIT_REVENUE.get(state_upper)
-    if not census_revenue:
+def check_total_revenue(baseline, state, year):
+    """Total state income tax revenue: PE vs Census Bureau."""
+    census = STATE_PIT_REVENUE.get(state.upper())
+    if not census:
         return None
-
-    pe_revenue = float(baseline.calculate("state_income_tax", year).sum())
-    pct_diff = (pe_revenue - census_revenue) / abs(census_revenue)
-    report.total_gap_pct = pct_diff
-
-    if abs(pct_diff) < 0.05:
-        explanation = "PE baseline revenue closely matches Census. Data is well calibrated."
-        next_check = None
-    else:
-        direction = "higher" if pct_diff > 0 else "lower"
-        explanation = f"PE baseline revenue is {abs(pct_diff):.0%} {direction} than Census."
-        next_check = "Decompose: is the gap from effective rate or taxable base?"
-
-    report.add(Finding(
-        step=1, check="Total state income tax revenue",
-        pe_value=pe_revenue, public_value=census_revenue,
-        public_source="Census Bureau State Tax Collections (FY2023)",
-        pct_diff=pct_diff, attribution_pct=None,
-        explanation=explanation, next_check=next_check,
-    ))
-    return pct_diff
+    pe = float(baseline.calculate("state_income_tax", year).sum())
+    diff = (pe - census) / abs(census)
+    direction = "higher" if diff > 0 else "lower"
+    return Finding(
+        variable="state_income_tax_total",
+        pe_value=pe, benchmark_value=census,
+        benchmark_source="Census Bureau State Tax Collections (FY2023)",
+        pct_diff=diff,
+        finding_text=f"PE total state income tax {abs(diff):.0%} {direction} than Census ({_fmt(pe)} vs {_fmt(census)})",
+        relevant_to=["rate_change", "bracket_change", "deduction_change", "general"],
+    )
 
 
-def step2_rate_vs_base(baseline, state, year, report):
-    """Step 2: Decompose revenue gap into effective rate × taxable base."""
-    state_upper = state.upper()
-    census_revenue = STATE_PIT_REVENUE.get(state_upper, 0)
-    irs_returns = STATE_TAX_RETURNS_K.get(state_upper)
+def check_household_count(baseline, state, year):
+    """Number of households: PE vs IRS SOI returns."""
+    irs = STATE_TAX_RETURNS_K.get(state.upper())
+    if not irs:
+        return None
+    irs_total = irs * 1000
+    pe = float(baseline.calculate("household_weight", year).values.sum())
+    diff = (pe - irs_total) / irs_total
+    return Finding(
+        variable="household_count",
+        pe_value=pe, benchmark_value=irs_total,
+        benchmark_source="IRS SOI (2022 filing year)",
+        pct_diff=diff,
+        finding_text=f"PE has {abs(diff):.0%} {'more' if diff > 0 else 'fewer'} households than IRS returns ({pe:,.0f} vs {irs_total:,.0f})",
+        relevant_to=["rate_change", "eitc_change", "ctc_change", "deduction_change", "general"],
+    )
 
-    pe_revenue = float(baseline.calculate("state_income_tax", year).sum())
+
+def check_total_agi(baseline, state, year):
+    """Total adjusted gross income: PE vs IRS SOI estimate."""
+    irs_returns = STATE_TAX_RETURNS_K.get(state.upper())
+    if not irs_returns:
+        return None
+    # IRS SOI: national avg AGI ~$75K per return (approximate)
+    implied_agi = irs_returns * 1000 * 75000
     pe_agi = float(baseline.calculate("adjusted_gross_income", year).sum())
-    pe_households = float(baseline.calculate("household_weight", year).values.sum())
-
-    pe_effective_rate = pe_revenue / pe_agi if pe_agi > 0 else 0
-
-    # Implied effective rate from Census data
-    if irs_returns and census_revenue:
-        # IRS SOI: avg AGI per return × returns = approx total AGI
-        # Using $70K as rough national avg (adjustable)
-        implied_agi = irs_returns * 1000 * 70000
-        implied_rate = census_revenue / implied_agi if implied_agi > 0 else 0
-    else:
-        implied_agi = None
-        implied_rate = None
-
-    # Rate contribution to gap
-    rate_diff = None
-    base_diff = None
-    if implied_rate and implied_rate > 0:
-        rate_diff = (pe_effective_rate - implied_rate) / implied_rate
-    if implied_agi and implied_agi > 0:
-        base_diff = (pe_agi - implied_agi) / implied_agi
-
-    # Attribute the total revenue gap
-    total_gap = report.total_gap_pct
-    rate_attribution = 0
-    base_attribution = 0
-
-    if rate_diff is not None and base_diff is not None and total_gap != 0:
-        # Revenue = rate × base, so gap ≈ rate_gap + base_gap (first-order)
-        total_parts = abs(rate_diff) + abs(base_diff)
-        if total_parts > 0:
-            rate_attribution = abs(total_gap) * (abs(rate_diff) / total_parts)
-            base_attribution = abs(total_gap) * (abs(base_diff) / total_parts)
-
-    report.add(Finding(
-        step=2, check="Effective tax rate",
-        pe_value=pe_effective_rate, public_value=implied_rate,
-        public_source="Implied from Census revenue / (IRS returns × avg AGI)",
-        pct_diff=rate_diff,
-        attribution_pct=rate_attribution,
-        explanation=f"PE effective rate: {pe_effective_rate:.2%} vs implied: {implied_rate:.2%}."
-                    if implied_rate else "Could not compute implied rate.",
-        next_check="Check income distribution by decile" if (base_diff and abs(base_diff) > 0.10)
-                   else "Check bracket population distribution" if (rate_diff and abs(rate_diff) > 0.10)
-                   else None,
-    ))
-
-    report.add(Finding(
-        step=2, check="Taxable income base (total AGI)",
-        pe_value=pe_agi, public_value=implied_agi,
-        public_source="IRS SOI returns × national avg AGI ($70K)",
-        pct_diff=base_diff,
-        attribution_pct=base_attribution,
-        explanation=f"PE total AGI: {_fmt(pe_agi)} vs implied: {_fmt(implied_agi)}."
-                    if implied_agi else "Could not compute implied AGI.",
-        next_check=None,
-    ))
-
-    return rate_diff, base_diff
+    diff = (pe_agi - implied_agi) / abs(implied_agi)
+    return Finding(
+        variable="adjusted_gross_income",
+        pe_value=pe_agi, benchmark_value=implied_agi,
+        benchmark_source="IRS SOI returns × national avg AGI (~$75K)",
+        pct_diff=diff,
+        finding_text=f"PE total AGI {abs(diff):.0%} {'above' if diff > 0 else 'below'} IRS estimate ({_fmt(pe_agi)} vs {_fmt(implied_agi)})",
+        relevant_to=["rate_change", "bracket_change", "deduction_change", "general"],
+    )
 
 
-def step3_income_distribution(baseline, state, year, report):
-    """Step 3: Check income distribution by decile — where is the base off?"""
-    decile = baseline.calculate("household_income_decile", year)
+def check_top_decile_income(baseline, state, year):
+    """Top decile income concentration."""
     income = baseline.calculate("household_net_income", year)
+    decile = baseline.calculate("household_income_decile", year)
     weights = baseline.calculate("household_weight", year)
 
-    pe_decile_avg = {}
-    pe_decile_total = {}
-    for d in range(1, 11):
-        mask = decile.values == d
-        if not np.any(mask):
-            continue
-        from microdf import MicroSeries
-        inc_d = MicroSeries(income.values[mask], weights=weights.values[mask])
-        pe_decile_avg[d] = float(inc_d.mean())
-        pe_decile_total[d] = float(inc_d.sum())
+    total = float((income * weights).sum())
+    top_mask = decile.values == 10
+    if not np.any(top_mask):
+        return None
 
-    # Compare top decile (most impactful for revenue)
-    pe_top_avg = pe_decile_avg.get(10, 0)
-    pe_bottom_avg = pe_decile_avg.get(1, 0)
+    from microdf import MicroSeries
+    top_income = MicroSeries(income.values[top_mask], weights=weights.values[top_mask])
+    top_total = float(top_income.sum())
+    top_share = top_total / total if total > 0 else 0
 
-    acs_median = ACS_MEDIAN_INCOME.get(state.upper())
-    pe_median_approx = pe_decile_avg.get(5, 0)
-
-    median_diff = None
-    if acs_median and acs_median > 0:
-        median_diff = (pe_median_approx - acs_median) / acs_median
-
-    # Top decile carries most of the revenue — check if it's inflated
-    # Top decile typically has ~45% of total income
-    total_income = sum(pe_decile_total.values())
-    top_share = pe_decile_total.get(10, 0) / total_income if total_income > 0 else 0
-    # National benchmark: top decile ≈ 45-50% of income
-    expected_top_share = 0.47
-    top_share_diff = (top_share - expected_top_share) / expected_top_share
-
-    # Attribution: if top decile share is off, that distorts revenue
-    total_gap = abs(report.total_gap_pct)
-    top_attribution = min(abs(top_share_diff) * 0.5, total_gap * 0.3)  # Cap at 30% of gap
-
-    report.add(Finding(
-        step=3, check="Median income (decile 5 avg)",
-        pe_value=pe_median_approx, public_value=acs_median,
-        public_source="Census ACS 1-Year Estimates (2023)",
-        pct_diff=median_diff,
-        attribution_pct=None,
-        explanation=f"PE median-area income: ${pe_median_approx:,.0f} vs ACS: ${acs_median:,.0f}."
-                    if acs_median else "No ACS data available.",
-        next_check=None,
-    ))
-
-    report.add(Finding(
-        step=3, check="Top decile income share",
-        pe_value=top_share, public_value=expected_top_share,
-        public_source="National benchmark (~47% of total income)",
-        pct_diff=top_share_diff,
-        attribution_pct=top_attribution if abs(top_share_diff) > 0.05 else 0,
-        explanation=f"PE top decile holds {top_share:.1%} of income (expected ~{expected_top_share:.0%}). "
-                    + ("Higher concentration → higher revenue." if top_share > expected_top_share
-                       else "Lower concentration → lower revenue."),
-        next_check="Check household weights vs Census population" if abs(top_share_diff) > 0.10 else None,
-    ))
+    benchmark = 0.47  # National avg: top decile ≈ 47% of income
+    diff = (top_share - benchmark) / benchmark
+    return Finding(
+        variable="top_decile_income_share",
+        pe_value=top_share, benchmark_value=benchmark,
+        benchmark_source="National benchmark (~47%)",
+        pct_diff=diff,
+        finding_text=f"Top decile holds {top_share:.1%} of income (benchmark: {benchmark:.0%}). {'Concentrated' if diff > 0 else 'Dispersed'}.",
+        relevant_to=["rate_change", "top_bracket_change", "bracket_change"],
+    )
 
 
-def step4_population_weights(baseline, state, year, report):
-    """Step 4: Check PE population weights against Census estimates."""
-    state_upper = state.upper()
-    irs_returns = STATE_TAX_RETURNS_K.get(state_upper)
+def check_bottom_decile_income(baseline, state, year):
+    """Bottom decile income — relevant for EITC/poverty reforms."""
+    income = baseline.calculate("household_net_income", year)
+    decile = baseline.calculate("household_income_decile", year)
+    weights = baseline.calculate("household_weight", year)
 
-    pe_households = float(baseline.calculate("household_weight", year).values.sum())
-    public_hh = irs_returns * 1000 if irs_returns else None
+    bot_mask = decile.values == 1
+    if not np.any(bot_mask):
+        return None
 
-    hh_diff = None
-    if public_hh and public_hh > 0:
-        hh_diff = (pe_households - public_hh) / public_hh
+    from microdf import MicroSeries
+    bot_income = MicroSeries(income.values[bot_mask], weights=weights.values[bot_mask])
+    pe_avg = float(bot_income.mean())
 
-    # If PE has fewer households but higher revenue, income per HH is inflated
-    total_gap = abs(report.total_gap_pct)
-    weight_attribution = min(abs(hh_diff) * 0.3, total_gap * 0.2) if hh_diff else 0
-
-    report.add(Finding(
-        step=4, check="Household / filer count",
-        pe_value=pe_households, public_value=public_hh,
-        public_source="IRS SOI (2022 filing year, individual returns)",
-        pct_diff=hh_diff,
-        attribution_pct=weight_attribution if hh_diff and abs(hh_diff) > 0.05 else 0,
-        explanation=f"PE: {pe_households:,.0f} households vs IRS: {public_hh:,.0f} returns."
-                    if public_hh else "No IRS data available.",
-        next_check=None,
-    ))
+    # Rough benchmark: bottom decile avg ≈ 15-20% of median
+    acs_median = ACS_MEDIAN_INCOME.get(state.upper(), 70000)
+    benchmark = acs_median * 0.17
+    diff = (pe_avg - benchmark) / abs(benchmark) if benchmark else None
+    return Finding(
+        variable="bottom_decile_avg_income",
+        pe_value=pe_avg, benchmark_value=benchmark,
+        benchmark_source=f"~17% of ACS median (${acs_median:,.0f})",
+        pct_diff=diff,
+        finding_text=f"Bottom decile avg: ${pe_avg:,.0f} (benchmark: ${benchmark:,.0f})",
+        relevant_to=["eitc_change", "ctc_change", "bottom_bracket_change"],
+    )
 
 
-def step5_summarize(report):
-    """Step 5: Summarize attribution and remaining unattributed gap."""
-    unattr = report.unattributed_pct
-    total = abs(report.total_gap_pct)
+def check_median_income(baseline, state, year):
+    """Median household income: PE vs ACS."""
+    acs = ACS_MEDIAN_INCOME.get(state.upper())
+    if not acs:
+        return None
+    income = baseline.calculate("household_net_income", year)
+    pe_median = float(np.median(income.values))
+    diff = (pe_median - acs) / abs(acs)
+    return Finding(
+        variable="median_household_income",
+        pe_value=pe_median, benchmark_value=acs,
+        benchmark_source="Census ACS 1-Year (2023)",
+        pct_diff=diff,
+        finding_text=f"PE median income: ${pe_median:,.0f} vs ACS: ${acs:,.0f} ({diff:+.0%})",
+        relevant_to=["deduction_change", "bracket_change", "general"],
+    )
 
-    if total < 0.05:
-        summary = "PE baseline closely matches public data. Minimal data-level gap."
-    elif unattr < 0.05:
-        summary = f"Gap of {total:.0%} fully attributed to data factors above."
-    elif unattr < total * 0.5:
-        summary = (f"Gap of {total:.0%}: {report.attributed_pct:.0%} attributed to data factors above, "
-                   f"{unattr:.0%} remaining (likely CPS sampling variance, imputation, or uprating).")
+
+def check_earned_income(baseline, state, year):
+    """Earned income total — critical for EITC reforms."""
+    pe_earned = float(baseline.calculate("earned_income", year).sum())
+    # Benchmark: earned income ≈ 75-80% of AGI nationally
+    pe_agi = float(baseline.calculate("adjusted_gross_income", year).sum())
+    earned_share = pe_earned / pe_agi if pe_agi > 0 else 0
+    benchmark_share = 0.77  # National avg
+    diff = (earned_share - benchmark_share) / benchmark_share
+    return Finding(
+        variable="earned_income_share",
+        pe_value=earned_share, benchmark_value=benchmark_share,
+        benchmark_source="National avg earned/AGI ratio (~77%)",
+        pct_diff=diff,
+        finding_text=f"Earned income is {earned_share:.0%} of AGI (national avg: {benchmark_share:.0%})",
+        relevant_to=["eitc_change", "rate_change"],
+    )
+
+
+def check_child_households(baseline, state, year):
+    """Households with children — critical for CTC reforms."""
+    # Count people under 18
+    age = baseline.calculate("age", year)
+    person_weight = baseline.calculate("person_weight", year)
+    children = float(person_weight[age.values < 18].values.sum())
+    total_pop = float(person_weight.values.sum())
+    child_share = children / total_pop if total_pop > 0 else 0
+
+    # National benchmark: ~22% of population is under 18
+    benchmark = 0.22
+    diff = (child_share - benchmark) / benchmark
+    return Finding(
+        variable="child_population_share",
+        pe_value=child_share, benchmark_value=benchmark,
+        benchmark_source="Census (~22% of population under 18)",
+        pct_diff=diff,
+        finding_text=f"Under-18 share: {child_share:.1%} (benchmark: {benchmark:.0%})",
+        relevant_to=["ctc_change"],
+    )
+
+
+def check_effective_tax_rate(baseline, state, year):
+    """Effective state income tax rate."""
+    census_rev = STATE_PIT_REVENUE.get(state.upper())
+    pe_revenue = float(baseline.calculate("state_income_tax", year).sum())
+    pe_agi = float(baseline.calculate("adjusted_gross_income", year).sum())
+
+    pe_rate = pe_revenue / pe_agi if pe_agi > 0 else 0
+
+    irs_returns = STATE_TAX_RETURNS_K.get(state.upper())
+    if census_rev and irs_returns:
+        implied_agi = irs_returns * 1000 * 75000
+        implied_rate = census_rev / implied_agi if implied_agi > 0 else 0
     else:
-        summary = (f"Gap of {total:.0%}: only {report.attributed_pct:.0%} attributed so far. "
-                   f"Remaining {unattr:.0%} may reflect state-specific CPS limitations, "
-                   f"missing deduction/credit variables, or data vintage differences.")
+        implied_rate = None
 
-    report.add(Finding(
-        step=5, check="Gap attribution summary",
-        pe_value=report.attributed_pct, public_value=total,
-        public_source="Computed from above checks",
-        pct_diff=None,
-        attribution_pct=None,
-        explanation=summary,
-        next_check=None,
-    ))
+    diff = (pe_rate - implied_rate) / implied_rate if implied_rate else None
+    return Finding(
+        variable="effective_tax_rate",
+        pe_value=pe_rate, benchmark_value=implied_rate,
+        benchmark_source="Census revenue / (IRS returns × avg AGI)",
+        pct_diff=diff,
+        finding_text=f"PE effective rate: {pe_rate:.2%} vs implied: {implied_rate:.2%}" if implied_rate else f"PE effective rate: {pe_rate:.2%}",
+        relevant_to=["rate_change", "bracket_change"],
+    )
 
 
 # =============================================================================
-# MAIN DIAGNOSTIC LOOP
+# DIAGNOSTIC REGISTRY
 # =============================================================================
 
-def run_diagnostic(state, year=2026):
-    """Run the iterative diagnostic chain for a state.
+DIAGNOSTIC_REGISTRY = {
+    "state_income_tax_total": {
+        "check": check_total_revenue,
+        "relevant_to": {"rate_change", "bracket_change", "deduction_change", "exemption_change", "general"},
+        "priority": 1,  # Always run first
+    },
+    "household_count": {
+        "check": check_household_count,
+        "relevant_to": {"rate_change", "eitc_change", "ctc_change", "deduction_change", "general"},
+        "priority": 2,
+    },
+    "adjusted_gross_income": {
+        "check": check_total_agi,
+        "relevant_to": {"rate_change", "bracket_change", "deduction_change", "general"},
+        "priority": 3,
+    },
+    "effective_tax_rate": {
+        "check": check_effective_tax_rate,
+        "relevant_to": {"rate_change", "bracket_change"},
+        "priority": 4,
+    },
+    "top_decile_income_share": {
+        "check": check_top_decile_income,
+        "relevant_to": {"rate_change", "top_bracket_change", "bracket_change"},
+        "priority": 5,
+    },
+    "bottom_decile_avg_income": {
+        "check": check_bottom_decile_income,
+        "relevant_to": {"eitc_change", "ctc_change", "bottom_bracket_change"},
+        "priority": 5,
+    },
+    "median_household_income": {
+        "check": check_median_income,
+        "relevant_to": {"deduction_change", "bracket_change", "general"},
+        "priority": 6,
+    },
+    "earned_income_share": {
+        "check": check_earned_income,
+        "relevant_to": {"eitc_change", "rate_change"},
+        "priority": 6,
+    },
+    "child_population_share": {
+        "check": check_child_households,
+        "relevant_to": {"ctc_change"},
+        "priority": 6,
+    },
+}
 
-    Each step's findings drive the next step — like autoresearch but for data.
+# Attribution weights: how much each variable matters for each reform type
+ATTRIBUTION_WEIGHTS = {
+    "rate_change": {
+        "state_income_tax_total": 0.25,
+        "adjusted_gross_income": 0.25,
+        "effective_tax_rate": 0.20,
+        "household_count": 0.15,
+        "top_decile_income_share": 0.10,
+        "median_household_income": 0.05,
+    },
+    "top_bracket_change": {
+        "top_decile_income_share": 0.35,
+        "adjusted_gross_income": 0.25,
+        "state_income_tax_total": 0.15,
+        "effective_tax_rate": 0.15,
+        "household_count": 0.10,
+    },
+    "eitc_change": {
+        "earned_income_share": 0.30,
+        "bottom_decile_avg_income": 0.25,
+        "household_count": 0.20,
+        "state_income_tax_total": 0.15,
+        "child_population_share": 0.10,
+    },
+    "ctc_change": {
+        "child_population_share": 0.30,
+        "bottom_decile_avg_income": 0.25,
+        "household_count": 0.20,
+        "median_household_income": 0.15,
+        "state_income_tax_total": 0.10,
+    },
+    "deduction_change": {
+        "adjusted_gross_income": 0.30,
+        "median_household_income": 0.25,
+        "household_count": 0.20,
+        "state_income_tax_total": 0.15,
+        "effective_tax_rate": 0.10,
+    },
+    "general": {
+        "state_income_tax_total": 0.30,
+        "adjusted_gross_income": 0.25,
+        "household_count": 0.20,
+        "median_household_income": 0.15,
+        "effective_tax_rate": 0.10,
+    },
+}
+
+
+# =============================================================================
+# DATA FINDINGS CACHE (Supabase)
+# =============================================================================
+
+def _get_supabase():
+    try:
+        from supabase import create_client
+        url = os.environ.get("SUPABASE_URL")
+        key = os.environ.get("SUPABASE_KEY")
+        if url and key:
+            return create_client(url, key)
+    except ImportError:
+        pass
+    return None
+
+
+def _get_pe_us_version():
+    try:
+        from importlib.metadata import version
+        return version("policyengine-us")
+    except Exception:
+        return "unknown"
+
+
+def get_cached_findings(state, variables, year):
+    """Check data_findings table for existing results."""
+    sb = _get_supabase()
+    if not sb:
+        return {}
+
+    pe_version = _get_pe_us_version()
+    try:
+        result = sb.table("data_findings").select("*").match({
+            "state": state.upper(),
+            "year": year,
+            "pe_us_version": pe_version,
+            "still_valid": True,
+        }).in_("variable", variables).execute()
+
+        cached = {}
+        for row in (result.data or []):
+            age_days = (datetime.now(timezone.utc) - datetime.fromisoformat(
+                row["last_verified"].replace("Z", "+00:00")
+            )).days
+            if age_days <= MAX_FINDING_AGE_DAYS:
+                cached[row["variable"]] = row
+        return cached
+    except Exception:
+        return {}
+
+
+def store_finding(state, finding, reform_id, year):
+    """Store a new finding in data_findings."""
+    sb = _get_supabase()
+    if not sb:
+        return
+
+    pe_version = _get_pe_us_version()
+    try:
+        sb.table("data_findings").upsert({
+            "state": state.upper(),
+            "variable": finding.variable,
+            "year": year,
+            "pe_value": finding.pe_value,
+            "benchmark_value": finding.benchmark_value,
+            "benchmark_source": finding.benchmark_source,
+            "pct_diff": finding.pct_diff,
+            "finding": finding.finding_text,
+            "relevant_to": finding.relevant_to,
+            "discovered_by": reform_id,
+            "pe_us_version": pe_version,
+            "dataset_version": _get_dataset_version(),
+            "confirmed_by": [reform_id] if reform_id else [],
+            "times_confirmed": 1,
+            "last_verified": datetime.now(timezone.utc).isoformat(),
+            "still_valid": True,
+        }).execute()
+    except Exception:
+        pass  # Table may not exist yet
+
+
+def confirm_finding(finding_id, reform_id):
+    """Re-confirm an existing finding from a new reform."""
+    sb = _get_supabase()
+    if not sb:
+        return
+    try:
+        sb.rpc("confirm_data_finding", {
+            "p_finding_id": finding_id,
+            "p_confirming_reform": reform_id,
+        }).execute()
+    except Exception:
+        pass
+
+
+def _get_dataset_version():
+    try:
+        from importlib.metadata import version
+        return version("policyengine-us-data")
+    except Exception:
+        return "unknown"
+
+
+# =============================================================================
+# DIAGNOSTIC ENGINE
+# =============================================================================
+
+def select_diagnostics(reform_types):
+    """Select checks relevant to this reform, sorted by priority."""
+    selected = []
+    for var_name, config in DIAGNOSTIC_REGISTRY.items():
+        if reform_types & config["relevant_to"]:
+            selected.append((var_name, config))
+    selected.sort(key=lambda x: x[1]["priority"])
+    return selected
+
+
+def run_diagnostic(state, year, reform_params=None, provisions=None, reform_id=None):
+    """Run reform-specific, cache-aware diagnostic.
+
+    Returns list of Findings with attribution.
     """
-    from compute_impacts import get_state_dataset
-    from policyengine_us import Microsimulation
-
     state_upper = state.upper()
     if state_upper in NO_INCOME_TAX_STATES:
         print(f"  {state_upper} has no income tax — skipping diagnostic")
-        return None
+        return []
 
-    print(f"  Loading {state_upper} dataset...")
-    dataset_path = get_state_dataset(state)
+    # Detect reform type
+    reform_types = detect_reform_type(reform_params or {}, provisions)
+    print(f"  Reform types detected: {reform_types}")
 
-    print(f"  Running baseline simulation for {year}...")
-    baseline = Microsimulation(dataset=dataset_path)
+    # Select relevant checks
+    diagnostics = select_diagnostics(reform_types)
+    variables_needed = [v for v, _ in diagnostics]
+    print(f"  Checks to run: {[v for v, _ in diagnostics]}")
 
-    report = DiagnosticReport(state=state_upper, year=year)
+    # Check cache
+    cached = get_cached_findings(state, variables_needed, year)
+    if cached:
+        print(f"  Cache hits: {list(cached.keys())}")
 
-    # Step 1: Total revenue
-    print(f"  Step 1: Total revenue comparison...")
-    gap = step1_total_revenue(baseline, state, year, report)
+    # Load simulation only if we have checks to run
+    uncached = [(v, c) for v, c in diagnostics if v not in cached]
+    baseline = None
+    if uncached:
+        from compute_impacts import get_state_dataset
+        from policyengine_us import Microsimulation
 
-    if gap is None:
-        print(f"  No Census revenue data for {state_upper}")
-        return report
+        print(f"  Loading {state_upper} dataset + baseline simulation...")
+        dataset_path = get_state_dataset(state)
+        baseline = Microsimulation(dataset=dataset_path)
 
-    if abs(gap) < 0.05:
-        print(f"  Revenue gap < 5% — data is well calibrated, stopping early.")
-        step5_summarize(report)
-        return report
+    # Run checks
+    findings = []
+    for var_name, config in diagnostics:
+        if var_name in cached:
+            row = cached[var_name]
+            f = Finding(
+                variable=var_name,
+                pe_value=row["pe_value"],
+                benchmark_value=row["benchmark_value"],
+                benchmark_source=row["benchmark_source"],
+                pct_diff=row["pct_diff"],
+                finding_text=row["finding"],
+                relevant_to=row.get("relevant_to", []),
+                cached=True,
+            )
+            findings.append(f)
+            if reform_id:
+                confirm_finding(row["id"], reform_id)
+            print(f"  [{var_name}] CACHED: {row['finding'][:60]}")
+        else:
+            print(f"  [{var_name}] Running fresh check...")
+            f = config["check"](baseline, state, year)
+            if f:
+                findings.append(f)
+                if reform_id:
+                    store_finding(state, f, reform_id, year)
+                status = "!!" if abs(f.pct_diff or 0) > 0.15 else "OK"
+                print(f"  [{var_name}] {status}: {f.finding_text[:60]}")
 
-    # Step 2: Decompose into rate vs base
-    print(f"  Step 2: Rate vs base decomposition...")
-    rate_diff, base_diff = step2_rate_vs_base(baseline, state, year, report)
-
-    # Step 3: Income distribution (always run — most informative)
-    print(f"  Step 3: Income distribution by decile...")
-    step3_income_distribution(baseline, state, year, report)
-
-    # Step 4: Population weights
-    print(f"  Step 4: Population weights...")
-    step4_population_weights(baseline, state, year, report)
-
-    # Step 5: Summarize
-    print(f"  Step 5: Attribution summary...")
-    step5_summarize(report)
-
-    return report
+    return findings
 
 
-def run_diagnostic_for_reform(reform_id, year=None):
-    """Run diagnostic in context of a reform. Saves results."""
+def build_attribution(findings, reform_types):
+    """Compute weighted attribution of the gap by finding."""
+    # Pick the most specific reform type for weights
+    weight_key = "general"
+    for rt in ["top_bracket_change", "eitc_change", "ctc_change", "deduction_change", "rate_change"]:
+        if rt in reform_types:
+            weight_key = rt
+            break
+
+    weights = ATTRIBUTION_WEIGHTS.get(weight_key, ATTRIBUTION_WEIGHTS["general"])
+    attribution = []
+
+    for f in findings:
+        w = weights.get(f.variable, 0.05)
+        contrib = (f.pct_diff or 0) * w
+        attribution.append({
+            "variable": f.variable,
+            "pct_diff": f.pct_diff,
+            "weight": w,
+            "weighted_contribution": round(contrib, 4),
+            "finding": f.finding_text,
+            "cached": f.cached,
+        })
+
+    attribution.sort(key=lambda x: abs(x["weighted_contribution"]), reverse=True)
+    return attribution
+
+
+# =============================================================================
+# REPORT
+# =============================================================================
+
+def print_diagnostic_report(findings, attribution, reform_types, state, year):
+    """Print human-readable diagnostic."""
+    print(f"\n{'=' * 70}")
+    print(f"Data Diagnostic: {state.upper()} ({year})")
+    print(f"Reform types: {reform_types}")
+    print(f"{'=' * 70}")
+
+    for a in attribution:
+        cached_tag = " [cached]" if a["cached"] else ""
+        sign = "+" if (a["pct_diff"] or 0) > 0 else ""
+        print(f"\n  {a['variable']}")
+        print(f"    Diff: {sign}{(a['pct_diff'] or 0):.1%}  Weight: {a['weight']:.0%}  Contribution: {a['weighted_contribution']:+.2%}{cached_tag}")
+        print(f"    {a['finding'][:80]}")
+
+    total_contrib = sum(a["weighted_contribution"] for a in attribution)
+    print(f"\n{'-' * 70}")
+    print(f"  Weighted data quality score: {total_contrib:+.1%}")
+    direction = "higher" if total_contrib > 0 else "lower"
+    print(f"  → PE reform estimates likely ~{abs(total_contrib)*100:.0f}% {direction} than fiscal notes for this reform type")
+
+
+# =============================================================================
+# ENTRY POINTS
+# =============================================================================
+
+def diagnose_reform(reform_id, year=None):
+    """Full diagnostic for a specific reform. Saves results."""
     state = reform_id.split("-")[0]
+
+    # Load reform data
+    sb = _get_supabase()
+    reform_params = {}
+    provisions = []
+    if sb:
+        ri = sb.table("reform_impacts").select("reform_params, provisions").eq("id", reform_id).execute()
+        if ri.data:
+            reform_params = ri.data[0].get("reform_params", {})
+            provs = ri.data[0].get("provisions", [])
+            if isinstance(provs, str):
+                try:
+                    provisions = json.loads(provs)
+                except json.JSONDecodeError:
+                    provisions = []
+            else:
+                provisions = provs or []
 
     if year is None:
         state_file = RESULTS_DIR / reform_id / "calibration_state.json"
@@ -471,85 +707,69 @@ def run_diagnostic_for_reform(reform_id, year=None):
         else:
             year = 2026
 
-    report = run_diagnostic(state, year)
-    if not report:
-        return None
+    reform_types = detect_reform_type(reform_params, provisions)
+    findings = run_diagnostic(state, year, reform_params, provisions, reform_id)
+    attribution = build_attribution(findings, reform_types)
 
     # Save locally
     results_dir = RESULTS_DIR / reform_id
     results_dir.mkdir(parents=True, exist_ok=True)
+    report_data = {
+        "state": state.upper(),
+        "year": year,
+        "reform_types": list(reform_types),
+        "findings": [f.to_dict() for f in findings],
+        "attribution": attribution,
+        "data_quality_score": sum(a["weighted_contribution"] for a in attribution),
+        "diagnosed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    with open(results_dir / "data_diagnostic.json", "w") as f:
+        json.dump(report_data, f, indent=2)
 
-    with open(results_dir / "baseline_diagnostic.json", "w") as f:
-        json.dump(report.to_dict(), f, indent=2)
+    # Write to DB model_notes
+    if sb:
+        try:
+            existing = sb.table("reform_impacts").select("model_notes").eq("id", reform_id).execute()
+            mn = {}
+            if existing.data:
+                raw = existing.data[0].get("model_notes")
+                mn = raw if isinstance(raw, dict) else json.loads(raw) if isinstance(raw, str) else {}
 
-    # Also save the diagnostic log as TSV (like calibration.tsv)
-    with open(results_dir / "data_diagnostic.tsv", "w", newline="") as f:
-        writer = csv.writer(f, delimiter="\t")
-        writer.writerow(["step", "check", "pe_value", "public_value", "pct_diff", "attribution", "explanation"])
-        for finding in report.findings:
-            writer.writerow([
-                finding.step, finding.check,
-                f"{finding.pe_value:,.0f}" if isinstance(finding.pe_value, (int, float)) else str(finding.pe_value),
-                f"{finding.public_value:,.0f}" if isinstance(finding.public_value, (int, float)) else str(finding.public_value),
-                f"{finding.pct_diff:+.1%}" if finding.pct_diff else "—",
-                f"{finding.attribution_pct:.1%}" if finding.attribution_pct else "—",
-                finding.explanation[:80],
-            ])
+            mn["data_diagnostic"] = {
+                "reform_types": list(reform_types),
+                "data_quality_score": round(report_data["data_quality_score"], 3),
+                "findings_count": len(findings),
+                "cached_count": sum(1 for f in findings if f.cached),
+                "top_factors": [
+                    {"variable": a["variable"], "diff_pct": round((a["pct_diff"] or 0) * 100, 1), "weight": a["weight"]}
+                    for a in attribution[:3]
+                ],
+                "diagnosed_at": report_data["diagnosed_at"],
+            }
+            sb.table("reform_impacts").update({"model_notes": mn}).eq("id", reform_id).execute()
+            print(f"\n  Diagnostic written to model_notes")
+        except Exception as e:
+            print(f"\n  Note: DB write skipped ({e})")
 
-    # Write to DB
-    _write_diagnostic_to_db(reform_id, report)
-
-    return report
+    print_diagnostic_report(findings, attribution, reform_types, state, year)
+    return findings, attribution
 
 
-def _write_diagnostic_to_db(reform_id, report):
-    """Store diagnostic in model_notes."""
-    try:
-        from supabase import create_client
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_KEY")
-        if not url or not key:
-            return
+def diagnose_state(state, year=2026):
+    """Run diagnostic for a state without a specific reform."""
+    findings = run_diagnostic(state, year)
+    reform_types = {"general"}
+    attribution = build_attribution(findings, reform_types)
+    print_diagnostic_report(findings, attribution, reform_types, state, year)
+    return findings, attribution
 
-        supabase = create_client(url, key)
 
-        existing = supabase.table("reform_impacts").select("model_notes").eq("id", reform_id).execute()
-        model_notes = {}
-        if existing.data:
-            mn = existing.data[0].get("model_notes")
-            if isinstance(mn, dict):
-                model_notes = mn
-            elif isinstance(mn, str):
-                try:
-                    model_notes = json.loads(mn)
-                except json.JSONDecodeError:
-                    model_notes = {}
-
-        model_notes["baseline_diagnostic"] = {
-            "state": report.state,
-            "year": report.year,
-            "total_gap_pct": round(report.total_gap_pct * 100, 1),
-            "attributed_pct": round(report.attributed_pct * 100, 1),
-            "unattributed_pct": round(report.unattributed_pct * 100, 1),
-            "data_quality_factor": round(report.data_quality_factor, 3),
-            "findings": [
-                {
-                    "check": f.check,
-                    "pct_diff": round(f.pct_diff * 100, 1) if f.pct_diff else None,
-                    "attribution": round(f.attribution_pct * 100, 1) if f.attribution_pct else None,
-                    "explanation": f.explanation,
-                }
-                for f in report.findings
-            ],
-            "diagnosed_at": report.generated_at,
-        }
-
-        supabase.table("reform_impacts").update(
-            {"model_notes": model_notes}
-        ).eq("id", reform_id).execute()
-        print(f"  Diagnostic written to model_notes")
-    except Exception as e:
-        print(f"  Note: DB write skipped ({e})")
+def _fmt(v):
+    if abs(v) >= 1e9:
+        return f"${v/1e9:.2f}B"
+    if abs(v) >= 1e6:
+        return f"${v/1e6:.1f}M"
+    return f"${v:,.0f}"
 
 
 # =============================================================================
@@ -557,29 +777,27 @@ def _write_diagnostic_to_db(reform_id, report):
 # =============================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description="Iterative baseline data diagnostic")
+    parser = argparse.ArgumentParser(description="Reform-specific data diagnostic")
     parser.add_argument("--state", type=str, help="State code (e.g., GA)")
-    parser.add_argument("--reform-id", type=str, help="Reform ID (extracts state)")
-    parser.add_argument("--year", type=int, default=2026, help="Simulation year")
-    parser.add_argument("--json", action="store_true", help="Output as JSON")
+    parser.add_argument("--reform-id", type=str, help="Reform ID")
+    parser.add_argument("--year", type=int, default=2026)
+    parser.add_argument("--json", action="store_true")
 
     args = parser.parse_args()
 
     if args.reform_id:
-        report = run_diagnostic_for_reform(args.reform_id, args.year)
+        findings, attribution = diagnose_reform(args.reform_id, args.year)
     elif args.state:
-        report = run_diagnostic(args.state, args.year)
+        findings, attribution = diagnose_state(args.state, args.year)
     else:
         print("Error: provide --state or --reform-id")
         return 1
 
-    if not report:
-        return 1
-
     if args.json:
-        print(json.dumps(report.to_dict(), indent=2))
-    else:
-        report.print_report()
+        print(json.dumps({
+            "findings": [f.to_dict() for f in findings],
+            "attribution": attribution,
+        }, indent=2))
 
     return 0
 
