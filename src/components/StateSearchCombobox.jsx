@@ -1,11 +1,22 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { stateData } from "../data/states";
 import { colors, typography, spacing } from "../designTokens";
+import { FEDERAL_JURISDICTION } from "../lib/jurisdictions";
 
-const ALL_STATES = Object.entries(stateData).map(([abbr, s]) => ({
-  abbr,
-  name: s.name,
-}));
+const ALL_JURISDICTIONS = [
+  {
+    value: FEDERAL_JURISDICTION,
+    code: "US",
+    name: "Federal",
+    kind: "federal",
+  },
+  ...Object.entries(stateData).map(([abbr, s]) => ({
+    value: abbr,
+    code: abbr,
+    name: s.name,
+    kind: "state",
+  })),
+];
 
 export default function StateSearchCombobox({ onSelect, statesWithBills }) {
   const [query, setQuery] = useState("");
@@ -15,14 +26,14 @@ export default function StateSearchCombobox({ onSelect, statesWithBills }) {
   const containerRef = useRef(null);
 
   const filtered = query
-    ? ALL_STATES.filter(
-        (s) =>
-          s.name.toLowerCase().startsWith(query.toLowerCase()) ||
-          s.abbr.toLowerCase().startsWith(query.toLowerCase()),
+    ? ALL_JURISDICTIONS.filter(
+        (item) =>
+          item.name.toLowerCase().startsWith(query.toLowerCase()) ||
+          item.code.toLowerCase().startsWith(query.toLowerCase()) ||
+          item.value.toLowerCase().startsWith(query.toLowerCase()),
       )
-    : ALL_STATES;
+    : ALL_JURISDICTIONS;
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
     const handleMouseDown = (e) => {
@@ -34,7 +45,6 @@ export default function StateSearchCombobox({ onSelect, statesWithBills }) {
     return () => document.removeEventListener("mousedown", handleMouseDown);
   }, [open]);
 
-  // Scroll active item into view
   useEffect(() => {
     if (activeIndex < 0 || !listRef.current) return;
     const item = listRef.current.children[activeIndex];
@@ -42,11 +52,11 @@ export default function StateSearchCombobox({ onSelect, statesWithBills }) {
   }, [activeIndex]);
 
   const select = useCallback(
-    (abbr) => {
+    (value) => {
       setQuery("");
       setOpen(false);
       setActiveIndex(-1);
-      onSelect(abbr);
+      onSelect(value);
     },
     [onSelect],
   );
@@ -72,7 +82,7 @@ export default function StateSearchCombobox({ onSelect, statesWithBills }) {
       case "Enter":
         e.preventDefault();
         if (activeIndex >= 0 && filtered[activeIndex]) {
-          select(filtered[activeIndex].abbr);
+          select(filtered[activeIndex].value);
         }
         break;
       case "Escape":
@@ -83,7 +93,7 @@ export default function StateSearchCombobox({ onSelect, statesWithBills }) {
     }
   };
 
-  const billCount = (abbr) => statesWithBills[abbr] || 0;
+  const billCount = (item) => (item.kind === "state" ? statesWithBills[item.value] || 0 : 0);
 
   return (
     <div ref={containerRef} className="state-search" style={{ position: "relative" }}>
@@ -98,10 +108,9 @@ export default function StateSearchCombobox({ onSelect, statesWithBills }) {
           backgroundColor: colors.background.secondary,
           padding: `${spacing.xs} ${spacing.md}`,
           transition: "border-color 0.15s ease",
-          width: "160px",
+          width: "220px",
         }}
       >
-        {/* Magnifying glass */}
         <svg
           width="14"
           height="14"
@@ -123,12 +132,12 @@ export default function StateSearchCombobox({ onSelect, statesWithBills }) {
           aria-controls="state-search-listbox"
           aria-activedescendant={
             activeIndex >= 0 && filtered[activeIndex]
-              ? `state-option-${filtered[activeIndex].abbr}`
+              ? `state-option-${filtered[activeIndex].value}`
               : undefined
           }
           aria-autocomplete="list"
-          aria-label="Search states"
-          placeholder="Search states"
+          aria-label="Search states or federal"
+          placeholder="Search state or federal"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -181,19 +190,19 @@ export default function StateSearchCombobox({ onSelect, statesWithBills }) {
                 fontFamily: typography.fontFamily.body,
               }}
             >
-              No states found
+              No jurisdictions found
             </li>
           ) : (
-            filtered.map((s, i) => {
-              const count = billCount(s.abbr);
+            filtered.map((item, i) => {
+              const count = billCount(item);
               const isActive = i === activeIndex;
               return (
                 <li
-                  key={s.abbr}
-                  id={`state-option-${s.abbr}`}
+                  key={item.value}
+                  id={`state-option-${item.value}`}
                   role="option"
                   aria-selected={isActive}
-                  onClick={() => select(s.abbr)}
+                  onClick={() => select(item.value)}
                   onMouseEnter={() => setActiveIndex(i)}
                   style={{
                     display: "flex",
@@ -202,9 +211,7 @@ export default function StateSearchCombobox({ onSelect, statesWithBills }) {
                     padding: `${spacing.sm} ${spacing.md}`,
                     borderRadius: spacing.radius.md,
                     cursor: "pointer",
-                    backgroundColor: isActive
-                      ? colors.background.secondary
-                      : "transparent",
+                    backgroundColor: isActive ? colors.background.secondary : "transparent",
                     transition: "background-color 0.1s ease",
                   }}
                 >
@@ -222,9 +229,9 @@ export default function StateSearchCombobox({ onSelect, statesWithBills }) {
                         marginRight: spacing.sm,
                       }}
                     >
-                      {s.abbr}
+                      {item.code}
                     </span>
-                    {s.name}
+                    {item.name}
                   </span>
                   {count > 0 && (
                     <span

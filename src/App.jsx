@@ -4,6 +4,7 @@ import Breadcrumb from "./components/Breadcrumb";
 import StateSearchCombobox from "./components/StateSearchCombobox";
 import { RecentActivitySidebar } from "./components/BillActivityFeed";
 
+const FederalPanel = lazy(() => import("./components/FederalPanel"));
 const StatePanel = lazy(() => import("./components/StatePanel"));
 const ReformAnalyzer = lazy(() => import("./components/reform/ReformAnalyzer"));
 import { useData } from "./context/DataContext";
@@ -11,6 +12,11 @@ import { stateData } from "./data/states";
 import { colors, mapColors, typography, spacing } from "./designTokens";
 import { track } from "./lib/analytics";
 import { BASE_PATH } from "./lib/basePath";
+import {
+  FEDERAL_JURISDICTION,
+  isFederalJurisdiction,
+  isStateJurisdiction,
+} from "./lib/jurisdictions";
 
 function parsePath() {
   // Support old hash URLs for backward compat
@@ -18,11 +24,15 @@ function parsePath() {
   // Strip BASE_PATH prefix before parsing
   const raw = hash || window.location.pathname;
   const path = (BASE_PATH ? raw.replace(BASE_PATH, "") : raw).replace(/^\//, "");
-  if (!path) return { state: null, billId: null };
+  if (!path) return { jurisdiction: null, billId: null };
   const parts = path.split("/");
-  const state = parts[0].toUpperCase();
+  const segment = parts[0];
+  const state = segment.toUpperCase();
   const billId = parts[1] || null;
-  return { state: stateData[state] ? state : null, billId };
+  if (segment.toLowerCase() === FEDERAL_JURISDICTION) {
+    return { jurisdiction: FEDERAL_JURISDICTION, billId };
+  }
+  return { jurisdiction: stateData[state] ? state : null, billId };
 }
 
 function notifyParent(path) {
@@ -47,8 +57,8 @@ function LoadingPlaceholder() {
 }
 
 function App() {
-  const { statesWithBills, getBillsForState } = useData();
-  const [selectedState, setSelectedState] = useState(() => parsePath().state);
+  const { statesWithBills, getBillsForState, getFederalBills } = useData();
+  const [selectedJurisdiction, setSelectedJurisdiction] = useState(() => parsePath().jurisdiction);
   const [billId, setBillId] = useState(() => parsePath().billId);
 
   const activeStates = useMemo(
@@ -68,40 +78,44 @@ function App() {
     }
   }, []);
 
-  const handleStateSelect = useCallback((abbr) => {
-    setSelectedState(abbr);
+  const handleJurisdictionSelect = useCallback((jurisdiction) => {
+    setSelectedJurisdiction(jurisdiction);
     setBillId(null);
-    if (abbr) {
-      history.pushState(null, "", BASE_PATH + "/" + abbr);
-      notifyParent("/" + abbr);
-      track("state_selected", { state_abbr: abbr, state_name: stateData[abbr]?.name });
+    if (jurisdiction) {
+      history.pushState(null, "", BASE_PATH + "/" + jurisdiction);
+      notifyParent("/" + jurisdiction);
+      if (isFederalJurisdiction(jurisdiction)) {
+        track("federal_selected", { jurisdiction });
+      } else {
+        track("state_selected", { state_abbr: jurisdiction, state_name: stateData[jurisdiction]?.name });
+      }
     } else {
       history.pushState(null, "", BASE_PATH + "/");
       notifyParent("/");
     }
   }, []);
 
-  const handleBillSelect = useCallback((stateAbbr, id) => {
-    setSelectedState(stateAbbr);
+  const handleBillSelect = useCallback((jurisdiction, id) => {
+    setSelectedJurisdiction(jurisdiction);
     setBillId(id);
-    history.pushState(null, "", `${BASE_PATH}/${stateAbbr}/${id}`);
-    notifyParent(`/${stateAbbr}/${id}`);
+    history.pushState(null, "", `${BASE_PATH}/${jurisdiction}/${id}`);
+    notifyParent(`/${jurisdiction}/${id}`);
   }, []);
 
   const handleNavigateHome = useCallback(() => {
-    handleStateSelect(null);
-  }, [handleStateSelect]);
+    handleJurisdictionSelect(null);
+  }, [handleJurisdictionSelect]);
 
-  const handleNavigateState = useCallback(() => {
-    if (selectedState) {
-      handleStateSelect(selectedState);
+  const handleNavigateJurisdiction = useCallback(() => {
+    if (selectedJurisdiction) {
+      handleJurisdictionSelect(selectedJurisdiction);
     }
-  }, [selectedState, handleStateSelect]);
+  }, [selectedJurisdiction, handleJurisdictionSelect]);
 
   useEffect(() => {
     const onPopState = () => {
-      const { state, billId: bid } = parsePath();
-      setSelectedState(state);
+      const { jurisdiction, billId: bid } = parsePath();
+      setSelectedJurisdiction(jurisdiction);
       setBillId(bid);
       const strippedPath = BASE_PATH
         ? window.location.pathname.replace(BASE_PATH, "")
@@ -114,20 +128,25 @@ function App() {
 
   // Resolve bill for bill page
   const activeBill = useMemo(() => {
-    if (!selectedState || !billId) return null;
-    const bills = getBillsForState(selectedState);
+    if (!selectedJurisdiction || !billId) return null;
+    const bills = isFederalJurisdiction(selectedJurisdiction)
+      ? getFederalBills()
+      : getBillsForState(selectedJurisdiction);
     return bills.find((b) => b.id === billId) || null;
-  }, [selectedState, billId, getBillsForState]);
+  }, [selectedJurisdiction, billId, getBillsForState, getFederalBills]);
 
   // Determine view
-  const isBillPage = selectedState && billId && activeBill?.reformConfig;
-  const isStatePage = selectedState && !isBillPage;
+  const isBillPage =
+    isStateJurisdiction(selectedJurisdiction) &&
+    selectedJurisdiction &&
+    billId &&
+    activeBill?.reformConfig;
+  const isJurisdictionPage = selectedJurisdiction && !isBillPage;
 
   return (
     <div className="app-shell" style={{ minHeight: "100vh" }}>
       {/* Header */}
       <header
-        className="header-accent"
         style={{
           backgroundColor: colors.white,
           boxShadow: "var(--shadow-elevation-low)",
@@ -136,39 +155,43 @@ function App() {
           zIndex: 50,
         }}
       >
-        <div className="app-header-inner" style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing.xl} ${spacing["2xl"]}` }}>
+        <div className="app-header-inner" style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing.md} ${spacing["2xl"]} 0` }}>
           <div className="app-header-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div className="app-header-brand" style={{ display: "flex", alignItems: "center", gap: spacing.lg }}>
+            <div className="app-header-brand" style={{ display: "flex", alignItems: "center", gap: spacing.md }}>
               <a href="https://policyengine.org" target="_blank" rel="noopener noreferrer">
                 <img
                   src="/policyengine-favicon.svg"
                   alt="PolicyEngine"
-                  style={{ height: "40px", width: "auto" }}
+                  style={{ height: "32px", width: "auto" }}
                 />
               </a>
-              <div>
-                <h1 style={{
-                  margin: 0,
-                  color: colors.secondary[900],
-                  fontSize: typography.fontSize["2xl"],
-                  fontWeight: typography.fontWeight.bold,
-                  fontFamily: typography.fontFamily.primary,
-                  letterSpacing: "-0.02em",
-                }}>
-                  2026 State Legislative Tracker
-                </h1>
-                <p style={{
-                  margin: "2px 0 0",
-                  color: colors.text.secondary,
-                  fontSize: typography.fontSize.sm,
-                  fontFamily: typography.fontFamily.body,
-                }}>
-                  PolicyEngine State Tax Research
-                </p>
-              </div>
+              <h1 style={{
+                margin: 0,
+                color: colors.secondary[900],
+                fontSize: typography.fontSize.lg,
+                fontWeight: typography.fontWeight.bold,
+                fontFamily: typography.fontFamily.primary,
+                letterSpacing: "-0.02em",
+              }}>
+                Bill Tracker
+              </h1>
             </div>
-            <StateSearchCombobox onSelect={handleStateSelect} statesWithBills={statesWithBills} />
+            <StateSearchCombobox onSelect={handleJurisdictionSelect} statesWithBills={statesWithBills} />
           </div>
+          <nav className="app-nav" style={{ display: "flex", gap: spacing.xs, marginTop: spacing.md }}>
+            <NavTab
+              active={!isFederalJurisdiction(selectedJurisdiction)}
+              onClick={() => { if (selectedJurisdiction) handleJurisdictionSelect(null); }}
+            >
+              States
+            </NavTab>
+            <NavTab
+              active={isFederalJurisdiction(selectedJurisdiction)}
+              onClick={() => { if (!isFederalJurisdiction(selectedJurisdiction)) handleJurisdictionSelect(FEDERAL_JURISDICTION); }}
+            >
+              Federal
+            </NavTab>
+          </nav>
         </div>
       </header>
 
@@ -179,61 +202,58 @@ function App() {
         {isBillPage && (
           <div className="animate-fade-in-up">
             <Breadcrumb
-              stateAbbr={selectedState}
+              jurisdiction={selectedJurisdiction}
               billLabel={activeBill.reformConfig.label || activeBill.bill}
               onNavigateHome={handleNavigateHome}
-              onNavigateState={handleNavigateState}
+              onNavigateJurisdiction={handleNavigateJurisdiction}
             />
             <Suspense fallback={<LoadingPlaceholder />}>
               <ReformAnalyzer
                 reformConfig={activeBill.reformConfig}
-                stateAbbr={selectedState}
+                stateAbbr={selectedJurisdiction}
                 bill={activeBill}
               />
             </Suspense>
           </div>
         )}
 
-        {/* === State Page === */}
-        {isStatePage && (
+        {/* === Jurisdiction Page === */}
+        {isJurisdictionPage && (
           <div className="animate-fade-in-up">
-            <Breadcrumb
-              stateAbbr={selectedState}
-              onNavigateHome={handleNavigateHome}
-            />
             <Suspense fallback={<LoadingPlaceholder />}>
-              <StatePanel
-                stateAbbr={selectedState}
-                onBillSelect={(id) => handleBillSelect(selectedState, id)}
-              />
+              {isFederalJurisdiction(selectedJurisdiction) ? (
+                <FederalPanel />
+              ) : (
+                <StatePanel
+                  stateAbbr={selectedJurisdiction}
+                  onBillSelect={(id) => handleBillSelect(selectedJurisdiction, id)}
+                />
+              )}
             </Suspense>
           </div>
         )}
 
         {/* === Home Page === */}
-        {!selectedState && (
+        {!selectedJurisdiction && (
           <>
-            {/* Intro */}
-            <div className="animate-fade-in-up" style={{ marginBottom: spacing["2xl"] }}>
+            <div className="animate-fade-in-up" style={{ marginBottom: spacing.xl }}>
               <h2 style={{
-                margin: `0 0 ${spacing.sm}`,
+                margin: 0,
                 color: colors.secondary[900],
-                fontSize: typography.fontSize["3xl"],
+                fontSize: typography.fontSize["2xl"],
                 fontWeight: typography.fontWeight.bold,
                 fontFamily: typography.fontFamily.primary,
                 letterSpacing: "-0.02em",
               }}>
-                State Tax Policy Research
+                Select a state to explore legislation
               </h2>
               <p style={{
-                margin: 0,
+                margin: `${spacing.xs} 0 0`,
                 color: colors.text.secondary,
-                fontSize: typography.fontSize.base,
+                fontSize: typography.fontSize.sm,
                 fontFamily: typography.fontFamily.body,
-                maxWidth: "none",
-                lineHeight: "1.6",
               }}>
-                Explore state legislative sessions and PolicyEngine analysis. <strong>Select a state</strong> to see tax changes, active bills, and related research.
+                Click a state on the map or use the search bar above.
               </p>
             </div>
 
@@ -259,8 +279,8 @@ function App() {
                   <div className="app-map-layout" style={{ display: "flex", alignItems: "flex-start" }}>
                     <div style={{ flex: 1 }}>
                       <USMap
-                        selectedState={selectedState}
-                        onStateSelect={handleStateSelect}
+                        selectedState={isStateJurisdiction(selectedJurisdiction) ? selectedJurisdiction : null}
+                        onStateSelect={handleJurisdictionSelect}
                       />
                     </div>
                     <div className="app-map-legend" style={{
@@ -298,13 +318,13 @@ function App() {
                       }}>
                         States with Published Analysis
                       </h3>
-                      <RegionChips states={activeStates} onSelect={handleStateSelect} />
+                      <RegionChips states={activeStates} onSelect={handleJurisdictionSelect} />
                     </div>
                   )}
                 </div>
 
                 <div className="animate-fade-in-up app-recent-activity-mobile">
-                  <RecentActivitySidebar onStateSelect={handleStateSelect} onBillSelect={handleBillSelect} />
+                  <RecentActivitySidebar onStateSelect={handleJurisdictionSelect} onBillSelect={handleBillSelect} />
                 </div>
 
                 <div className="app-quick-links" style={{
@@ -331,7 +351,7 @@ function App() {
               </div>
 
               <div className="animate-fade-in-up app-sidebar-sticky app-recent-activity-desktop" style={{ position: "sticky", top: "80px" }}>
-                <RecentActivitySidebar onStateSelect={handleStateSelect} onBillSelect={handleBillSelect} />
+                <RecentActivitySidebar onStateSelect={handleJurisdictionSelect} onBillSelect={handleBillSelect} />
               </div>
             </div>
           </>
@@ -533,6 +553,18 @@ function QuickLinkCard({ href, title, description }) {
         fontFamily: typography.fontFamily.body,
       }}>{description}</p>
     </a>
+  );
+}
+
+// Nav Tab Component
+function NavTab({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`app-nav-tab${active ? " app-nav-tab--active" : ""}`}
+    >
+      {children}
+    </button>
   );
 }
 

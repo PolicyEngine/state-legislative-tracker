@@ -90,7 +90,13 @@ export function DataProvider({ children }) {
   const statesWithBills = useMemo(() => {
     const counts = {};
     for (const item of research) {
-      if (item.type === 'bill' && item.status !== 'in_review' && item.state) {
+      if (
+        item.type === 'bill' &&
+        item.status !== 'in_review' &&
+        item.state &&
+        item.state !== 'all' &&
+        item.state !== 'federal'
+      ) {
         counts[item.state] = (counts[item.state] || 0) + 1;
       }
     }
@@ -101,25 +107,13 @@ export function DataProvider({ children }) {
   const getBillsForState = (stateAbbr) => {
     return research
       .filter(item => item.state === stateAbbr && item.type === 'bill' && item.status !== 'in_review')
-      .map(item => {
-        const impact = reformImpacts[item.id];
-        const description = getDescription(item.id) || item.description;
-        return {
-          id: item.id,
-          bill: extractBillNumber(item.id, item.title),
-          title: item.title,
-          description: description,
-          url: item.url,
-          status: formatStatus(item.status),
-          reformConfig: impact?.reformParams ? {
-            id: item.id,
-            label: item.title,
-            description: description,
-            reform: impact.reformParams,
-          } : null,
-          impact: impact,
-        };
-      });
+      .map(item => mapBillItem(item, reformImpacts));
+  };
+
+  const getFederalBills = () => {
+    return research
+      .filter(item => isFederalItem(item) && item.type === 'bill' && item.status !== 'in_review')
+      .map(item => mapBillItem(item, reformImpacts));
   };
 
   // Get research for a state (excluding type === 'bill')
@@ -132,21 +126,15 @@ export function DataProvider({ children }) {
       if (item.state === 'all') return true;
       if (item.relevant_states?.includes(stateAbbr)) return true;
       return false;
-    }).map(item => ({
-      id: item.id,
-      state: item.state,
-      type: item.type,
-      status: item.status,
-      title: item.title,
-      url: item.url,
-      description: item.description,
-      date: item.date,
-      author: item.author,
-      keyFindings: item.key_findings,
-      tags: item.tags,
-      relevantStates: item.relevant_states,
-      federalToolOrder: item.federal_tool_order,
-    }));
+    }).map(mapResearchItem);
+  };
+
+  const getFederalResearch = () => {
+    return research.filter(item => {
+      if (item.status === 'in_review') return false;
+      if (item.type === 'bill') return false;
+      return isFederalItem(item);
+    }).map(mapResearchItem);
   };
 
   // Get impact for a bill
@@ -160,7 +148,9 @@ export function DataProvider({ children }) {
       error,
       statesWithBills,
       getBillsForState,
+      getFederalBills,
       getResearchForState,
+      getFederalResearch,
       getImpact,
     }}>
       {children}
@@ -189,6 +179,51 @@ function extractBillNumber(id, title) {
   const parts = id.split('-');
   if (parts.length >= 2) return parts.slice(1).join('-').toUpperCase();
   return id.toUpperCase();
+}
+
+function isFederalItem(item) {
+  return item.state === 'all' || item.state === 'federal' || item.jurisdiction_code === 'US';
+}
+
+function mapBillItem(item, reformImpacts) {
+  const impact = reformImpacts[item.id];
+  const description = getDescription(item.id) || item.description;
+  return {
+    id: item.id,
+    bill: extractBillNumber(item.id, item.title),
+    title: item.title,
+    description: description,
+    url: item.url,
+    date: item.date,
+    status: formatStatus(item.status),
+    sessionName: item.session_name,
+    reformConfig: impact?.reformParams ? {
+      id: item.id,
+      label: item.title,
+      description: description,
+      reform: impact.reformParams,
+    } : null,
+    impact: impact,
+  };
+}
+
+function mapResearchItem(item) {
+  return {
+    id: item.id,
+    state: item.state,
+    type: item.type,
+    status: item.status,
+    title: item.title,
+    url: item.url,
+    description: item.description,
+    date: item.date,
+    sessionName: item.session_name,
+    author: item.author,
+    keyFindings: item.key_findings,
+    tags: item.tags,
+    relevantStates: item.relevant_states,
+    federalToolOrder: item.federal_tool_order,
+  };
 }
 
 function formatStatus(status) {

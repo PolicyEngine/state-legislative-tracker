@@ -1,10 +1,21 @@
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import { stateData } from "../data/states";
 import { useData } from "../context/DataContext";
 import ResearchCard from "./ResearchCard";
 import { StateBillActivity, StageBadge, useProcessedBills } from "./BillActivityFeed";
 import { colors, typography, spacing } from "../designTokens";
 import { track } from "../lib/analytics";
+import SessionFilterBar from "./SessionFilterBar";
+import {
+  ALL_ACTIVITY_SCOPE,
+  ALL_YEARS,
+  CURRENT_SCOPE,
+  buildSessionYearSet,
+  collectYears,
+  extractYearsFromText,
+  matchesSessionScope,
+  matchesYearFilter,
+} from "../lib/sessionFilters";
 
 const CalendarIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -53,25 +64,47 @@ const StatePanel = memo(({ stateAbbr, onBillSelect }) => {
   const state = stateData[stateAbbr];
   const { getBillsForState, getResearchForState } = useData();
   const { bills: pipelineBills } = useProcessedBills(stateAbbr);
+  const [selectedScope, setSelectedScope] = useState(CURRENT_SCOPE);
+  const [selectedYear, setSelectedYear] = useState(ALL_YEARS);
 
-  // Build lookup: normalized bill number -> stage from processed_bills
-  // Normalize: strip spaces, strip leading zeros after letter prefix (HB0290 -> HB290, S04487 -> S4487)
-  const normalizeBillNum = (s) => s.replace(/\s+/g, "").toUpperCase().replace(/([A-Z]+)0+(\d)/, "$1$2");
-  const stageByBill = {};
-  for (const pb of pipelineBills) {
-    if (!pb.status) continue;
-    stageByBill[normalizeBillNum(pb.bill_number)] = pb.status;
-  }
+  useEffect(() => {
+    setSelectedScope(CURRENT_SCOPE);
+    setSelectedYear(ALL_YEARS);
+  }, [stateAbbr]);
 
   if (!state) return null;
 
   const bills = getBillsForState(stateAbbr);
   const research = getResearchForState(stateAbbr);
+  const sessionYears = extractYearsFromText(state.session.dates);
+  const sessionYearSet = buildSessionYearSet(selectedScope, sessionYears);
+  const availableYears = collectYears(bills, research, pipelineBills, sessionYears);
+
+  const filteredBills = bills.filter(
+    (bill) => matchesSessionScope(bill, sessionYearSet) && matchesYearFilter(bill, selectedYear),
+  );
+  const filteredResearch = research.filter(
+    (item) => matchesSessionScope(item, sessionYearSet) && matchesYearFilter(item, selectedYear),
+  );
+  const filteredPipelineBills = pipelineBills.filter(
+    (bill) =>
+      matchesSessionScope(bill, sessionYearSet, "last_action_date") &&
+      matchesYearFilter(bill, selectedYear, "last_action_date"),
+  );
+
+  // Build lookup: normalized bill number -> stage from processed_bills
+  // Normalize: strip spaces, strip leading zeros after letter prefix (HB0290 -> HB290, S04487 -> S4487)
+  const normalizeBillNum = (s) => s.replace(/\s+/g, "").toUpperCase().replace(/([A-Z]+)0+(\d)/, "$1$2");
+  const stageByBill = {};
+  for (const pb of filteredPipelineBills) {
+    if (!pb.status) continue;
+    stageByBill[normalizeBillNum(pb.bill_number)] = pb.status;
+  }
 
   // Separate research by status
-  const published = research.filter((r) => r.status === "published");
-  const inProgress = research.filter((r) => r.status === "in_progress");
-  const planned = research.filter((r) => r.status === "planned");
+  const published = filteredResearch.filter((r) => r.status === "published");
+  const inProgress = filteredResearch.filter((r) => r.status === "in_progress");
+  const planned = filteredResearch.filter((r) => r.status === "planned");
 
   // Sort by date (newest first)
   const sortByDate = (items) => [...items].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
@@ -79,58 +112,75 @@ const StatePanel = memo(({ stateAbbr, onBillSelect }) => {
   // Separate state-specific from federal
   const stateSpecific = sortByDate(published.filter((r) => r.state === stateAbbr));
   const federal = sortByDate(published.filter((r) => r.state === "all" || (r.relevantStates && r.relevantStates.includes(stateAbbr))));
+  const scopeOptions = [
+    {
+      id: CURRENT_SCOPE,
+      label: "Current session",
+      description: sessionYears.length
+        ? `${state.session.dates}${state.session.carryover ? " • includes carryover years" : ""}`
+        : "Uses the years covered by the current legislative session.",
+    },
+    {
+      id: ALL_ACTIVITY_SCOPE,
+      label: "All tracked activity",
+      description: "Shows tracked bills and research across all available activity years.",
+    },
+  ];
+  const activityHeading = selectedScope === CURRENT_SCOPE ? "Current Session Activity" : "Tracked Legislative Activity";
+  const filterSummary = selectedYear === ALL_YEARS
+    ? `Viewing ${selectedScope === CURRENT_SCOPE ? "session years" : "all available years"} for ${state.name}.`
+    : `Viewing ${selectedYear} activity for ${state.name}.`;
 
   return (
     <div className="animate-fade-in">
       {/* Header */}
       <div className="state-panel-header" style={{
-        padding: `${spacing.lg} ${spacing["2xl"]}`,
-        background: `linear-gradient(135deg, ${colors.primary[600]} 0%, ${colors.primary[700]} 100%)`,
+        padding: `${spacing.xl} ${spacing["2xl"]}`,
+        backgroundColor: colors.background.secondary,
         borderRadius: `${spacing.radius["2xl"]} ${spacing.radius["2xl"]} 0 0`,
+        border: `1px solid ${colors.border.light}`,
       }}>
-        <div>
-          <h2 style={{
-            margin: 0,
-            color: colors.white,
-            fontSize: typography.fontSize["2xl"],
-            fontWeight: typography.fontWeight.bold,
-            fontFamily: typography.fontFamily.primary,
-            letterSpacing: "-0.02em",
-          }}>{state.name}</h2>
-          <div style={{ display: "flex", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm, flexWrap: "wrap" }}>
+        <h2 style={{
+          margin: 0,
+          color: colors.secondary[900],
+          fontSize: typography.fontSize["2xl"],
+          fontWeight: typography.fontWeight.bold,
+          fontFamily: typography.fontFamily.primary,
+          letterSpacing: "-0.02em",
+        }}>{state.name}</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm, flexWrap: "wrap" }}>
+          <span style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: spacing.xs,
+            padding: `${spacing.xs} ${spacing.sm}`,
+            borderRadius: spacing.radius.md,
+            backgroundColor: colors.primary[50],
+            color: colors.primary[700],
+            fontSize: typography.fontSize.xs,
+            fontFamily: typography.fontFamily.body,
+            fontWeight: typography.fontWeight.medium,
+          }}>
+            <CalendarIcon />
+            {state.session.dates}
+          </span>
+          {state.session.carryover !== undefined && (
             <span style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: spacing.xs,
               padding: `${spacing.xs} ${spacing.sm}`,
               borderRadius: spacing.radius.md,
-              backgroundColor: "rgba(255,255,255,0.2)",
-              color: colors.white,
+              backgroundColor: state.session.carryover ? colors.green[50] : colors.red[50],
+              color: state.session.carryover ? colors.green[700] : colors.red[700],
               fontSize: typography.fontSize.xs,
               fontFamily: typography.fontFamily.body,
               fontWeight: typography.fontWeight.medium,
-            }}>
-              <CalendarIcon />
-              {state.session.dates}
+            }}
+            title={state.session.carryover ? "Bills from 2025 carry over to 2026" : "Bills do not carry over from 2025"}
+            >
+              {state.session.carryover ? "Carryover" : "No carryover"}
             </span>
-            {state.session.carryover !== undefined && (
-              <span style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: `${spacing.xs} ${spacing.sm}`,
-                borderRadius: spacing.radius.md,
-                backgroundColor: state.session.carryover ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)",
-                color: colors.white,
-                fontSize: typography.fontSize.xs,
-                fontFamily: typography.fontFamily.body,
-                fontWeight: typography.fontWeight.medium,
-              }}
-              title={state.session.carryover ? "Bills from 2025 carry over to 2026" : "Bills do not carry over from 2025"}
-              >
-                {state.session.carryover ? "Carryover" : "No carryover"}
-              </span>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
@@ -142,13 +192,22 @@ const StatePanel = memo(({ stateAbbr, onBillSelect }) => {
         border: `1px solid ${colors.border.light}`,
         borderTop: "none",
       }}>
+        <SessionFilterBar
+          scopeLabel="Legislative Scope"
+          scopeOptions={scopeOptions}
+          selectedScope={selectedScope}
+          onScopeChange={setSelectedScope}
+          yearOptions={availableYears}
+          selectedYear={selectedYear}
+          onYearChange={setSelectedYear}
+          summary={filterSummary}
+        />
 
-        {/* 2026 Legislative Activity */}
-        {(bills.length > 0 || state.taxChanges?.length > 0) && (
+        {(filteredBills.length > 0 || (selectedScope === CURRENT_SCOPE && state.taxChanges?.length > 0)) && (
           <div style={{ marginBottom: spacing["2xl"] }}>
-            <SectionHeader>2026 Legislative Activity</SectionHeader>
-            <div className="state-panel-activity-grid" style={{ display: "grid", gridTemplateColumns: bills.length > 3 ? "1fr 1fr" : "1fr", gap: spacing.sm }}>
-              {state.taxChanges?.map((change, i) => (
+            <SectionHeader>{activityHeading}</SectionHeader>
+            <div className="state-panel-activity-grid" style={{ display: "grid", gridTemplateColumns: filteredBills.length > 3 ? "1fr 1fr" : "1fr", gap: spacing.sm }}>
+              {selectedScope === CURRENT_SCOPE && state.taxChanges?.map((change, i) => (
                 <a
                   key={i}
                   href={change.url}
@@ -200,7 +259,7 @@ const StatePanel = memo(({ stateAbbr, onBillSelect }) => {
                   <LinkIcon />
                 </a>
               ))}
-              {bills.map((bill, i) => (
+              {filteredBills.map((bill, i) => (
                 <div
                   key={i}
                   onClick={() => {
@@ -338,7 +397,12 @@ const StatePanel = memo(({ stateAbbr, onBillSelect }) => {
 
         {/* Tracked Bills from Pipeline */}
         <div style={{ marginBottom: spacing["2xl"] }}>
-          <StateBillActivity stateAbbr={stateAbbr} onBillSelect={onBillSelect} />
+          <StateBillActivity
+            stateAbbr={stateAbbr}
+            onBillSelect={onBillSelect}
+            sessionYearSet={sessionYearSet}
+            selectedYear={selectedYear}
+          />
         </div>
 
         {/* In Progress Research */}
@@ -393,7 +457,7 @@ const StatePanel = memo(({ stateAbbr, onBillSelect }) => {
         )}
 
         {/* No activity message */}
-        {stateSpecific.length === 0 && inProgress.length === 0 && !state.taxChanges?.length && bills.length === 0 && (
+        {stateSpecific.length === 0 && inProgress.length === 0 && planned.length === 0 && federal.length === 0 && filteredPipelineBills.length === 0 && filteredBills.length === 0 && !(selectedScope === CURRENT_SCOPE && state.taxChanges?.length) && (
           <div style={{ textAlign: "center", padding: spacing["2xl"] }}>
             <p style={{
               margin: 0,
@@ -401,7 +465,7 @@ const StatePanel = memo(({ stateAbbr, onBillSelect }) => {
               fontSize: typography.fontSize.sm,
               fontFamily: typography.fontFamily.body,
             }}>
-              No major tax legislation currently tracked for {state.name}.
+              No tracked activity matches the selected session and year filters for {state.name}.
             </p>
             <p style={{
               margin: `${spacing.sm} 0 0`,
@@ -409,7 +473,7 @@ const StatePanel = memo(({ stateAbbr, onBillSelect }) => {
               fontSize: typography.fontSize.xs,
               fontFamily: typography.fontFamily.body,
             }}>
-              Session: {state.session.dates}
+              Session window: {state.session.dates}
             </p>
           </div>
         )}
