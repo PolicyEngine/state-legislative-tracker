@@ -180,49 +180,48 @@ const FederalPanel = memo(() => {
   return (
     <div className="animate-fade-in">
       <div className="state-panel-header" style={{
-        padding: `${spacing.lg} ${spacing["2xl"]}`,
-        background: `linear-gradient(135deg, ${colors.secondary[800]} 0%, ${colors.secondary[900]} 100%)`,
+        padding: `${spacing.xl} ${spacing["2xl"]}`,
+        backgroundColor: colors.background.secondary,
         borderRadius: `${spacing.radius["2xl"]} ${spacing.radius["2xl"]} 0 0`,
+        border: `1px solid ${colors.border.light}`,
       }}>
-        <div>
-          <h2 style={{
-            margin: 0,
-            color: colors.white,
-            fontSize: typography.fontSize["2xl"],
-            fontWeight: typography.fontWeight.bold,
-            fontFamily: typography.fontFamily.primary,
-            letterSpacing: "-0.02em",
-          }}>Federal</h2>
-          <div style={{ display: "flex", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm, flexWrap: "wrap" }}>
-            <span style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: spacing.xs,
-              padding: `${spacing.xs} ${spacing.sm}`,
-              borderRadius: spacing.radius.md,
-              backgroundColor: "rgba(255,255,255,0.14)",
-              color: colors.white,
-              fontSize: typography.fontSize.xs,
-              fontFamily: typography.fontFamily.body,
-              fontWeight: typography.fontWeight.medium,
-            }}>
-              <CapitolIcon />
-              Shared bill pipeline
-            </span>
-            <span style={{
-              display: "inline-flex",
-              alignItems: "center",
-              padding: `${spacing.xs} ${spacing.sm}`,
-              borderRadius: spacing.radius.md,
-              backgroundColor: "rgba(255,255,255,0.14)",
-              color: colors.white,
-              fontSize: typography.fontSize.xs,
-              fontFamily: typography.fontFamily.body,
-              fontWeight: typography.fontWeight.medium,
-            }}>
-              Bills, tools, and analysis
-            </span>
-          </div>
+        <h2 style={{
+          margin: 0,
+          color: colors.secondary[900],
+          fontSize: typography.fontSize["2xl"],
+          fontWeight: typography.fontWeight.bold,
+          fontFamily: typography.fontFamily.primary,
+          letterSpacing: "-0.02em",
+        }}>Federal</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm, flexWrap: "wrap" }}>
+          <span style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: spacing.xs,
+            padding: `${spacing.xs} ${spacing.sm}`,
+            borderRadius: spacing.radius.md,
+            backgroundColor: colors.primary[50],
+            color: colors.primary[700],
+            fontSize: typography.fontSize.xs,
+            fontFamily: typography.fontFamily.body,
+            fontWeight: typography.fontWeight.medium,
+          }}>
+            <CapitolIcon />
+            119th Congress
+          </span>
+          <span style={{
+            display: "inline-flex",
+            alignItems: "center",
+            padding: `${spacing.xs} ${spacing.sm}`,
+            borderRadius: spacing.radius.md,
+            backgroundColor: colors.gray[100],
+            color: colors.gray[600],
+            fontSize: typography.fontSize.xs,
+            fontFamily: typography.fontFamily.body,
+            fontWeight: typography.fontWeight.medium,
+          }}>
+            Bills, tools, and analysis
+          </span>
         </div>
       </div>
 

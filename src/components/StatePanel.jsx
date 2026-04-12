@@ -135,53 +135,52 @@ const StatePanel = memo(({ stateAbbr, onBillSelect }) => {
     <div className="animate-fade-in">
       {/* Header */}
       <div className="state-panel-header" style={{
-        padding: `${spacing.lg} ${spacing["2xl"]}`,
-        background: `linear-gradient(135deg, ${colors.primary[600]} 0%, ${colors.primary[700]} 100%)`,
+        padding: `${spacing.xl} ${spacing["2xl"]}`,
+        backgroundColor: colors.background.secondary,
         borderRadius: `${spacing.radius["2xl"]} ${spacing.radius["2xl"]} 0 0`,
+        border: `1px solid ${colors.border.light}`,
       }}>
-        <div>
-          <h2 style={{
-            margin: 0,
-            color: colors.white,
-            fontSize: typography.fontSize["2xl"],
-            fontWeight: typography.fontWeight.bold,
-            fontFamily: typography.fontFamily.primary,
-            letterSpacing: "-0.02em",
-          }}>{state.name}</h2>
-          <div style={{ display: "flex", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm, flexWrap: "wrap" }}>
+        <h2 style={{
+          margin: 0,
+          color: colors.secondary[900],
+          fontSize: typography.fontSize["2xl"],
+          fontWeight: typography.fontWeight.bold,
+          fontFamily: typography.fontFamily.primary,
+          letterSpacing: "-0.02em",
+        }}>{state.name}</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm, flexWrap: "wrap" }}>
+          <span style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: spacing.xs,
+            padding: `${spacing.xs} ${spacing.sm}`,
+            borderRadius: spacing.radius.md,
+            backgroundColor: colors.primary[50],
+            color: colors.primary[700],
+            fontSize: typography.fontSize.xs,
+            fontFamily: typography.fontFamily.body,
+            fontWeight: typography.fontWeight.medium,
+          }}>
+            <CalendarIcon />
+            {state.session.dates}
+          </span>
+          {state.session.carryover !== undefined && (
             <span style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: spacing.xs,
               padding: `${spacing.xs} ${spacing.sm}`,
               borderRadius: spacing.radius.md,
-              backgroundColor: "rgba(255,255,255,0.2)",
-              color: colors.white,
+              backgroundColor: state.session.carryover ? colors.green[50] : colors.red[50],
+              color: state.session.carryover ? colors.green[700] : colors.red[700],
               fontSize: typography.fontSize.xs,
               fontFamily: typography.fontFamily.body,
               fontWeight: typography.fontWeight.medium,
-            }}>
-              <CalendarIcon />
-              {state.session.dates}
+            }}
+            title={state.session.carryover ? "Bills from 2025 carry over to 2026" : "Bills do not carry over from 2025"}
+            >
+              {state.session.carryover ? "Carryover" : "No carryover"}
             </span>
-            {state.session.carryover !== undefined && (
-              <span style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: `${spacing.xs} ${spacing.sm}`,
-                borderRadius: spacing.radius.md,
-                backgroundColor: state.session.carryover ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)",
-                color: colors.white,
-                fontSize: typography.fontSize.xs,
-                fontFamily: typography.fontFamily.body,
-                fontWeight: typography.fontWeight.medium,
-              }}
-              title={state.session.carryover ? "Bills from 2025 carry over to 2026" : "Bills do not carry over from 2025"}
-              >
-                {state.session.carryover ? "Carryover" : "No carryover"}
-              </span>
-            )}
-          </div>
+          )}
         </div>
       </div>
 

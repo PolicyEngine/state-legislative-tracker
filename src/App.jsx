@@ -147,7 +147,6 @@ function App() {
     <div className="app-shell" style={{ minHeight: "100vh" }}>
       {/* Header */}
       <header
-        className="header-accent"
         style={{
           backgroundColor: colors.white,
           boxShadow: "var(--shadow-elevation-low)",
@@ -156,39 +155,43 @@ function App() {
           zIndex: 50,
         }}
       >
-        <div className="app-header-inner" style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing.xl} ${spacing["2xl"]}` }}>
+        <div className="app-header-inner" style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing.md} ${spacing["2xl"]} 0` }}>
           <div className="app-header-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div className="app-header-brand" style={{ display: "flex", alignItems: "center", gap: spacing.lg }}>
+            <div className="app-header-brand" style={{ display: "flex", alignItems: "center", gap: spacing.md }}>
               <a href="https://policyengine.org" target="_blank" rel="noopener noreferrer">
                 <img
                   src="/policyengine-favicon.svg"
                   alt="PolicyEngine"
-                  style={{ height: "40px", width: "auto" }}
+                  style={{ height: "32px", width: "auto" }}
                 />
               </a>
-              <div>
-                <h1 style={{
-                  margin: 0,
-                  color: colors.secondary[900],
-                  fontSize: typography.fontSize["2xl"],
-                  fontWeight: typography.fontWeight.bold,
-                  fontFamily: typography.fontFamily.primary,
-                  letterSpacing: "-0.02em",
-                }}>
-                  Tax and Transfer Bill Tracker
-                </h1>
-                <p style={{
-                  margin: "2px 0 0",
-                  color: colors.text.secondary,
-                  fontSize: typography.fontSize.sm,
-                  fontFamily: typography.fontFamily.body,
-                }}>
-                  State-first legislative tracking with a federal workspace
-                </p>
-              </div>
+              <h1 style={{
+                margin: 0,
+                color: colors.secondary[900],
+                fontSize: typography.fontSize.lg,
+                fontWeight: typography.fontWeight.bold,
+                fontFamily: typography.fontFamily.primary,
+                letterSpacing: "-0.02em",
+              }}>
+                Bill Tracker
+              </h1>
             </div>
             <StateSearchCombobox onSelect={handleJurisdictionSelect} statesWithBills={statesWithBills} />
           </div>
+          <nav className="app-nav" style={{ display: "flex", gap: spacing.xs, marginTop: spacing.md }}>
+            <NavTab
+              active={!isFederalJurisdiction(selectedJurisdiction)}
+              onClick={() => { if (selectedJurisdiction) handleJurisdictionSelect(null); }}
+            >
+              States
+            </NavTab>
+            <NavTab
+              active={isFederalJurisdiction(selectedJurisdiction)}
+              onClick={() => { if (!isFederalJurisdiction(selectedJurisdiction)) handleJurisdictionSelect(FEDERAL_JURISDICTION); }}
+            >
+              Federal
+            </NavTab>
+          </nav>
         </div>
       </header>
 
@@ -217,11 +220,6 @@ function App() {
         {/* === Jurisdiction Page === */}
         {isJurisdictionPage && (
           <div className="animate-fade-in-up">
-            <Breadcrumb
-              jurisdiction={selectedJurisdiction}
-              onNavigateHome={handleNavigateHome}
-              onNavigateJurisdiction={handleNavigateJurisdiction}
-            />
             <Suspense fallback={<LoadingPlaceholder />}>
               {isFederalJurisdiction(selectedJurisdiction) ? (
                 <FederalPanel />
@@ -238,55 +236,25 @@ function App() {
         {/* === Home Page === */}
         {!selectedJurisdiction && (
           <>
-            {/* Intro */}
-            <div className="animate-fade-in-up" style={{ marginBottom: spacing["2xl"] }}>
+            <div className="animate-fade-in-up" style={{ marginBottom: spacing.xl }}>
               <h2 style={{
-                margin: `0 0 ${spacing.sm}`,
+                margin: 0,
                 color: colors.secondary[900],
-                fontSize: typography.fontSize["3xl"],
+                fontSize: typography.fontSize["2xl"],
                 fontWeight: typography.fontWeight.bold,
                 fontFamily: typography.fontFamily.primary,
                 letterSpacing: "-0.02em",
               }}>
-                Track tax and transfer bills by jurisdiction
+                Select a state to explore legislation
               </h2>
               <p style={{
-                margin: 0,
+                margin: `${spacing.xs} 0 0`,
                 color: colors.text.secondary,
-                fontSize: typography.fontSize.base,
+                fontSize: typography.fontSize.sm,
                 fontFamily: typography.fontFamily.body,
-                maxWidth: "none",
-                lineHeight: "1.6",
               }}>
-                Start with your state, or jump into federal. The app keeps the state workflow front and center while using one shared bill-analysis pipeline underneath.
+                Click a state on the map or use the search bar above.
               </p>
-              <div style={{ display: "flex", gap: spacing.sm, flexWrap: "wrap", marginTop: spacing.lg }}>
-                <button
-                  onClick={() => handleJurisdictionSelect(FEDERAL_JURISDICTION)}
-                  style={{
-                    border: `1px solid ${colors.secondary[900]}`,
-                    backgroundColor: colors.secondary[900],
-                    color: colors.white,
-                    borderRadius: spacing.radius.lg,
-                    padding: `${spacing.sm} ${spacing.lg}`,
-                    fontSize: typography.fontSize.sm,
-                    fontFamily: typography.fontFamily.primary,
-                    fontWeight: typography.fontWeight.semibold,
-                    cursor: "pointer",
-                  }}
-                >
-                  Open Federal Tracker
-                </button>
-                <span style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  color: colors.text.secondary,
-                  fontSize: typography.fontSize.sm,
-                  fontFamily: typography.fontFamily.body,
-                }}>
-                  The map remains the primary entry point for state legislation.
-                </span>
-              </div>
             </div>
 
             <div className="app-home-grid" style={{
@@ -585,6 +553,18 @@ function QuickLinkCard({ href, title, description }) {
         fontFamily: typography.fontFamily.body,
       }}>{description}</p>
     </a>
+  );
+}
+
+// Nav Tab Component
+function NavTab({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`app-nav-tab${active ? " app-nav-tab--active" : ""}`}
+    >
+      {children}
+    </button>
   );
 }
 
