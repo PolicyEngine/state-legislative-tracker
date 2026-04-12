@@ -29,12 +29,22 @@ import sys
 import json
 import argparse
 import time
+import re
+import difflib
 import requests
+from datetime import datetime
 
 # ============== Configuration ==============
 
 OPENSTATES_API_KEY = os.environ.get("OPENSTATES_API_KEY")
 OPENSTATES_BASE_URL = "https://v3.openstates.org"
+RECENT_CREATED_SINCE = f"{datetime.utcnow().year - 1}-01-01"
+
+STOPWORDS = {
+    "act", "bill", "state", "tax", "income", "credit", "credits", "reduction",
+    "increase", "expanded", "expansion", "child", "marriage", "penalty",
+    "elimination", "supplemental", "empire",
+}
 
 # Legislative stage classification based on action classifications
 # Order matters — later stages override earlier ones
@@ -90,6 +100,54 @@ STAGE_LABELS = {
     "dead": "Dead/Withdrawn",
 }
 
+BILL_NUMBER_RE = re.compile(r"\b(?!FY)([A-Z]{1,3}\.?\s*\d+(?:\s*S\d+)?)\b", re.I)
+
+
+class RateLimitExhaustedError(RuntimeError):
+    """Raised when OpenStates continues returning 429 after retries."""
+
+
+def normalize_bill_number(value):
+    """Normalize bill numbers across spacing and leading-zero variants."""
+    if not value:
+        return None
+
+    value = re.sub(r"\s+", "", value).replace(".", "").upper()
+    return re.sub(r"([A-Z]+)0+(\d)", r"\1\2", value)
+
+
+def normalize_text(value):
+    """Lowercase and strip punctuation for fuzzy title comparisons."""
+    return re.sub(r"[^a-z0-9 ]+", " ", (value or "").lower())
+
+
+def token_set(value):
+    """Tokenize bill titles while dropping generic legislative filler."""
+    tokens = set()
+    for token in normalize_text(value).split():
+        if len(token) <= 2 or token in STOPWORDS or token.isdigit():
+            continue
+        tokens.add(token)
+    return tokens
+
+
+def title_similarity_score(left, right):
+    """Return sequence and token-overlap similarity for two bill titles."""
+    left_norm = normalize_text(left)
+    right_norm = normalize_text(right)
+    ratio = difflib.SequenceMatcher(None, left_norm, right_norm).ratio()
+    left_tokens = token_set(left)
+    right_tokens = token_set(right)
+    overlap = len(left_tokens & right_tokens) / max(1, len(left_tokens | right_tokens))
+    return ratio, overlap
+
+
+def normalize_action_date(value):
+    """Collapse ISO timestamps to YYYY-MM-DD for stable comparison/storage."""
+    if not value:
+        return None
+    return str(value)[:10]
+
 
 def openstates_request(endpoint, params=None, max_retries=3):
     """Make a request to the OpenStates API v3 with retry on rate limit."""
@@ -108,6 +166,12 @@ def openstates_request(endpoint, params=None, max_retries=3):
             time.sleep(wait)
             continue
 
+        if response.status_code in {500, 502, 503, 504}:
+            wait = 5 * (attempt + 1)
+            print(f"  OpenStates {response.status_code}, retrying in {wait}s...")
+            time.sleep(wait)
+            continue
+
         if response.status_code == 404:
             return None
 
@@ -116,8 +180,14 @@ def openstates_request(endpoint, params=None, max_retries=3):
 
     response = requests.get(url, headers=headers, params=params or {})
     if response.status_code == 429:
-        print(f"  Still rate limited after {max_retries} retries, skipping")
-        return None
+        raise RateLimitExhaustedError(
+            f"OpenStates rate limit exhausted after {max_retries} retries"
+        )
+    if response.status_code in {500, 502, 503, 504}:
+        raise requests.HTTPError(
+            f"OpenStates transient error persisted ({response.status_code})",
+            response=response,
+        )
     response.raise_for_status()
     return response.json()
 
@@ -155,39 +225,50 @@ def classify_stage(actions):
     return stage
 
 
-def search_bill_on_openstates(state_name, bill_number):
+def search_bill_on_openstates(state_name, bill_number, title=""):
     """
     Search for a bill by state + identifier on OpenStates.
     Returns the bill detail with actions, or None.
     """
-    # Clean bill number for search (e.g., "HB05133" -> "HB 5133", "SB0032" -> "SB 32")
     clean_num = bill_number.strip()
+    target_norm = normalize_bill_number(clean_num)
 
     params = {
         "jurisdiction": state_name,
         "q": clean_num,
-        "per_page": 5,
+        "per_page": 8,
         "include": "actions",
+        "sort": "updated_desc",
+        "created_since": RECENT_CREATED_SINCE,
     }
 
     data = openstates_request("/bills", params)
     if not data or not data.get("results"):
         return None
 
-    # Find best match by identifier
+    candidates = []
     for result in data["results"]:
-        result_id = result.get("identifier", "").replace(" ", "").upper()
-        search_id = clean_num.replace(" ", "").upper()
-        # Strip leading zeros for comparison
-        import re
-        result_norm = re.sub(r'([A-Z]+)0*(\d+)', r'\1\2', result_id)
-        search_norm = re.sub(r'([A-Z]+)0*(\d+)', r'\1\2', search_id)
+        result_norm = normalize_bill_number(result.get("identifier", ""))
+        if target_norm and result_norm != target_norm:
+            continue
 
-        if result_norm == search_norm:
-            return result
+        ratio, overlap = title_similarity_score(title, result.get("title", ""))
+        latest_date = normalize_action_date(result.get("latest_action_date"))
+        recency_bonus = 20 if latest_date and latest_date >= RECENT_CREATED_SINCE else 0
+        score = ratio * 100 + overlap * 100 + recency_bonus
+        candidates.append((score, ratio, overlap, result))
 
-    # If no exact match, return first result as fallback
-    return data["results"][0] if data["results"] else None
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    _, ratio, overlap, result = candidates[0]
+
+    # Reject low-confidence title mismatches to avoid wrong-session collisions.
+    if title and ratio < 0.22 and overlap == 0:
+        return None
+
+    return result
 
 
 def get_bill_detail(openstates_id):
@@ -269,6 +350,9 @@ def main():
     skipped = 0
     errors = 0
 
+    interrupted_by_rate_limit = False
+    resume_offset = None
+
     for i, bill in enumerate(bills):
         state = bill["state"]
         bn = bill["bill_number"]
@@ -278,7 +362,7 @@ def main():
 
         try:
             # Search for the bill on OpenStates by state + bill number
-            detail = search_bill_on_openstates(state_name, bn)
+            detail = search_bill_on_openstates(state_name, bn, bill.get("title", ""))
 
             if not detail:
                 print("not found on OpenStates")
@@ -291,15 +375,19 @@ def main():
 
             # Get latest action info
             latest_action = detail.get("latest_action_description", "")
-            latest_action_date = detail.get("latest_action_date", "") or None
+            latest_action_date = normalize_action_date(detail.get("latest_action_date", "") or None)
 
             # Determine if anything changed
             old_action = bill.get("last_action", "")
-            old_date = bill.get("last_action_date", "")
+            old_date = normalize_action_date(bill.get("last_action_date", ""))
 
             stage_label = STAGE_LABELS.get(stage, stage)
 
-            if latest_action == old_action and latest_action_date == old_date:
+            if (
+                latest_action == old_action
+                and latest_action_date == old_date
+                and stage_label == (bill.get("status") or "")
+            ):
                 print(f"{stage_label} (no change)")
                 skipped += 1
             else:
@@ -319,6 +407,11 @@ def main():
 
                 updated += 1
 
+        except RateLimitExhaustedError as e:
+            print(f"STOPPING: {e}")
+            interrupted_by_rate_limit = True
+            resume_offset = args.offset + i
+            break
         except Exception as e:
             print(f"ERROR: {e}")
             errors += 1
@@ -332,6 +425,8 @@ def main():
     print(f"  Updated: {updated}")
     print(f"  No change: {skipped}")
     print(f"  Errors: {errors}")
+    if interrupted_by_rate_limit:
+        print(f"  Resume with: --offset {resume_offset}")
     return 0
 
 
