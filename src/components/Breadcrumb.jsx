@@ -1,5 +1,6 @@
 import { colors, typography, spacing } from "../designTokens";
 import { stateData } from "../data/states";
+import { getJurisdictionLabel } from "../lib/jurisdictions";
 
 const ArrowLeft = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -13,8 +14,10 @@ const ChevronRight = () => (
   </svg>
 );
 
-export default function Breadcrumb({ stateAbbr, billLabel, onNavigateHome, onNavigateState }) {
-  const onBack = billLabel ? onNavigateState : onNavigateHome;
+export default function Breadcrumb({ jurisdiction, billLabel, onNavigateHome, onNavigateJurisdiction }) {
+  const onBack = billLabel ? onNavigateJurisdiction : onNavigateHome;
+  const jurisdictionLabel = getJurisdictionLabel(jurisdiction, stateData);
+
   return (
     <nav className="breadcrumb-nav" style={{
       display: "flex",
@@ -72,12 +75,12 @@ export default function Breadcrumb({ stateAbbr, billLabel, onNavigateHome, onNav
       >
         Home
       </button>
-      {stateAbbr && (
+      {jurisdiction && (
         <>
           <ChevronRight />
           {billLabel ? (
             <button
-              onClick={onNavigateState}
+              onClick={onNavigateJurisdiction}
               style={{
                 border: "none",
                 background: "none",
@@ -92,11 +95,11 @@ export default function Breadcrumb({ stateAbbr, billLabel, onNavigateHome, onNav
               onMouseEnter={(e) => e.currentTarget.style.textDecoration = "underline"}
               onMouseLeave={(e) => e.currentTarget.style.textDecoration = "none"}
             >
-              {stateData[stateAbbr]?.name || stateAbbr}
+              {jurisdictionLabel}
             </button>
           ) : (
             <span style={{ color: colors.text.primary, fontWeight: typography.fontWeight.medium }}>
-              {stateData[stateAbbr]?.name || stateAbbr}
+              {jurisdictionLabel}
             </span>
           )}
         </>

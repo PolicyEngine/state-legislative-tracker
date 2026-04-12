@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 import { useData } from "../context/DataContext";
 import { colors, typography, spacing } from "../designTokens";
+import { ALL_YEARS, matchesSessionScope, matchesYearFilter } from "../lib/sessionFilters";
 
 const REQUEST_API_PATH = "/api/bill-analysis-request";
 const MAILCHIMP_SUBSCRIBE_URL =
@@ -774,12 +775,20 @@ function StageSummaryBar({ bills }) {
 
 const DEFAULT_VISIBLE = 5;
 
-export function StateBillActivity({ stateAbbr, onBillSelect }) {
+export function StateBillActivity({ stateAbbr, onBillSelect, sessionYearSet = null, selectedYear = ALL_YEARS }) {
   const { bills, loading } = useProcessedBills(stateAbbr);
   const { research } = useData();
   const [expanded, setExpanded] = useState(false);
   const [actionBill, setActionBill] = useState(null);
   const [requestBill, setRequestBill] = useState(null);
+
+  const scopedBills = useMemo(
+    () => bills.filter((bill) => (
+      matchesSessionScope(bill, sessionYearSet, "last_action_date") &&
+      matchesYearFilter(bill, selectedYear, "last_action_date")
+    )),
+    [bills, sessionYearSet, selectedYear],
+  );
 
   const { analyzedBillIds, billToResearchId } = useMemo(() => {
     const ids = new Set();
@@ -800,11 +809,11 @@ export function StateBillActivity({ stateAbbr, onBillSelect }) {
   }, [research]);
 
   const unananalyzedBills = useMemo(
-    () => bills.filter((b) => {
+    () => scopedBills.filter((b) => {
       const norm = `${b.state}:${b.bill_number.replace(/\s+/g, "").replace(/^([A-Z]+)0+(\d)/, "$1$2").toUpperCase()}`;
       return !analyzedBillIds.has(norm);
     }),
-    [bills, analyzedBillIds],
+    [scopedBills, analyzedBillIds],
   );
 
   if (loading || !unananalyzedBills.length) return null;
