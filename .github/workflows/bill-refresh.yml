@@ -1,0 +1,36 @@
+name: Daily Bill Refresh
+
+on:
+  schedule:
+    # 11:00 UTC = 7:00 AM ET (runs before workday starts)
+    - cron: "0 11 * * *"
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+jobs:
+  refresh-and-discover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests supabase
+
+      - name: Refresh bill statuses from OpenStates
+        env:
+          OPENSTATES_API_KEY: ${{ secrets.OPENSTATES_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python scripts/refresh_bill_status.py --limit 100
+
+      - name: Discover new bills from OpenStates
+        env:
+          OPENSTATES_API_KEY: ${{ secrets.OPENSTATES_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python scripts/openstates_monitor.py
