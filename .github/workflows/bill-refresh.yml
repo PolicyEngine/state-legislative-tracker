@@ -1,14 +1,33 @@
-name: Daily Bill Refresh
+name: Daily Bill Pipeline
 
 on:
   schedule:
-    # 11:00 UTC = 7:00 AM ET (runs before workday starts)
-    - cron: "0 11 * * *"
-  workflow_dispatch: # Allow manual trigger from GitHub UI
+    # 11:00 UTC = 7:00 AM ET
+    # Monday: refresh bills 1-200 (top by confidence)
+    # Tuesday: refresh bills 201-440
+    # Wednesday: discover new bills + auto-triage + update GitHub issues
+    - cron: "0 11 * * 1,2,3"
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: "Which phase to run manually"
+        required: true
+        default: "monday"
+        type: choice
+        options:
+          - monday
+          - tuesday
+          - wednesday
 
 jobs:
-  refresh-and-discover:
+  pipeline:
     runs-on: ubuntu-latest
+    env:
+      OPENSTATES_API_KEY: ${{ secrets.OPENSTATES_API_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -19,18 +38,38 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install requests supabase
+        run: pip install requests supabase anthropic
 
-      - name: Refresh bill statuses from OpenStates
-        env:
-          OPENSTATES_API_KEY: ${{ secrets.OPENSTATES_API_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python scripts/refresh_bill_status.py --limit 100
+      - name: Determine phase
+        id: phase
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "phase=${{ inputs.phase }}" >> $GITHUB_OUTPUT
+          else
+            DOW=$(date -u +%u)
+            case "$DOW" in
+              1) echo "phase=monday"    >> $GITHUB_OUTPUT ;;
+              2) echo "phase=tuesday"   >> $GITHUB_OUTPUT ;;
+              3) echo "phase=wednesday" >> $GITHUB_OUTPUT ;;
+              *) echo "phase=none"      >> $GITHUB_OUTPUT ;;
+            esac
+          fi
 
-      - name: Discover new bills from OpenStates
-        env:
-          OPENSTATES_API_KEY: ${{ secrets.OPENSTATES_API_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      # Monday: Refresh top 200 bills by confidence
+      - name: Refresh bills 1-200
+        if: steps.phase.outputs.phase == 'monday'
+        run: python scripts/refresh_bill_status.py --limit 200 --offset 0
+
+      # Tuesday: Refresh remaining bills (201+)
+      - name: Refresh bills 201+
+        if: steps.phase.outputs.phase == 'tuesday'
+        run: python scripts/refresh_bill_status.py --limit 240 --offset 200
+
+      # Wednesday: Discover + auto-triage + update GitHub issues
+      - name: Discover new bills
+        if: steps.phase.outputs.phase == 'wednesday'
         run: python scripts/openstates_monitor.py
+
+      - name: Auto-triage and update issues
+        if: steps.phase.outputs.phase == 'wednesday'
+        run: python scripts/auto_triage.py
