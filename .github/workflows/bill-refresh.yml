@@ -3,19 +3,22 @@ name: Daily Bill Pipeline
 on:
   schedule:
     # 11:00 UTC = 7:00 AM ET, every day
-    # Day A (even day-of-year): refresh bills 1-200
-    # Day B (odd day-of-year): refresh bills 201+ + discover + auto-triage
+    # 3-day rotation to stay under 250 OpenStates calls/day:
+    # Day 1 (DOY % 3 == 0): refresh bills 1-200       (~200 calls)
+    # Day 2 (DOY % 3 == 1): refresh bills 201-400     (~200 calls)
+    # Day 3 (DOY % 3 == 2): refresh bills 401+ + discover + auto-triage (~60 calls)
     - cron: "0 11 * * *"
   workflow_dispatch:
     inputs:
       phase:
         description: "Which phase to run manually"
         required: true
-        default: "day_a"
+        default: "day_1"
         type: choice
         options:
-          - day_a
-          - day_b
+          - day_1
+          - day_2
+          - day_3
 
 jobs:
   pipeline:
@@ -44,29 +47,33 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "phase=${{ inputs.phase }}" >> $GITHUB_OUTPUT
           else
-            # Alternate by day-of-year: even = day_a, odd = day_b
             DOY=$(date -u +%j)
-            if [ $((10#$DOY % 2)) -eq 0 ]; then
-              echo "phase=day_a" >> $GITHUB_OUTPUT
-            else
-              echo "phase=day_b" >> $GITHUB_OUTPUT
-            fi
+            case $((10#$DOY % 3)) in
+              0) echo "phase=day_1" >> $GITHUB_OUTPUT ;;
+              1) echo "phase=day_2" >> $GITHUB_OUTPUT ;;
+              2) echo "phase=day_3" >> $GITHUB_OUTPUT ;;
+            esac
           fi
 
-      # Day A: Refresh top 200 bills by confidence
+      # Day 1: Refresh top 200 bills by confidence
       - name: Refresh bills 1-200
-        if: steps.phase.outputs.phase == 'day_a'
+        if: steps.phase.outputs.phase == 'day_1'
         run: python scripts/refresh_bill_status.py --limit 200 --offset 0
 
-      # Day B: Refresh remaining bills (201+) + discover + auto-triage
-      - name: Refresh bills 201+
-        if: steps.phase.outputs.phase == 'day_b'
-        run: python scripts/refresh_bill_status.py --limit 240 --offset 200
+      # Day 2: Refresh bills 201-400
+      - name: Refresh bills 201-400
+        if: steps.phase.outputs.phase == 'day_2'
+        run: python scripts/refresh_bill_status.py --limit 200 --offset 200
+
+      # Day 3: Refresh remaining (401+) + discover + auto-triage
+      - name: Refresh bills 401+
+        if: steps.phase.outputs.phase == 'day_3'
+        run: python scripts/refresh_bill_status.py --limit 100 --offset 400
 
       - name: Discover new bills
-        if: steps.phase.outputs.phase == 'day_b'
+        if: steps.phase.outputs.phase == 'day_3'
         run: python scripts/openstates_monitor.py
 
       - name: Auto-triage and update issues
-        if: steps.phase.outputs.phase == 'day_b'
+        if: steps.phase.outputs.phase == 'day_3'
         run: python scripts/auto_triage.py
