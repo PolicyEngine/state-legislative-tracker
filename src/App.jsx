@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
+import PolicyEngineHeader from "./components/PolicyEngineHeader";
+import PolicyEngineFooter from "./components/PolicyEngineFooter";
 import USMap from "./components/USMap";
 import Breadcrumb from "./components/Breadcrumb";
 import StateSearchCombobox from "./components/StateSearchCombobox";
@@ -125,47 +127,38 @@ function App() {
 
   return (
     <div className="app-shell" style={{ minHeight: "100vh" }}>
-      {/* Header */}
+      {/* PE org header */}
+      <PolicyEngineHeader />
+
+      {/* Tracker title bar + state search */}
       <header
         className="header-accent"
         style={{
           backgroundColor: colors.white,
           boxShadow: "var(--shadow-elevation-low)",
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
         }}
       >
         <div className="app-header-inner" style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing.xl} ${spacing["2xl"]}` }}>
           <div className="app-header-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div className="app-header-brand" style={{ display: "flex", alignItems: "center", gap: spacing.lg }}>
-              <a href="https://policyengine.org" target="_blank" rel="noopener noreferrer">
-                <img
-                  src="/policyengine-favicon.svg"
-                  alt="PolicyEngine"
-                  style={{ height: "40px", width: "auto" }}
-                />
-              </a>
-              <div>
-                <h1 style={{
-                  margin: 0,
-                  color: colors.secondary[900],
-                  fontSize: typography.fontSize["2xl"],
-                  fontWeight: typography.fontWeight.bold,
-                  fontFamily: typography.fontFamily.primary,
-                  letterSpacing: "-0.02em",
-                }}>
-                  2026 State Legislative Tracker
-                </h1>
-                <p style={{
-                  margin: "2px 0 0",
-                  color: colors.text.secondary,
-                  fontSize: typography.fontSize.sm,
-                  fontFamily: typography.fontFamily.body,
-                }}>
-                  PolicyEngine State Tax Research
-                </p>
-              </div>
+            <div>
+              <h1 style={{
+                margin: 0,
+                color: colors.secondary[900],
+                fontSize: typography.fontSize["2xl"],
+                fontWeight: typography.fontWeight.bold,
+                fontFamily: typography.fontFamily.primary,
+                letterSpacing: "-0.02em",
+              }}>
+                2026 State Legislative Tracker
+              </h1>
+              <p style={{
+                margin: "2px 0 0",
+                color: colors.text.secondary,
+                fontSize: typography.fontSize.sm,
+                fontFamily: typography.fontFamily.body,
+              }}>
+                PolicyEngine State Tax Research
+              </p>
             </div>
             <StateSearchCombobox onSelect={handleStateSelect} statesWithBills={statesWithBills} />
           </div>
@@ -338,44 +331,8 @@ function App() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer style={{
-        backgroundColor: colors.secondary[900],
-        color: colors.white,
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        {/* Gradient accent at top */}
-        <div style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: "3px",
-          background: "linear-gradient(90deg, #2C7A7B 0%, #38B2AC 50%, #0EA5E9 100%)",
-        }} />
-        <div className="app-footer-inner" style={{
-          maxWidth: "1400px",
-          margin: "0 auto",
-          padding: `${spacing["2xl"]} ${spacing["2xl"]}`,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}>
-          <p style={{
-            margin: 0,
-            fontSize: typography.fontSize.sm,
-            fontFamily: typography.fontFamily.body,
-            color: colors.gray[400],
-          }}>
-            © {new Date().getFullYear()} PolicyEngine. Open-source tax and benefit policy simulation.
-          </p>
-          <div className="app-footer-links" style={{ display: "flex", gap: spacing.lg }}>
-            <FooterLink href="https://github.com/policyengine">GitHub</FooterLink>
-            <FooterLink href="https://policyengine.org">PolicyEngine.org</FooterLink>
-          </div>
-        </div>
-      </footer>
+      {/* PE org footer */}
+      <PolicyEngineFooter />
     </div>
   );
 }
@@ -532,29 +489,6 @@ function QuickLinkCard({ href, title, description }) {
         fontSize: typography.fontSize.sm,
         fontFamily: typography.fontFamily.body,
       }}>{description}</p>
-    </a>
-  );
-}
-
-// Footer Link Component
-function FooterLink({ href, children }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{
-        color: colors.gray[400],
-        textDecoration: "none",
-        fontSize: typography.fontSize.sm,
-        fontFamily: typography.fontFamily.body,
-        fontWeight: typography.fontWeight.medium,
-        transition: "color 0.2s ease",
-      }}
-      onMouseEnter={(e) => e.currentTarget.style.color = colors.primary[300]}
-      onMouseLeave={(e) => e.currentTarget.style.color = colors.gray[400]}
-    >
-      {children}
     </a>
   );
 }
