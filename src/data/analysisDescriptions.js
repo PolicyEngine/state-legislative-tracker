@@ -6,6 +6,9 @@
  */
 
 const descriptions = {
+  // Alabama
+  "al-hb527": "Alabama HB527 creates a state income tax deduction of up to $1,000 per taxpayer per year for qualified overtime compensation (the premium portion of overtime pay). Joint filers can each claim up to $1,000. The deduction is effective for tax years 2025-2027.",
+
   // Arizona
   "az-hb2636": "Replaces Arizona's 2.5% flat individual income tax with a two-bracket progressive structure: 2.5% on the first $1M of taxable income, 8% on income above $1M. Same threshold for all filing statuses. Effective TY2027.",
 
