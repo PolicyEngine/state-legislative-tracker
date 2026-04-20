@@ -139,10 +139,12 @@ function App() {
         <div className="app-header-inner" style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing.xl} ${spacing["2xl"]}` }}>
           <div className="app-header-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div className="app-header-brand" style={{ display: "flex", alignItems: "center", gap: spacing.lg }}>
-              <a href="https://policyengine.org" target="_blank" rel="noopener noreferrer">
+              <a href="https://policyengine.org" target="_blank" rel="noopener noreferrer" aria-label="Visit PolicyEngine.org">
                 <img
                   src="/policyengine-favicon.svg"
-                  alt="PolicyEngine"
+                  alt="PolicyEngine logo"
+                  width="40"
+                  height="40"
                   style={{ height: "40px", width: "auto" }}
                 />
               </a>
@@ -370,10 +372,10 @@ function App() {
           }}>
             © {new Date().getFullYear()} PolicyEngine. Open-source tax and benefit policy simulation.
           </p>
-          <div className="app-footer-links" style={{ display: "flex", gap: spacing.lg }}>
+          <nav aria-label="Footer navigation" className="app-footer-links" style={{ display: "flex", gap: spacing.lg }}>
             <FooterLink href="https://github.com/policyengine">GitHub</FooterLink>
             <FooterLink href="https://policyengine.org">PolicyEngine.org</FooterLink>
-          </div>
+          </nav>
         </div>
       </footer>
     </div>
