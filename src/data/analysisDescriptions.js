@@ -62,6 +62,7 @@ const descriptions = {
   "mn-hf154": "Reduces Minnesota's first-tier individual income tax rate from 5.35% to 2.8%, a 2.55 percentage point cut affecting all filing statuses. Also rebases statutory bracket thresholds to 2025 inflation-adjusted values (no real-world threshold change). Effective for tax years beginning after December 31, 2024.",
   "mn-hf2197-ctc-wfc-marriage-penalty": "Increases CTC phaseout threshold for joint filers to $75,000 and other filers to $37,500, eliminates WFC for childless adults.",
   "mn-hf2502-ctc-marriage-penalty": "Increases child credit phaseout threshold for joint filers from $35,000 to $63,900 to eliminate marriage penalty.",
+  "mn-hf4890": "Minnesota HF4890 adds a fifth individual income tax bracket at 10.15% applying to high-income filers ($1,000,000 joint, $600,000 single, $800,000 head of household), restructures the four existing brackets, and increases the Minnesota Child Credit to $2,000 per qualifying child. Effective tax year 2026.",
 
   // Missouri
   "mo-sb458": "Replaces Missouri's graduated income tax brackets (0%-4.7%) with a flat 4.0% rate on all taxable income, effective January 1, 2026. Also eliminates Missouri's federal income tax deduction (\u00a7143.171), which currently allows filers to deduct 5-35% of federal taxes paid. Includes a trigger mechanism for further rate reductions toward zero contingent on a constitutional amendment (not modeled).",
