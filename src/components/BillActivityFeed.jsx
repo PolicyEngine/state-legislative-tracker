@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "../lib/supabase";
 import { useData } from "../context/DataContext";
 import { colors, typography, spacing } from "../designTokens";
@@ -108,6 +109,211 @@ function TimeAgo({ dateStr }) {
   );
 }
 
+// ============== MultiSelectPopover ==============
+
+function MultiSelectPopover({ label, options, values, onChange, searchable = false, align = "left" }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [anchorRect, setAnchorRect] = useState(null);
+  const triggerRef = useRef(null);
+  const popoverRef = useRef(null);
+
+  const selectedCount = values.length;
+  const buttonLabel = selectedCount === 0
+    ? `All ${label.toLowerCase()}`
+    : selectedCount === 1
+      ? values[0]
+      : `${selectedCount} ${label.toLowerCase()}`;
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    setAnchorRect(triggerRef.current.getBoundingClientRect());
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocMouseDown = (e) => {
+      if (triggerRef.current?.contains(e.target)) return;
+      if (popoverRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    const onScrollOrResize = () => {
+      if (triggerRef.current) setAnchorRect(triggerRef.current.getBoundingClientRect());
+    };
+    document.addEventListener("mousedown", onDocMouseDown);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      document.removeEventListener("mousedown", onDocMouseDown);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [open]);
+
+  const filteredOptions = useMemo(() => {
+    if (!query) return options;
+    const q = query.toLowerCase();
+    return options.filter((o) => o.toLowerCase().includes(q));
+  }, [options, query]);
+
+  const toggle = (opt) => {
+    if (values.includes(opt)) onChange(values.filter((v) => v !== opt));
+    else onChange([...values, opt]);
+  };
+
+  const isActive = selectedCount > 0;
+
+  const triggerStyle = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "4px",
+    padding: "4px 8px",
+    border: `1px solid ${isActive ? colors.primary[300] : colors.border.light}`,
+    borderRadius: spacing.radius.md,
+    backgroundColor: isActive ? colors.primary[50] : colors.white,
+    color: isActive ? colors.primary[700] : colors.secondary[900],
+    fontSize: "11px",
+    fontFamily: typography.fontFamily.body,
+    fontWeight: typography.fontWeight.medium,
+    cursor: "pointer",
+    transition: "background-color 0.15s, border-color 0.15s",
+    minWidth: 0,
+  };
+
+  let popoverStyle = null;
+  if (anchorRect) {
+    const WIDTH = 220;
+    const left = align === "right"
+      ? Math.max(8, anchorRect.right - WIDTH)
+      : Math.min(window.innerWidth - WIDTH - 8, anchorRect.left);
+    popoverStyle = {
+      position: "fixed",
+      top: anchorRect.bottom + 4,
+      left,
+      width: WIDTH,
+      maxHeight: "min(320px, 60vh)",
+      display: "flex",
+      flexDirection: "column",
+      backgroundColor: colors.white,
+      borderRadius: spacing.radius.lg,
+      border: `1px solid ${colors.border.light}`,
+      boxShadow: "var(--shadow-elevation-medium, 0 8px 24px rgba(0,0,0,0.12))",
+      zIndex: 1000,
+      overflow: "hidden",
+    };
+  }
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        style={triggerStyle}
+      >
+        <span style={{ flex: 1, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {buttonLabel}
+        </span>
+        <span style={{ opacity: 0.6, fontSize: "9px" }}>▾</span>
+      </button>
+      {open && popoverStyle && createPortal(
+        <div ref={popoverRef} style={popoverStyle} role="listbox">
+          {searchable && (
+            <div style={{ padding: "8px", borderBottom: `1px solid ${colors.border.light}` }}>
+              <input
+                type="text"
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={`Search ${label.toLowerCase()}…`}
+                style={{
+                  width: "100%",
+                  padding: "4px 8px",
+                  border: `1px solid ${colors.border.light}`,
+                  borderRadius: spacing.radius.sm,
+                  fontSize: "12px",
+                  fontFamily: typography.fontFamily.body,
+                  outline: "none",
+                }}
+              />
+            </div>
+          )}
+          <div style={{ overflowY: "auto", padding: "4px 0" }}>
+            {filteredOptions.length === 0 && (
+              <div style={{
+                padding: "8px 12px",
+                color: colors.text.tertiary,
+                fontSize: "12px",
+                fontFamily: typography.fontFamily.body,
+              }}>
+                No matches.
+              </div>
+            )}
+            {filteredOptions.map((opt) => {
+              const checked = values.includes(opt);
+              return (
+                <label
+                  key={opt}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "6px 12px",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    fontFamily: typography.fontFamily.body,
+                    color: colors.secondary[900],
+                    backgroundColor: checked ? colors.primary[50] : "transparent",
+                  }}
+                  onMouseEnter={(e) => { if (!checked) e.currentTarget.style.backgroundColor = colors.gray[50]; }}
+                  onMouseLeave={(e) => { if (!checked) e.currentTarget.style.backgroundColor = "transparent"; }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggle(opt)}
+                    style={{ accentColor: colors.primary[600], cursor: "pointer" }}
+                  />
+                  <span style={{ flex: 1 }}>{opt}</span>
+                </label>
+              );
+            })}
+          </div>
+          {selectedCount > 0 && (
+            <div style={{
+              padding: "6px 12px",
+              borderTop: `1px solid ${colors.border.light}`,
+              backgroundColor: colors.background.secondary,
+            }}>
+              <button
+                type="button"
+                onClick={() => onChange([])}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  padding: 0,
+                  color: colors.primary[700],
+                  fontSize: "11px",
+                  fontFamily: typography.fontFamily.body,
+                  cursor: "pointer",
+                }}
+              >
+                Clear selection
+              </button>
+            </div>
+          )}
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
+
 // ============== Shared hook to fetch processed_bills ==============
 
 export function useProcessedBills(stateFilter) {
@@ -146,10 +352,31 @@ export function RecentActivitySidebar({ onStateSelect, onBillSelect }) {
   const { statesWithBills, research } = useData();
   const encodedStates = useMemo(() => new Set(Object.keys(statesWithBills)), [statesWithBills]);
   const [tab, setTab] = useState("analyzed"); // "recent" | "analyzed"
+  const [filterStates, setFilterStates] = useState([]);
+  const [filterStages, setFilterStages] = useState([]);
   const [actionBill, setActionBill] = useState(null);
   const [requestBill, setRequestBill] = useState(null);
 
-  const recentBills = useMemo(() => bills.slice(0, 25), [bills]);
+  const uniqueStates = useMemo(
+    () => [...new Set(bills.map((b) => b.state).filter(Boolean))].sort(),
+    [bills],
+  );
+  const uniqueStages = useMemo(
+    () => [...new Set(bills.map((b) => b.status || "Introduced").filter(Boolean))].sort(),
+    [bills],
+  );
+
+  const matchesFilters = useCallback(
+    (b) =>
+      (filterStates.length === 0 || filterStates.includes(b.state)) &&
+      (filterStages.length === 0 || filterStages.includes(b.status || "Introduced")),
+    [filterStates, filterStages],
+  );
+
+  const recentBills = useMemo(
+    () => bills.filter(matchesFilters).slice(0, 25),
+    [bills, matchesFilters],
+  );
 
   // Bills that have PE analysis (exist in research table as published bills)
   // Also build reverse lookup: "STATE:BILLNUM" -> research id for navigation
@@ -177,8 +404,9 @@ export function RecentActivitySidebar({ onStateSelect, onBillSelect }) {
         const norm = `${b.state}:${b.bill_number.replace(/\s+/g, "").replace(/^([A-Z]+)0+(\d)/, "$1$2").toUpperCase()}`;
         return analyzedBillIds.has(norm);
       })
+      .filter(matchesFilters)
       .slice(0, 25),
-    [bills, analyzedBillIds],
+    [bills, analyzedBillIds, matchesFilters],
   );
 
   const displayBills = tab === "analyzed" ? analyzedBills : recentBills;
@@ -200,7 +428,9 @@ export function RecentActivitySidebar({ onStateSelect, onBillSelect }) {
     );
   }
 
-  if (!recentBills.length) return null;
+  if (!bills.length) return null;
+
+  const filtersActive = filterStates.length > 0 || filterStages.length > 0;
 
   return (
     <>
@@ -210,12 +440,17 @@ export function RecentActivitySidebar({ onStateSelect, onBillSelect }) {
         boxShadow: "var(--shadow-elevation-low)",
         border: `1px solid ${colors.border.light}`,
         overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        minHeight: 0,
       }}>
         {/* Header */}
         <div style={{
           padding: `${spacing.md} ${spacing.lg}`,
           borderBottom: `1px solid ${colors.border.light}`,
           backgroundColor: colors.background.secondary,
+          flexShrink: 0,
         }}>
         <h3 style={{
           margin: 0,
@@ -260,10 +495,74 @@ export function RecentActivitySidebar({ onStateSelect, onBillSelect }) {
               </button>
             ))}
           </div>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            marginTop: spacing.sm,
+            flexWrap: "wrap",
+          }}>
+              <span style={{
+                fontSize: "10px",
+                fontWeight: typography.fontWeight.semibold,
+                fontFamily: typography.fontFamily.body,
+                color: colors.text.tertiary,
+                textTransform: "uppercase",
+                letterSpacing: "0.4px",
+                marginRight: "2px",
+              }}>
+                Filter
+              </span>
+              <MultiSelectPopover
+                label="States"
+                options={uniqueStates}
+                values={filterStates}
+                onChange={setFilterStates}
+                searchable
+              />
+              <MultiSelectPopover
+                label="Stages"
+                options={uniqueStages}
+                values={filterStages}
+                onChange={setFilterStages}
+              />
+              {filtersActive && (
+                <button
+                  type="button"
+                  onClick={() => { setFilterStates([]); setFilterStages([]); }}
+                  style={{
+                    marginLeft: "auto",
+                    padding: "4px 8px",
+                    border: "none",
+                    background: "transparent",
+                    color: colors.text.tertiary,
+                    fontSize: "11px",
+                    fontFamily: typography.fontFamily.body,
+                    fontWeight: typography.fontWeight.medium,
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    textUnderlineOffset: "2px",
+                  }}
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
         </div>
 
         {/* List */}
-        <div style={{ maxHeight: "600px", overflowY: "auto" }}>
+        <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+          {displayBills.length === 0 && (
+            <div style={{
+              padding: spacing.lg,
+              textAlign: "center",
+              color: colors.text.tertiary,
+              fontSize: typography.fontSize.sm,
+              fontFamily: typography.fontFamily.body,
+            }}>
+              {filtersActive ? "No bills match the selected filters." : "No bills to show."}
+            </div>
+          )}
           {displayBills.map((bill, i) => {
             const normKey = `${bill.state}:${bill.bill_number.replace(/\s+/g, "").replace(/^([A-Z]+)0+(\d)/, "$1$2").toUpperCase()}`;
             const match = billToResearchId[normKey];
