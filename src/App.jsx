@@ -7,6 +7,7 @@ import { RecentActivitySidebar } from "./components/BillActivityFeed";
 const FederalPanel = lazy(() => import("./components/FederalPanel"));
 const StatePanel = lazy(() => import("./components/StatePanel"));
 const ReformAnalyzer = lazy(() => import("./components/reform/ReformAnalyzer"));
+const RedesignHome = lazy(() => import("./components/RedesignHome"));
 import { useData } from "./context/DataContext";
 import { stateData } from "./data/states";
 import { colors, mapColors, typography, spacing } from "./designTokens";
@@ -142,6 +143,20 @@ function App() {
     billId &&
     activeBill?.reformConfig;
   const isJurisdictionPage = selectedJurisdiction && !isBillPage;
+
+  // Design preview route — bypass normal app chrome
+  const isPreview =
+    typeof window !== "undefined" &&
+    (window.location.pathname.endsWith("/preview") ||
+      window.location.pathname.endsWith("/preview/") ||
+      window.location.hash === "#/preview");
+  if (isPreview) {
+    return (
+      <Suspense fallback={<LoadingPlaceholder />}>
+        <RedesignHome />
+      </Suspense>
+    );
+  }
 
   return (
     <div className="app-shell" style={{ minHeight: "100vh" }}>
