@@ -426,7 +426,7 @@ export function RecentActivitySidebar({ onStateSelect, onBillSelect }) {
   );
 }
 
-function BillActionModal({ bill, onClose, onViewAnalysis, onRequestAnalysis }) {
+export function BillActionModal({ bill, onClose, onViewAnalysis, onRequestAnalysis }) {
   return (
     <ModalFrame title={`${bill.state} ${bill.bill_number}`} onClose={onClose}>
       <p style={{
@@ -461,7 +461,7 @@ function BillActionModal({ bill, onClose, onViewAnalysis, onRequestAnalysis }) {
   );
 }
 
-function AnalysisRequestModal({ bill, onClose }) {
+export function AnalysisRequestModal({ bill, onClose }) {
   const [email, setEmail] = useState("");
   const [subscribeNewsletter, setSubscribeNewsletter] = useState(true);
   const [status, setStatus] = useState({ type: "idle", message: "" });

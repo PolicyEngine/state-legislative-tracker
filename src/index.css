@@ -334,7 +334,8 @@ input:focus-visible {
   .reform-household-grid,
   .aggregate-stats-grid,
   .results-breakdown-grid,
-  .aggregate-poverty-grid {
+  .aggregate-poverty-grid,
+  .redesign-three-col {
     grid-template-columns: 1fr !important;
   }
 

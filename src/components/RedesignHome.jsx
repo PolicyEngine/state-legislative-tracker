@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { useData } from "../context/DataContext";
-import { useProcessedBills, StageBadge } from "./BillActivityFeed";
+import { useProcessedBills, StageBadge, BillActionModal, AnalysisRequestModal } from "./BillActivityFeed";
 import { stateData } from "../data/states";
 import { colors, typography, spacing } from "../designTokens";
 import { BASE_PATH } from "../lib/basePath";
@@ -147,6 +147,39 @@ export default function RedesignHome() {
   const [jurisdictionFilter, setJurisdictionFilter] = useState("all"); // all | federal | state
   const [selectedState, setSelectedState] = useState(null); // state abbr when drilled
   const [sessionScope, setSessionScope] = useState("current"); // current | <year> | all
+  const [actionBill, setActionBill] = useState(null);
+  const [requestBill, setRequestBill] = useState(null);
+
+  // STATE:BILLNUM → { researchId, state } lookup, so tracker rows can route to
+  // their scored analysis page (or open the request-analysis modal if unscored).
+  const billToResearchId = useMemo(() => {
+    const lookup = {};
+    for (const r of research) {
+      if (r.type !== "bill" || r.status === "in_review") continue;
+      const parts = r.id.split("-");
+      if (parts.length < 2) continue;
+      const state = parts[0].toUpperCase();
+      const num = parts.slice(1).join("").toUpperCase();
+      lookup[`${state}:${num}`] = { researchId: r.id, state };
+    }
+    return lookup;
+  }, [research]);
+
+  const normalizeBillNum = (n) =>
+    (n || "").replace(/\s+/g, "").replace(/^([A-Z]+)0+(\d)/, "$1$2").toUpperCase();
+
+  const handleTrackerRowClick = (bill) => {
+    const key = `${bill.state}:${normalizeBillNum(bill.bill_number)}`;
+    const match = billToResearchId[key];
+    if (match) {
+      const isFederal = match.state === "all" || match.state === "federal";
+      const destination = `${BASE_PATH}/${isFederal ? "federal" : match.state.toLowerCase()}/${match.researchId}`;
+      history.pushState(null, "", destination);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    } else {
+      setActionBill({ ...bill, isAnalyzed: false, analysisMatch: null });
+    }
+  };
 
   const sessionYears = useMemo(
     () => resolveSessionYears(jurisdictionFilter, sessionScope),
@@ -248,6 +281,15 @@ export default function RedesignHome() {
     return filtered.slice(0, 30);
   }, [rawBills, jurisdictionFilter, selectedState, sessionYears]);
 
+  const enacted = useMemo(() => {
+    return rawBills
+      .filter((b) => b.status === "Signed into Law")
+      .filter((b) => (jurisdictionFilter === "federal" ? b.state === "US" : jurisdictionFilter === "state" ? b.state !== "US" : true))
+      .filter((b) => !selectedState || b.state === selectedState)
+      .filter((b) => inSessionYears(sessionYears, b.last_action_date, b.introduced_date))
+      .slice(0, 8);
+  }, [rawBills, jurisdictionFilter, selectedState, sessionYears]);
+
   const momentum = useMemo(() => {
     // If a non-current session is scoped, show the most recent actions within
     // that session instead of a 7-day window (which only makes sense for now).
@@ -278,17 +320,57 @@ export default function RedesignHome() {
         />
         <ImpactIndexCard bills={topImpact} />
         <div
+          className="redesign-three-col"
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(0, 1.5fr) minmax(0, 1fr)",
+            gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr)",
             gap: spacing.lg,
             marginTop: spacing.lg,
           }}
         >
-          <DocketCard docket={docket} loading={billsLoading} />
-          <MomentumCard momentum={momentum} />
+          <DocketCard
+            docket={docket}
+            loading={billsLoading}
+            onBillClick={handleTrackerRowClick}
+            billToResearchId={billToResearchId}
+            normalizeBillNum={normalizeBillNum}
+          />
+          <MomentumCard
+            momentum={momentum}
+            onBillClick={handleTrackerRowClick}
+            billToResearchId={billToResearchId}
+            normalizeBillNum={normalizeBillNum}
+          />
+          <EnactedCard
+            bills={enacted}
+            onBillClick={handleTrackerRowClick}
+            billToResearchId={billToResearchId}
+            normalizeBillNum={normalizeBillNum}
+          />
         </div>
         <RequestCta />
+        {actionBill && (
+          <BillActionModal
+            bill={actionBill}
+            onClose={() => setActionBill(null)}
+            onViewAnalysis={() => {
+              if (actionBill.analysisMatch) {
+                const isFederal = actionBill.analysisMatch.state === "all" || actionBill.analysisMatch.state === "federal";
+                const dest = `${BASE_PATH}/${isFederal ? "federal" : actionBill.analysisMatch.state.toLowerCase()}/${actionBill.analysisMatch.researchId}`;
+                history.pushState(null, "", dest);
+                window.dispatchEvent(new PopStateEvent("popstate"));
+              }
+              setActionBill(null);
+            }}
+            onRequestAnalysis={() => {
+              setRequestBill(actionBill);
+              setActionBill(null);
+            }}
+          />
+        )}
+        {requestBill && (
+          <AnalysisRequestModal bill={requestBill} onClose={() => setRequestBill(null)} />
+        )}
       </main>
     </div>
   );
@@ -1092,7 +1174,7 @@ function ImpactRow({ rank, bill, last }) {
 
 // ============== Docket ==============
 
-function DocketCard({ docket, loading }) {
+function DocketCard({ docket, loading, onBillClick, billToResearchId, normalizeBillNum }) {
   return (
     <Card>
       <CardHeader eyebrow="02 · All tracked" title="On the Docket" subtitle={`${docket.length} bills`} />
@@ -1123,15 +1205,27 @@ function DocketCard({ docket, loading }) {
             No bills match the current view.
           </div>
         )}
-        {!loading && docket.map((b, i) => <DocketRow key={`${b.state}-${b.bill_number}-${i}`} bill={b} last={i === docket.length - 1} />)}
+        {!loading && docket.map((b, i) => (
+          <DocketRow
+            key={`${b.state}-${b.bill_number}-${i}`}
+            bill={b}
+            last={i === docket.length - 1}
+            onClick={() => onBillClick(b)}
+            isScored={!!billToResearchId[`${b.state}:${normalizeBillNum(b.bill_number)}`]}
+          />
+        ))}
       </div>
     </Card>
   );
 }
 
-function DocketRow({ bill, last }) {
+function DocketRow({ bill, last, onClick, isScored }) {
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
       style={{
         display: "grid",
         gridTemplateColumns: "36px minmax(0, 1fr) 60px",
@@ -1139,7 +1233,11 @@ function DocketRow({ bill, last }) {
         padding: `${spacing.sm} ${spacing.lg}`,
         borderBottom: last ? "none" : `1px solid ${colors.border.light}`,
         alignItems: "center",
+        cursor: "pointer",
+        transition: "background 0.12s",
       }}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.gray[50])}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
     >
       <div
         style={{
@@ -1172,6 +1270,21 @@ function DocketRow({ bill, last }) {
             {bill.bill_number}
           </span>
           <StageBadge stage={bill.status || "Introduced"} />
+          {isScored && (
+            <span
+              style={{
+                fontSize: "9px",
+                color: colors.primary[700],
+                fontFamily: typography.fontFamily.body,
+                fontWeight: typography.fontWeight.semibold,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+              title="PolicyEngine analysis available"
+            >
+              PE
+            </span>
+          )}
         </div>
         <div
           style={{
@@ -1206,9 +1319,111 @@ function DocketRow({ bill, last }) {
   );
 }
 
+// ============== Enacted (Signed into Law) ==============
+
+function EnactedCard({ bills, onBillClick, billToResearchId, normalizeBillNum }) {
+  return (
+    <Card>
+      <CardHeader eyebrow="Signed into law" title="Enacted" subtitle={`${bills.length} bill${bills.length === 1 ? "" : "s"}`} />
+      <div style={{ maxHeight: "520px", overflowY: "auto" }}>
+        {bills.length === 0 ? (
+          <div
+            style={{
+              padding: spacing.xl,
+              textAlign: "center",
+              color: colors.text.tertiary,
+              fontSize: typography.fontSize.sm,
+              fontFamily: typography.fontFamily.body,
+            }}
+          >
+            Nothing enacted yet.
+          </div>
+        ) : (
+          bills.map((b, i) => (
+            <EnactedRow
+              key={`enacted-${b.state}-${b.bill_number}-${i}`}
+              bill={b}
+              last={i === bills.length - 1}
+              onClick={() => onBillClick(b)}
+              isScored={!!billToResearchId[`${b.state}:${normalizeBillNum(b.bill_number)}`]}
+            />
+          ))
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function EnactedRow({ bill, last, onClick, isScored }) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
+      style={{
+        padding: `${spacing.sm} ${spacing.lg}`,
+        borderBottom: last ? "none" : `1px solid ${colors.border.light}`,
+        cursor: "pointer",
+        transition: "background 0.12s",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.primary[50])}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "6px", marginBottom: "2px" }}>
+        <div style={{ display: "flex", gap: "6px", alignItems: "baseline", minWidth: 0 }}>
+          <span
+            style={{
+              fontSize: "11px",
+              fontWeight: typography.fontWeight.semibold,
+              color: colors.primary[700],
+              fontFamily: typography.fontFamily.body,
+            }}
+          >
+            {bill.state} · {bill.bill_number}
+          </span>
+          {isScored && (
+            <span
+              style={{
+                fontSize: "9px",
+                color: colors.primary[700],
+                fontWeight: typography.fontWeight.semibold,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+              title="PolicyEngine analysis available"
+            >
+              PE
+            </span>
+          )}
+        </div>
+        <span style={{ fontSize: "10px", color: colors.text.tertiary, fontFamily: typography.fontFamily.body }}>
+          {bill.last_action_date ? new Date(bill.last_action_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}
+        </span>
+      </div>
+      <div
+        style={{
+          fontSize: "11px",
+          color: colors.text.secondary,
+          fontFamily: typography.fontFamily.body,
+          lineHeight: 1.35,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+        }}
+        title={bill.title}
+      >
+        {bill.title}
+      </div>
+    </div>
+  );
+}
+
 // ============== Momentum ==============
 
-function MomentumCard({ momentum }) {
+function MomentumCard({ momentum, onBillClick, billToResearchId, normalizeBillNum }) {
   return (
     <Card>
       <CardHeader eyebrow="03 · Last 7 days" title="Moving this Week" subtitle="Stage changes" />
@@ -1226,32 +1441,65 @@ function MomentumCard({ momentum }) {
             Quiet week.
           </div>
         ) : (
-          momentum.map((b, i) => <MomentumRow key={`m-${i}`} bill={b} last={i === momentum.length - 1} />)
+          momentum.map((b, i) => (
+            <MomentumRow
+              key={`m-${i}`}
+              bill={b}
+              last={i === momentum.length - 1}
+              onClick={() => onBillClick(b)}
+              isScored={!!billToResearchId[`${b.state}:${normalizeBillNum(b.bill_number)}`]}
+            />
+          ))
         )}
       </div>
     </Card>
   );
 }
 
-function MomentumRow({ bill, last }) {
+function MomentumRow({ bill, last, onClick, isScored }) {
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
       style={{
         padding: `${spacing.sm} ${spacing.lg}`,
         borderBottom: last ? "none" : `1px solid ${colors.border.light}`,
+        cursor: "pointer",
+        transition: "background 0.12s",
       }}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.gray[50])}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "2px" }}>
-        <span
-          style={{
-            fontSize: "11px",
-            fontWeight: typography.fontWeight.semibold,
-            color: colors.primary[700],
-            fontFamily: typography.fontFamily.body,
-          }}
-        >
-          {bill.state} · {bill.bill_number}
-        </span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "2px", gap: "6px" }}>
+        <div style={{ display: "flex", gap: "6px", alignItems: "baseline", minWidth: 0 }}>
+          <span
+            style={{
+              fontSize: "11px",
+              fontWeight: typography.fontWeight.semibold,
+              color: colors.primary[700],
+              fontFamily: typography.fontFamily.body,
+            }}
+          >
+            {bill.state} · {bill.bill_number}
+          </span>
+          {isScored && (
+            <span
+              style={{
+                fontSize: "9px",
+                color: colors.primary[700],
+                fontFamily: typography.fontFamily.body,
+                fontWeight: typography.fontWeight.semibold,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+              title="PolicyEngine analysis available"
+            >
+              PE
+            </span>
+          )}
+        </div>
         <span
           style={{
             fontSize: "10px",
