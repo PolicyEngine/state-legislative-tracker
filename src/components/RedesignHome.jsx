@@ -949,7 +949,7 @@ function CardHeader({ eyebrow, title, subtitle, right }) {
 function ImpactIndexCard({ bills }) {
   return (
     <Card>
-      <CardHeader eyebrow="01 · Leading the index" title="Impact Index" subtitle="Scored bills ranked by fiscal reach and household impact" />
+      <CardHeader eyebrow="Leading the index" title="Impact Index" subtitle="Scored bills ranked by fiscal reach and household impact" />
       {bills.length === 0 ? (
         <div
           style={{
@@ -1177,7 +1177,7 @@ function ImpactRow({ rank, bill, last }) {
 function DocketCard({ docket, loading, onBillClick, billToResearchId, normalizeBillNum }) {
   return (
     <Card>
-      <CardHeader eyebrow="02 · All tracked" title="On the Docket" subtitle={`${docket.length} bills`} />
+      <CardHeader eyebrow="All tracked" title="On the Docket" subtitle={`${docket.length} bills`} />
       <div style={{ maxHeight: "520px", overflowY: "auto" }}>
         {loading && (
           <div
@@ -1426,7 +1426,7 @@ function EnactedRow({ bill, last, onClick, isScored }) {
 function MomentumCard({ momentum, onBillClick, billToResearchId, normalizeBillNum }) {
   return (
     <Card>
-      <CardHeader eyebrow="03 · Last 7 days" title="Moving this Week" subtitle="Stage changes" />
+      <CardHeader eyebrow="Last 7 days" title="Moving this Week" subtitle="Stage changes" />
       <div style={{ maxHeight: "520px", overflowY: "auto" }}>
         {momentum.length === 0 ? (
           <div
@@ -1564,7 +1564,7 @@ function RequestCta() {
             marginBottom: "4px",
           }}
         >
-          04 · Commission analysis
+          Commission analysis
         </div>
         <h3
           style={{
