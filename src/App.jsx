@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, useLayoutEffect, useRef, lazy, Suspense } from "react";
 import USMap from "./components/USMap";
 import Breadcrumb from "./components/Breadcrumb";
 import StateSearchCombobox from "./components/StateSearchCombobox";
@@ -50,6 +50,19 @@ function App() {
   const { statesWithBills, getBillsForState } = useData();
   const [selectedState, setSelectedState] = useState(() => parsePath().state);
   const [billId, setBillId] = useState(() => parsePath().billId);
+  const mapCardRef = useRef(null);
+  const [mapCardHeight, setMapCardHeight] = useState(null);
+
+  useLayoutEffect(() => {
+    const el = mapCardRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (mapCardRef.current) setMapCardHeight(mapCardRef.current.offsetHeight);
+    });
+    observer.observe(el);
+    setMapCardHeight(el.offsetHeight);
+    return () => observer.disconnect();
+  }, [selectedState, billId]);
 
   const activeStates = useMemo(
     () =>
@@ -244,97 +257,93 @@ function App() {
               gridTemplateColumns: "minmax(0, 1fr) 340px",
               gap: spacing.lg,
               alignItems: "start",
-              marginBottom: spacing["2xl"],
+              marginBottom: spacing.lg,
             }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: spacing.lg }}>
-                <div
-                  className="app-map-card animate-fade-in-up"
-                  style={{
-                    backgroundColor: colors.white,
-                    borderRadius: spacing.radius["2xl"],
-                    boxShadow: "var(--shadow-elevation-low)",
-                    border: `1px solid ${colors.border.light}`,
-                    padding: spacing.lg,
-                    transition: "box-shadow 0.3s ease",
-                  }}
-                >
-                  <div className="app-map-layout" style={{ display: "flex", alignItems: "flex-start" }}>
-                    <div style={{ flex: 1 }}>
-                      <USMap
-                        selectedState={selectedState}
-                        onStateSelect={handleStateSelect}
-                      />
-                    </div>
-                    <div className="app-map-legend" style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: spacing.sm,
-                      paddingLeft: spacing.lg,
-                      marginLeft: spacing.lg,
-                      borderLeft: `1px solid ${colors.border.light}`,
-                      alignSelf: "center",
-                      flexShrink: 0,
-                    }}>
-                      <LegendItem color={mapColors.inSession} label="In Session" />
-                      <LegendItem color={mapColors.upcoming} label="Upcoming" />
-                      <LegendItem color={mapColors.ended} label="Ended" />
-                      <LegendItem color={mapColors.noSession} label="No 2026 Session" />
-                    </div>
+              <div
+                ref={mapCardRef}
+                className="app-map-card animate-fade-in-up"
+                style={{
+                  backgroundColor: colors.white,
+                  borderRadius: spacing.radius["2xl"],
+                  boxShadow: "var(--shadow-elevation-low)",
+                  border: `1px solid ${colors.border.light}`,
+                  padding: spacing.lg,
+                  transition: "box-shadow 0.3s ease",
+                }}
+              >
+                <div className="app-map-layout" style={{ display: "flex", alignItems: "flex-start" }}>
+                  <div style={{ flex: 1 }}>
+                    <USMap
+                      selectedState={selectedState}
+                      onStateSelect={handleStateSelect}
+                    />
                   </div>
+                  <div className="app-map-legend" style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: spacing.sm,
+                    paddingLeft: spacing.lg,
+                    marginLeft: spacing.lg,
+                    borderLeft: `1px solid ${colors.border.light}`,
+                    alignSelf: "center",
+                    flexShrink: 0,
+                  }}>
+                    <LegendItem color={mapColors.inSession} label="In Session" />
+                    <LegendItem color={mapColors.upcoming} label="Upcoming" />
+                    <LegendItem color={mapColors.ended} label="Ended" />
+                    <LegendItem color={mapColors.noSession} label="No 2026 Session" />
+                  </div>
+                </div>
 
-                  {activeStates.length > 0 && (
-                    <div style={{
-                      marginTop: spacing.lg,
-                      paddingTop: spacing.md,
-                      borderTop: `1px solid ${colors.border.light}`,
+                {activeStates.length > 0 && (
+                  <div style={{
+                    marginTop: spacing.lg,
+                    paddingTop: spacing.md,
+                    borderTop: `1px solid ${colors.border.light}`,
+                  }}>
+                    <h3 style={{
+                      margin: `0 0 ${spacing.md}`,
+                      color: colors.text.tertiary,
+                      fontSize: typography.fontSize.xs,
+                      fontWeight: typography.fontWeight.semibold,
+                      fontFamily: typography.fontFamily.primary,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      textAlign: "center",
                     }}>
-                      <h3 style={{
-                        margin: `0 0 ${spacing.md}`,
-                        color: colors.text.tertiary,
-                        fontSize: typography.fontSize.xs,
-                        fontWeight: typography.fontWeight.semibold,
-                        fontFamily: typography.fontFamily.primary,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.5px",
-                        textAlign: "center",
-                      }}>
-                        States with Published Analysis
-                      </h3>
-                      <RegionChips states={activeStates} onSelect={handleStateSelect} />
-                    </div>
-                  )}
-                </div>
-
-                <div className="animate-fade-in-up app-recent-activity-mobile">
-                  <RecentActivitySidebar onStateSelect={handleStateSelect} onBillSelect={handleBillSelect} />
-                </div>
-
-                <div className="app-quick-links" style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
-                  gap: spacing.md,
-                }}>
-                  <QuickLinkCard
-                    href="https://policyengine.org/us/research"
-                    title="Full Research Library"
-                    description="Browse all PolicyEngine state and federal research"
-                  />
-                  <QuickLinkCard
-                    href="https://app.policyengine.org/us/reports"
-                    title="Build a Reform"
-                    description="Model your own tax policy reforms"
-                  />
-                  <QuickLinkCard
-                    href="mailto:hello@policyengine.org?subject=State Legislative Analysis Request"
-                    title="Get in Contact"
-                    description="Get custom analysis for your state's legislation"
-                  />
-                </div>
+                      States with Published Analysis
+                    </h3>
+                    <RegionChips states={activeStates} onSelect={handleStateSelect} />
+                  </div>
+                )}
               </div>
 
-              <div className="animate-fade-in-up app-sidebar-sticky app-recent-activity-desktop" style={{ position: "sticky", top: "80px" }}>
+              <div className="animate-fade-in-up app-activity-cell" style={{ height: mapCardHeight ? `${mapCardHeight}px` : undefined }}>
                 <RecentActivitySidebar onStateSelect={handleStateSelect} onBillSelect={handleBillSelect} />
               </div>
+            </div>
+
+            <div className="app-quick-links" style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: spacing.md,
+              marginBottom: spacing["2xl"],
+            }}>
+              <QuickLinkCard
+                href="https://policyengine.org/us/research"
+                title="Full Research Library"
+                description="Browse all PolicyEngine state and federal research"
+              />
+              <QuickLinkCard
+                href="https://app.policyengine.org/us/reports"
+                title="Build a Reform"
+                description="Model your own tax policy reforms"
+              />
+              <QuickLinkCard
+                href="mailto:hello@policyengine.org?subject=State Legislative Analysis Request"
+                title="Get in Contact"
+                description="Get custom analysis for your state's legislation"
+              />
             </div>
           </>
         )}
