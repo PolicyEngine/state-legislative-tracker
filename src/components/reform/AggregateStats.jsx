@@ -144,7 +144,7 @@ export default function AggregateStats({ stats }) {
           color: colors.text.tertiary,
           lineHeight: "1.5",
         }}>
-          Aggregate estimates are computed using PolicyEngine's microsimulation model with representative survey data. Individual results may vary.
+          Aggregate estimates are computed using PolicyEngine&apos;s microsimulation model with representative survey data. Individual results may vary.
         </p>
       </div>
     </div>

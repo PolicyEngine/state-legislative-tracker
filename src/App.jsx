@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect, useCallback, useMemo, useLayoutEffect, useRef, lazy, Suspense } from "react";
 import USMap from "./components/USMap";
 import Breadcrumb from "./components/Breadcrumb";

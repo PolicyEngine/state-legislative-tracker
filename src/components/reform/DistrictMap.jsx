@@ -1249,9 +1249,13 @@ function GenericStateDistrictMap({ stateAbbr, reformId, prefetchedGeoData, selec
     : reformImpacts;
   const hasDistrictData = yearImpacts?.districtImpacts;
 
-  // Use prefetched data if it arrives after mount
+  // Use prefetched data if it arrives after mount.
+  // Mirrors a prop into state intentionally so subsequent fetches/clears can
+  // override it; the new react-hooks/set-state-in-effect rule flags this but
+  // refactoring out of state would change behavior.
   useEffect(() => {
     if (prefetchedGeoData && !geoData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setGeoData(prefetchedGeoData);
       setLoading(false);
     }
