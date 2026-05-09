@@ -321,7 +321,11 @@ export function useProcessedBills(stateFilter) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!supabase) { setLoading(false); return; }
+    if (!supabase) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLoading(false);
+      return;
+    }
 
     async function fetchBills() {
       let query = supabase

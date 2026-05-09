@@ -358,7 +358,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
                     textAlign: "center",
                   }}>
                     Enter your details and click<br />
-                    "Calculate Impact" to see results
+                    &quot;Calculate Impact&quot; to see results
                   </p>
                 </div>
               )}
