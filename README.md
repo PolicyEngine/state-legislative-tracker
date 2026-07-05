@@ -1,6 +1,6 @@
-# State Legislative Tracker
+# Tax and Transfer Bill Tracker
 
-Tracks state tax and benefit legislation relevant to [PolicyEngine](https://policyengine.org), scores bills for modelability, and computes fiscal impacts using microsimulation.
+Tracks state and federal tax and transfer legislation relevant to [PolicyEngine](https://policyengine.org), while keeping a state-first browsing experience for state bills. The pipeline scores bills for modelability and computes fiscal impacts using microsimulation.
 
 **Live app:** [state-legislative-tracker.modal.run](https://policengine--state-legislative-tracker.modal.run)
 
@@ -27,7 +27,7 @@ Tracks state tax and benefit legislation relevant to [PolicyEngine](https://poli
          ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                     React Frontend (Modal)                           │
-│  Dashboard showing scored bills, impact analyses, district maps     │
+│  State-first tracker with a federal workspace and shared analysis    │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 

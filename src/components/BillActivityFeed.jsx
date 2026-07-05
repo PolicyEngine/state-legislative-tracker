@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { supabase } from "../lib/supabase";
 import { useData } from "../context/DataContext";
 import { colors, typography, spacing } from "../designTokens";
+import { ALL_YEARS, matchesSessionScope, matchesYearFilter } from "../lib/sessionFilters";
 
 const REQUEST_API_PATH = "/api/bill-analysis-request";
 const MAILCHIMP_SUBSCRIBE_URL =
@@ -728,7 +729,7 @@ export function RecentActivitySidebar({ onStateSelect, onBillSelect }) {
   );
 }
 
-function BillActionModal({ bill, onClose, onViewAnalysis, onRequestAnalysis }) {
+export function BillActionModal({ bill, onClose, onViewAnalysis, onRequestAnalysis }) {
   return (
     <ModalFrame title={`${bill.state} ${bill.bill_number}`} onClose={onClose}>
       <p style={{
@@ -763,7 +764,7 @@ function BillActionModal({ bill, onClose, onViewAnalysis, onRequestAnalysis }) {
   );
 }
 
-function AnalysisRequestModal({ bill, onClose }) {
+export function AnalysisRequestModal({ bill, onClose }) {
   const [email, setEmail] = useState("");
   const [subscribeNewsletter, setSubscribeNewsletter] = useState(true);
   const [status, setStatus] = useState({ type: "idle", message: "" });
@@ -1077,37 +1078,42 @@ function StageSummaryBar({ bills }) {
 
 const DEFAULT_VISIBLE = 5;
 
-export function StateBillActivity({ stateAbbr, onBillSelect }) {
+export function StateBillActivity({ stateAbbr, onBillSelect, sessionYearSet = null, selectedYear = ALL_YEARS }) {
   const { bills, loading } = useProcessedBills(stateAbbr);
   const { research } = useData();
   const [expanded, setExpanded] = useState(false);
   const [actionBill, setActionBill] = useState(null);
   const [requestBill, setRequestBill] = useState(null);
 
-  const { analyzedBillIds, billToResearchId } = useMemo(() => {
+  const scopedBills = useMemo(
+    () => bills.filter((bill) => (
+      matchesSessionScope(bill, sessionYearSet, "last_action_date") &&
+      matchesYearFilter(bill, selectedYear, "last_action_date")
+    )),
+    [bills, sessionYearSet, selectedYear],
+  );
+
+  const analyzedBillIds = useMemo(() => {
     const ids = new Set();
-    const lookup = {};
     for (const r of research) {
       if (r.type === "bill" && r.status !== "in_review") {
         const parts = r.id.split("-");
         if (parts.length >= 2) {
           const state = parts[0].toUpperCase();
           const num = parts.slice(1).join("").toUpperCase();
-          const key = `${state}:${num}`;
-          ids.add(key);
-          lookup[key] = { researchId: r.id, state };
+          ids.add(`${state}:${num}`);
         }
       }
     }
-    return { analyzedBillIds: ids, billToResearchId: lookup };
+    return ids;
   }, [research]);
 
   const unananalyzedBills = useMemo(
-    () => bills.filter((b) => {
+    () => scopedBills.filter((b) => {
       const norm = `${b.state}:${b.bill_number.replace(/\s+/g, "").replace(/^([A-Z]+)0+(\d)/, "$1$2").toUpperCase()}`;
       return !analyzedBillIds.has(norm);
     }),
-    [bills, analyzedBillIds],
+    [scopedBills, analyzedBillIds],
   );
 
   if (loading || !unananalyzedBills.length) return null;

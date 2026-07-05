@@ -15,7 +15,7 @@ REPO_URL = "https://github.com/PolicyEngine/state-legislative-tracker.git"
 BRANCH = "main"
 
 # Bump this when source code changes to rebuild the app layer
-APP_VERSION = "v37"
+APP_VERSION = "v38"
 
 # Evaluated at deploy time — unique command string busts Modal's layer cache
 _now = datetime.datetime.utcnow().isoformat()
@@ -40,11 +40,16 @@ image = (
         f"echo 'app-build: {APP_VERSION}'",
         f"git clone --branch {BRANCH} --single-branch {REPO_URL} /app",
         "cd /app && npm install --legacy-peer-deps",
-        # Anon key is public (read-only, row-level security enforced)
-        "cd /app && VITE_SUPABASE_URL=https://ffgngqlgfsvqartilful.supabase.co"
-        f" VITE_SUPABASE_ANON_KEY={SUPABASE_ANON_KEY}"
-        " VITE_POSTHOG_KEY=phc_jrd8DSkxBiB4qr7mxqzizIFh0sIIZ0mSNSNGepllyGx"
+        # Anon key is public (read-only, row-level security enforced).
+        # `next build` static-exports to out/ (see next.config.mjs); we
+        # reshape it into the dist/ layout this server has always served:
+        # HTML at dist/, hashed assets under dist/_tracker (the prefix the
+        # policyengine.org proxy forwards).
+        "cd /app && NEXT_PUBLIC_SUPABASE_URL=https://ffgngqlgfsvqartilful.supabase.co"
+        f" NEXT_PUBLIC_SUPABASE_ANON_KEY={SUPABASE_ANON_KEY}"
+        " NEXT_PUBLIC_POSTHOG_KEY=phc_jrd8DSkxBiB4qr7mxqzizIFh0sIIZ0mSNSNGepllyGx"
         " npm run build",
+        "cd /app && mv out dist && mkdir -p dist/_tracker && mv dist/_next dist/_tracker/_next",
     )
     .run_commands(
         # Layer 2: Pre-render — cache-busted every deploy to pick up new bills

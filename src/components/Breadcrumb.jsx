@@ -13,8 +13,10 @@ const ChevronRight = () => (
   </svg>
 );
 
-export default function Breadcrumb({ stateAbbr, billLabel, onNavigateHome, onNavigateState }) {
-  const onBack = billLabel ? onNavigateState : onNavigateHome;
+export default function Breadcrumb({ jurisdiction, billLabel, onNavigateHome, onNavigateJurisdiction }) {
+  const onBack = billLabel ? onNavigateJurisdiction : onNavigateHome;
+  const jurisdictionLabel = stateData[jurisdiction]?.name || jurisdiction;
+
   return (
     <nav className="breadcrumb-nav" style={{
       display: "flex",
@@ -72,12 +74,12 @@ export default function Breadcrumb({ stateAbbr, billLabel, onNavigateHome, onNav
       >
         Home
       </button>
-      {stateAbbr && (
+      {jurisdiction && (
         <>
           <ChevronRight />
           {billLabel ? (
             <button
-              onClick={onNavigateState}
+              onClick={onNavigateJurisdiction}
               style={{
                 border: "none",
                 background: "none",
@@ -92,11 +94,11 @@ export default function Breadcrumb({ stateAbbr, billLabel, onNavigateHome, onNav
               onMouseEnter={(e) => e.currentTarget.style.textDecoration = "underline"}
               onMouseLeave={(e) => e.currentTarget.style.textDecoration = "none"}
             >
-              {stateData[stateAbbr]?.name || stateAbbr}
+              {jurisdictionLabel}
             </button>
           ) : (
             <span style={{ color: colors.text.primary, fontWeight: typography.fontWeight.medium }}>
-              {stateData[stateAbbr]?.name || stateAbbr}
+              {jurisdictionLabel}
             </span>
           )}
         </>

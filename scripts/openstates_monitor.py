@@ -108,7 +108,13 @@ def openstates_request(endpoint, params=None, max_retries=3):
     url = f"{OPENSTATES_BASE_URL}{endpoint}"
 
     for attempt in range(max_retries):
-        response = requests.get(url, headers=headers, params=params or {})
+        try:
+            response = requests.get(url, headers=headers, params=params or {}, timeout=45)
+        except requests.RequestException as e:
+            wait = 5 * (attempt + 1)
+            print(f"  Request failed ({e.__class__.__name__}), retrying in {wait}s...")
+            time.sleep(wait)
+            continue
 
         if response.status_code == 429:
             wait = 15 * (attempt + 1)  # 15s, 30s, 45s
@@ -116,11 +122,17 @@ def openstates_request(endpoint, params=None, max_retries=3):
             time.sleep(wait)
             continue
 
+        if response.status_code in {500, 502, 503, 504}:
+            wait = 5 * (attempt + 1)
+            print(f"  OpenStates {response.status_code}, retrying in {wait}s...")
+            time.sleep(wait)
+            continue
+
         response.raise_for_status()
         return response.json()
 
     # Final attempt without retry
-    response = requests.get(url, headers=headers, params=params or {})
+    response = requests.get(url, headers=headers, params=params or {}, timeout=45)
     response.raise_for_status()
     return response.json()
 

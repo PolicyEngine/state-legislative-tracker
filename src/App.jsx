@@ -1,16 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useLayoutEffect, useRef, lazy, Suspense } from "react";
-import USMap from "./components/USMap";
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
 import Breadcrumb from "./components/Breadcrumb";
 import StateSearchCombobox from "./components/StateSearchCombobox";
-import { RecentActivitySidebar } from "./components/BillActivityFeed";
 
 const StatePanel = lazy(() => import("./components/StatePanel"));
 const ReformAnalyzer = lazy(() => import("./components/reform/ReformAnalyzer"));
+const RedesignHome = lazy(() => import("./components/RedesignHome"));
 import { useData } from "./context/DataContext";
 import { stateData } from "./data/states";
-import { colors, mapColors, typography, spacing } from "./designTokens";
+import { colors, typography, spacing } from "./designTokens";
 import { track } from "./lib/analytics";
 import { BASE_PATH } from "./lib/basePath";
 
@@ -20,11 +19,12 @@ function parsePath() {
   // Strip BASE_PATH prefix before parsing
   const raw = hash || window.location.pathname;
   const path = (BASE_PATH ? raw.replace(BASE_PATH, "") : raw).replace(/^\//, "");
-  if (!path) return { state: null, billId: null };
+  if (!path) return { jurisdiction: null, billId: null };
   const parts = path.split("/");
   const state = parts[0].toUpperCase();
   const billId = parts[1] || null;
-  return { state: stateData[state] ? state : null, billId };
+  // Unknown segments (including retired /federal URLs) fall back to home.
+  return { jurisdiction: stateData[state] ? state : null, billId };
 }
 
 function notifyParent(path) {
@@ -50,30 +50,8 @@ function LoadingPlaceholder() {
 
 function App() {
   const { statesWithBills, getBillsForState } = useData();
-  const [selectedState, setSelectedState] = useState(() => parsePath().state);
+  const [selectedJurisdiction, setSelectedJurisdiction] = useState(() => parsePath().jurisdiction);
   const [billId, setBillId] = useState(() => parsePath().billId);
-  const mapCardRef = useRef(null);
-  const [mapCardHeight, setMapCardHeight] = useState(null);
-
-  useLayoutEffect(() => {
-    const el = mapCardRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => {
-      if (mapCardRef.current) setMapCardHeight(mapCardRef.current.offsetHeight);
-    });
-    observer.observe(el);
-    setMapCardHeight(el.offsetHeight);
-    return () => observer.disconnect();
-  }, [selectedState, billId]);
-
-  const activeStates = useMemo(
-    () =>
-      Object.entries(statesWithBills)
-        .map(([abbr, count]) => ({ abbr, name: stateData[abbr]?.name, count }))
-        .filter((s) => s.name)
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [statesWithBills],
-  );
 
   // Redirect old hash URLs to path URLs
   useEffect(() => {
@@ -83,40 +61,40 @@ function App() {
     }
   }, []);
 
-  const handleStateSelect = useCallback((abbr) => {
-    setSelectedState(abbr);
+  const handleJurisdictionSelect = useCallback((jurisdiction) => {
+    setSelectedJurisdiction(jurisdiction);
     setBillId(null);
-    if (abbr) {
-      history.pushState(null, "", BASE_PATH + "/" + abbr);
-      notifyParent("/" + abbr);
-      track("state_selected", { state_abbr: abbr, state_name: stateData[abbr]?.name });
+    if (jurisdiction) {
+      history.pushState(null, "", BASE_PATH + "/" + jurisdiction);
+      notifyParent("/" + jurisdiction);
+      track("state_selected", { state_abbr: jurisdiction, state_name: stateData[jurisdiction]?.name });
     } else {
       history.pushState(null, "", BASE_PATH + "/");
       notifyParent("/");
     }
   }, []);
 
-  const handleBillSelect = useCallback((stateAbbr, id) => {
-    setSelectedState(stateAbbr);
+  const handleBillSelect = useCallback((jurisdiction, id) => {
+    setSelectedJurisdiction(jurisdiction);
     setBillId(id);
-    history.pushState(null, "", `${BASE_PATH}/${stateAbbr}/${id}`);
-    notifyParent(`/${stateAbbr}/${id}`);
+    history.pushState(null, "", `${BASE_PATH}/${jurisdiction}/${id}`);
+    notifyParent(`/${jurisdiction}/${id}`);
   }, []);
 
   const handleNavigateHome = useCallback(() => {
-    handleStateSelect(null);
-  }, [handleStateSelect]);
+    handleJurisdictionSelect(null);
+  }, [handleJurisdictionSelect]);
 
-  const handleNavigateState = useCallback(() => {
-    if (selectedState) {
-      handleStateSelect(selectedState);
+  const handleNavigateJurisdiction = useCallback(() => {
+    if (selectedJurisdiction) {
+      handleJurisdictionSelect(selectedJurisdiction);
     }
-  }, [selectedState, handleStateSelect]);
+  }, [selectedJurisdiction, handleJurisdictionSelect]);
 
   useEffect(() => {
     const onPopState = () => {
-      const { state, billId: bid } = parsePath();
-      setSelectedState(state);
+      const { jurisdiction, billId: bid } = parsePath();
+      setSelectedJurisdiction(jurisdiction);
       setBillId(bid);
       const strippedPath = BASE_PATH
         ? window.location.pathname.replace(BASE_PATH, "")
@@ -129,20 +107,28 @@ function App() {
 
   // Resolve bill for bill page
   const activeBill = useMemo(() => {
-    if (!selectedState || !billId) return null;
-    const bills = getBillsForState(selectedState);
-    return bills.find((b) => b.id === billId) || null;
-  }, [selectedState, billId, getBillsForState]);
+    if (!selectedJurisdiction || !billId) return null;
+    return getBillsForState(selectedJurisdiction).find((b) => b.id === billId) || null;
+  }, [selectedJurisdiction, billId, getBillsForState]);
 
   // Determine view
-  const isBillPage = selectedState && billId && activeBill?.reformConfig;
-  const isStatePage = selectedState && !isBillPage;
+  const isBillPage = selectedJurisdiction && billId && activeBill?.reformConfig;
+  const isJurisdictionPage = selectedJurisdiction && !isBillPage;
+
+  // Home renders the editorial-style RedesignHome with its own masthead;
+  // state/bill pages still use the app shell below.
+  if (!selectedJurisdiction) {
+    return (
+      <Suspense fallback={<LoadingPlaceholder />}>
+        <RedesignHome />
+      </Suspense>
+    );
+  }
 
   return (
     <div className="app-shell" style={{ minHeight: "100vh" }}>
       {/* Header */}
       <header
-        className="header-accent"
         style={{
           backgroundColor: colors.white,
           boxShadow: "var(--shadow-elevation-low)",
@@ -151,40 +137,39 @@ function App() {
           zIndex: 50,
         }}
       >
-        <div className="app-header-inner" style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing.xl} ${spacing["2xl"]}` }}>
+        <div className="app-header-inner" style={{ maxWidth: "1400px", margin: "0 auto", padding: `${spacing.md} ${spacing["2xl"]}` }}>
           <div className="app-header-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div className="app-header-brand" style={{ display: "flex", alignItems: "center", gap: spacing.lg }}>
+            <div className="app-header-brand" style={{ display: "flex", alignItems: "center", gap: spacing.md }}>
               <a href="https://policyengine.org" target="_blank" rel="noopener noreferrer" aria-label="Visit PolicyEngine.org">
                 <img
                   src="/policyengine-favicon.svg"
                   alt="PolicyEngine logo"
-                  width="40"
-                  height="40"
-                  style={{ height: "40px", width: "auto" }}
+                  width="32"
+                  height="32"
+                  style={{ height: "32px", width: "auto" }}
                 />
               </a>
-              <div>
-                <h1 style={{
-                  margin: 0,
-                  color: colors.secondary[900],
-                  fontSize: typography.fontSize["2xl"],
-                  fontWeight: typography.fontWeight.bold,
-                  fontFamily: typography.fontFamily.primary,
-                  letterSpacing: "-0.02em",
-                }}>
-                  2026 State Legislative Tracker
-                </h1>
-                <p style={{
-                  margin: "2px 0 0",
-                  color: colors.text.secondary,
-                  fontSize: typography.fontSize.sm,
-                  fontFamily: typography.fontFamily.body,
-                }}>
-                  PolicyEngine State Tax Research
-                </p>
-              </div>
+              <h1 style={{ margin: 0 }}>
+                <button
+                  onClick={handleNavigateHome}
+                  aria-label="Bill Tracker home"
+                  style={{
+                    border: "none",
+                    background: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    color: colors.secondary[900],
+                    fontSize: typography.fontSize.lg,
+                    fontWeight: typography.fontWeight.bold,
+                    fontFamily: typography.fontFamily.primary,
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  Bill Tracker
+                </button>
+              </h1>
             </div>
-            <StateSearchCombobox onSelect={handleStateSelect} statesWithBills={statesWithBills} />
+            <StateSearchCombobox onSelect={handleJurisdictionSelect} statesWithBills={statesWithBills} />
           </div>
         </div>
       </header>
@@ -196,15 +181,15 @@ function App() {
         {isBillPage && (
           <div className="animate-fade-in-up">
             <Breadcrumb
-              stateAbbr={selectedState}
+              jurisdiction={selectedJurisdiction}
               billLabel={activeBill.reformConfig.label || activeBill.bill}
               onNavigateHome={handleNavigateHome}
-              onNavigateState={handleNavigateState}
+              onNavigateJurisdiction={handleNavigateJurisdiction}
             />
             <Suspense fallback={<LoadingPlaceholder />}>
               <ReformAnalyzer
                 reformConfig={activeBill.reformConfig}
-                stateAbbr={selectedState}
+                stateAbbr={selectedJurisdiction}
                 bill={activeBill}
               />
             </Suspense>
@@ -212,143 +197,22 @@ function App() {
         )}
 
         {/* === State Page === */}
-        {isStatePage && (
+        {isJurisdictionPage && (
           <div className="animate-fade-in-up">
             <Breadcrumb
-              stateAbbr={selectedState}
+              jurisdiction={selectedJurisdiction}
               onNavigateHome={handleNavigateHome}
             />
             <Suspense fallback={<LoadingPlaceholder />}>
               <StatePanel
-                stateAbbr={selectedState}
-                onBillSelect={(id) => handleBillSelect(selectedState, id)}
+                key={selectedJurisdiction}
+                stateAbbr={selectedJurisdiction}
+                onBillSelect={(id) => handleBillSelect(selectedJurisdiction, id)}
               />
             </Suspense>
           </div>
         )}
 
-        {/* === Home Page === */}
-        {!selectedState && (
-          <>
-            {/* Intro */}
-            <div className="animate-fade-in-up" style={{ marginBottom: spacing["2xl"] }}>
-              <h2 style={{
-                margin: `0 0 ${spacing.sm}`,
-                color: colors.secondary[900],
-                fontSize: typography.fontSize["3xl"],
-                fontWeight: typography.fontWeight.bold,
-                fontFamily: typography.fontFamily.primary,
-                letterSpacing: "-0.02em",
-              }}>
-                State Tax Policy Research
-              </h2>
-              <p style={{
-                margin: 0,
-                color: colors.text.secondary,
-                fontSize: typography.fontSize.base,
-                fontFamily: typography.fontFamily.body,
-                maxWidth: "none",
-                lineHeight: "1.6",
-              }}>
-                Explore state legislative sessions and PolicyEngine analysis. <strong>Select a state</strong> to see tax changes, active bills, and related research.
-              </p>
-            </div>
-
-            <div className="app-home-grid" style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 1fr) 340px",
-              gap: spacing.lg,
-              alignItems: "start",
-              marginBottom: spacing.lg,
-            }}>
-              <div
-                ref={mapCardRef}
-                className="app-map-card animate-fade-in-up"
-                style={{
-                  backgroundColor: colors.white,
-                  borderRadius: spacing.radius["2xl"],
-                  boxShadow: "var(--shadow-elevation-low)",
-                  border: `1px solid ${colors.border.light}`,
-                  padding: spacing.lg,
-                  transition: "box-shadow 0.3s ease",
-                }}
-              >
-                <div className="app-map-layout" style={{ display: "flex", alignItems: "flex-start" }}>
-                  <div style={{ flex: 1 }}>
-                    <USMap
-                      selectedState={selectedState}
-                      onStateSelect={handleStateSelect}
-                    />
-                  </div>
-                  <div className="app-map-legend" style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: spacing.sm,
-                    paddingLeft: spacing.lg,
-                    marginLeft: spacing.lg,
-                    borderLeft: `1px solid ${colors.border.light}`,
-                    alignSelf: "center",
-                    flexShrink: 0,
-                  }}>
-                    <LegendItem color={mapColors.inSession} label="In Session" />
-                    <LegendItem color={mapColors.upcoming} label="Upcoming" />
-                    <LegendItem color={mapColors.ended} label="Ended" />
-                    <LegendItem color={mapColors.noSession} label="No 2026 Session" />
-                  </div>
-                </div>
-
-                {activeStates.length > 0 && (
-                  <div style={{
-                    marginTop: spacing.lg,
-                    paddingTop: spacing.md,
-                    borderTop: `1px solid ${colors.border.light}`,
-                  }}>
-                    <h3 style={{
-                      margin: `0 0 ${spacing.md}`,
-                      color: colors.text.tertiary,
-                      fontSize: typography.fontSize.xs,
-                      fontWeight: typography.fontWeight.semibold,
-                      fontFamily: typography.fontFamily.primary,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                      textAlign: "center",
-                    }}>
-                      States with Published Analysis
-                    </h3>
-                    <RegionChips states={activeStates} onSelect={handleStateSelect} />
-                  </div>
-                )}
-              </div>
-
-              <div className="animate-fade-in-up app-activity-cell" style={{ height: mapCardHeight ? `${mapCardHeight}px` : undefined }}>
-                <RecentActivitySidebar onStateSelect={handleStateSelect} onBillSelect={handleBillSelect} />
-              </div>
-            </div>
-
-            <div className="app-quick-links" style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: spacing.md,
-              marginBottom: spacing["2xl"],
-            }}>
-              <QuickLinkCard
-                href="https://policyengine.org/us/research"
-                title="Full Research Library"
-                description="Browse all PolicyEngine state and federal research"
-              />
-              <QuickLinkCard
-                href="https://app.policyengine.org/us/reports"
-                title="Build a Reform"
-                description="Model your own tax policy reforms"
-              />
-              <QuickLinkCard
-                href="mailto:hello@policyengine.org?subject=State Legislative Analysis Request"
-                title="Get in Contact"
-                description="Get custom analysis for your state's legislation"
-              />
-            </div>
-          </>
-        )}
       </main>
 
       {/* Footer */}
@@ -390,162 +254,6 @@ function App() {
         </div>
       </footer>
     </div>
-  );
-}
-
-const REGIONS = {
-  Northeast: ["CT", "ME", "MA", "NH", "NJ", "NY", "PA", "RI", "VT"],
-  South: ["AL", "AR", "DC", "DE", "FL", "GA", "KY", "LA", "MD", "MS", "NC", "OK", "SC", "TN", "TX", "VA", "WV"],
-  Midwest: ["IL", "IN", "IA", "KS", "MI", "MN", "MO", "NE", "ND", "OH", "SD", "WI"],
-  West: ["AK", "AZ", "CA", "CO", "HI", "ID", "MT", "NV", "NM", "OR", "UT", "WA", "WY"],
-};
-
-function StateChip({ abbr, name, count, onSelect }) {
-  return (
-    <button
-      onClick={() => onSelect(abbr)}
-      aria-label={`${name || abbr} — ${count} ${count === 1 ? "bill" : "bills"}`}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: spacing.xs,
-        padding: `${spacing.xs} ${spacing.md}`,
-        border: `1px solid ${colors.primary[200]}`,
-        borderRadius: spacing.radius.xl,
-        backgroundColor: colors.primary[50],
-        color: colors.primary[700],
-        fontSize: typography.fontSize.sm,
-        fontWeight: typography.fontWeight.medium,
-        fontFamily: typography.fontFamily.body,
-        cursor: "pointer",
-        transition: "all 0.15s ease",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = colors.primary[100];
-        e.currentTarget.style.transform = "translateY(-1px)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = colors.primary[50];
-        e.currentTarget.style.transform = "translateY(0)";
-      }}
-    >
-      {abbr}
-      <span style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: "18px",
-        height: "18px",
-        borderRadius: "50%",
-        backgroundColor: colors.primary[200],
-        color: colors.primary[800],
-        fontSize: typography.fontSize.xs,
-        fontWeight: typography.fontWeight.semibold,
-        lineHeight: 1,
-      }}>
-        {count}
-      </span>
-    </button>
-  );
-}
-
-function RegionChips({ states, onSelect }) {
-  const stateMap = Object.fromEntries(states.map((s) => [s.abbr, s]));
-  const regions = Object.entries(REGIONS)
-    .map(([region, abbrs]) => ({
-      region,
-      states: abbrs.filter((a) => stateMap[a]).map((a) => stateMap[a]),
-    }))
-    .filter((r) => r.states.length > 0);
-
-  return (
-    <div className="region-chips-grid" style={{
-      display: "grid",
-      gridTemplateColumns: `repeat(${regions.length}, 1fr)`,
-      gap: spacing.lg,
-    }}>
-      {regions.map(({ region, states: regionStates }) => (
-        <div key={region}>
-          <p style={{
-            margin: `0 0 ${spacing.sm}`,
-            color: colors.text.tertiary,
-            fontSize: typography.fontSize.xs,
-            fontFamily: typography.fontFamily.body,
-            fontWeight: typography.fontWeight.medium,
-            textAlign: "center",
-          }}>
-            {region}
-          </p>
-          <div style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: spacing.xs,
-            justifyContent: "center",
-          }}>
-            {regionStates.map((s) => (
-              <StateChip key={s.abbr} abbr={s.abbr} name={s.name} count={s.count} onSelect={onSelect} />
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Legend Item Component
-function LegendItem({ color, label }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
-      <span style={{
-        width: "12px",
-        height: "12px",
-        borderRadius: "3px",
-        backgroundColor: color,
-      }} />
-      <span style={{
-        color: colors.text.secondary,
-        fontSize: typography.fontSize.xs,
-        fontFamily: typography.fontFamily.body,
-        fontWeight: typography.fontWeight.medium,
-      }}>{label}</span>
-    </div>
-  );
-}
-
-// Quick Link Card Component
-function QuickLinkCard({ href, title, description }) {
-  return (
-    <a
-      href={href}
-      target={href.startsWith("mailto") ? undefined : "_blank"}
-      rel={href.startsWith("mailto") ? undefined : "noopener noreferrer"}
-      onClick={() => track("external_link_clicked", { href, title })}
-      className="card-hover"
-      style={{
-        display: "block",
-        backgroundColor: colors.white,
-        borderRadius: spacing.radius.xl,
-        border: `1px solid ${colors.border.light}`,
-        padding: spacing.lg,
-        textDecoration: "none",
-        boxShadow: "var(--shadow-elevation-low)",
-      }}
-    >
-      <h3 style={{
-        margin: `0 0 ${spacing.xs}`,
-        color: colors.secondary[900],
-        fontSize: typography.fontSize.base,
-        fontWeight: typography.fontWeight.semibold,
-        fontFamily: typography.fontFamily.primary,
-        transition: "color 0.2s ease",
-      }}>{title}</h3>
-      <p style={{
-        margin: 0,
-        color: colors.text.secondary,
-        fontSize: typography.fontSize.sm,
-        fontFamily: typography.fontFamily.body,
-      }}>{description}</p>
-    </a>
   );
 }
 
