@@ -1,21 +1,23 @@
 {
-  "name": "state-research-tracker",
+  "name": "state-legislative-tracker",
   "private": true,
   "version": "0.0.0",
-  "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "lint": "eslint .",
-    "preview": "vite preview",
     "test": "vitest run",
+    "test:watch": "vitest",
     "prerender": "node scripts/prerender.mjs"
   },
   "dependencies": {
+    "@policyengine/ui-kit": "^0.9.0",
     "@supabase/supabase-js": "^2.95.3",
     "d3-geo": "^3.1.1",
     "html-to-image": "^1.11.13",
     "maplibre-gl": "^5.15.0",
+    "next": "^16.2.6",
     "posthog-js": "^1.344.0",
     "prop-types": "^15.8.1",
     "react": "^19.2.0",
@@ -23,17 +25,23 @@
     "react-simple-maps": "^3.0.0"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
     "@eslint/js": "^9.39.1",
-    "@tailwindcss/vite": "^4.1.18",
+    "@tailwindcss/postcss": "^4.2.4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.1",
+    "@vitejs/plugin-react": "^5.1.2",
     "eslint": "^9.39.1",
+    "eslint-config-next": "^16.2.6",
     "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
-    "tailwindcss": "^4.1.18",
-    "vite": "^7.2.4",
-    "vitest": "^4.0.18"
+    "jsdom": "^27.4.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.2.4",
+    "vitest": "^4.0.16"
   }
 }

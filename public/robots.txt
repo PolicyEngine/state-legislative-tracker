@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://www.policyengine.org/us/state-legislative-tracker/sitemap.xml

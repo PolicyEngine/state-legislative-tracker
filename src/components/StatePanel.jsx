@@ -501,7 +501,7 @@ const StatePanel = memo(({ stateAbbr, onBillSelect }) => {
               fontSize: typography.fontSize.sm,
               fontFamily: typography.fontFamily.body,
             }}>
-              We can model proposed tax changes and provide distributional analysis for your state's legislative session.
+              We can model proposed tax changes and provide distributional analysis for your state&apos;s legislative session.
             </p>
             <a
               href={`mailto:hello@policyengine.org?subject=Analysis Request: ${state.name} Legislative Session`}

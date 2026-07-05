@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@policyengine/ui-kit/theme.css";
 
 /* PolicyEngine Design System - App v2 Styling */
 
@@ -250,10 +251,6 @@ input:focus-visible {
   -webkit-backdrop-filter: blur(12px);
 }
 
-.app-recent-activity-mobile {
-  display: none;
-}
-
 /* Responsive adjustments */
 @media (max-width: 1024px) {
   .animate-fade-in-up {
@@ -338,17 +335,8 @@ input:focus-visible {
     align-self: stretch !important;
   }
 
-  .app-sidebar-sticky {
-    position: static !important;
-    top: auto !important;
-  }
-
-  .app-recent-activity-desktop {
-    display: none !important;
-  }
-
-  .app-recent-activity-mobile {
-    display: block !important;
+  .app-activity-cell {
+    height: auto !important;
   }
 
   .app-footer-links {
