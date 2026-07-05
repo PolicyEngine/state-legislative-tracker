@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useState } from "react";
 import { stateData } from "../data/states";
 import { useData } from "../context/DataContext";
 import ResearchCard from "./ResearchCard";
@@ -60,17 +60,14 @@ function SectionHeader({ children }) {
   );
 }
 
+// Rendered with key={stateAbbr} in App, so switching states remounts the panel
+// and the filter state resets without a reset-on-prop-change effect.
 const StatePanel = memo(({ stateAbbr, onBillSelect }) => {
   const state = stateData[stateAbbr];
   const { getBillsForState, getResearchForState } = useData();
   const { bills: pipelineBills } = useProcessedBills(stateAbbr);
   const [selectedScope, setSelectedScope] = useState(CURRENT_SCOPE);
   const [selectedYear, setSelectedYear] = useState(ALL_YEARS);
-
-  useEffect(() => {
-    setSelectedScope(CURRENT_SCOPE);
-    setSelectedYear(ALL_YEARS);
-  }, [stateAbbr]);
 
   if (!state) return null;
 

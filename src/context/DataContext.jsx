@@ -110,12 +110,6 @@ export function DataProvider({ children }) {
       .map(item => mapBillItem(item, reformImpacts));
   };
 
-  const getFederalBills = () => {
-    return research
-      .filter(item => isFederalItem(item) && item.type === 'bill' && item.status !== 'in_review')
-      .map(item => mapBillItem(item, reformImpacts));
-  };
-
   // Get research for a state (excluding type === 'bill')
   const getResearchForState = (stateAbbr) => {
     return research.filter(item => {
@@ -126,14 +120,6 @@ export function DataProvider({ children }) {
       if (item.state === 'all') return true;
       if (item.relevant_states?.includes(stateAbbr)) return true;
       return false;
-    }).map(mapResearchItem);
-  };
-
-  const getFederalResearch = () => {
-    return research.filter(item => {
-      if (item.status === 'in_review') return false;
-      if (item.type === 'bill') return false;
-      return isFederalItem(item);
     }).map(mapResearchItem);
   };
 
@@ -148,9 +134,7 @@ export function DataProvider({ children }) {
       error,
       statesWithBills,
       getBillsForState,
-      getFederalBills,
       getResearchForState,
-      getFederalResearch,
       getImpact,
     }}>
       {children}
@@ -179,10 +163,6 @@ function extractBillNumber(id, title) {
   const parts = id.split('-');
   if (parts.length >= 2) return parts.slice(1).join('-').toUpperCase();
   return id.toUpperCase();
-}
-
-function isFederalItem(item) {
-  return item.state === 'all' || item.state === 'federal' || item.jurisdiction_code === 'US';
 }
 
 function mapBillItem(item, reformImpacts) {

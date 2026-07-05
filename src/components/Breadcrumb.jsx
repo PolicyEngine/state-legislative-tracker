@@ -1,6 +1,5 @@
 import { colors, typography, spacing } from "../designTokens";
 import { stateData } from "../data/states";
-import { getJurisdictionLabel } from "../lib/jurisdictions";
 
 const ArrowLeft = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -16,7 +15,7 @@ const ChevronRight = () => (
 
 export default function Breadcrumb({ jurisdiction, billLabel, onNavigateHome, onNavigateJurisdiction }) {
   const onBack = billLabel ? onNavigateJurisdiction : onNavigateHome;
-  const jurisdictionLabel = getJurisdictionLabel(jurisdiction, stateData);
+  const jurisdictionLabel = stateData[jurisdiction]?.name || jurisdiction;
 
   return (
     <nav className="breadcrumb-nav" style={{

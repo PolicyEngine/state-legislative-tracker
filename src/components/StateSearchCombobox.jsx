@@ -1,22 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { stateData } from "../data/states";
 import { colors, typography, spacing } from "../designTokens";
-import { FEDERAL_JURISDICTION } from "../lib/jurisdictions";
 
-const ALL_JURISDICTIONS = [
-  {
-    value: FEDERAL_JURISDICTION,
-    code: "US",
-    name: "Federal",
-    kind: "federal",
-  },
-  ...Object.entries(stateData).map(([abbr, s]) => ({
-    value: abbr,
-    code: abbr,
-    name: s.name,
-    kind: "state",
-  })),
-];
+const ALL_JURISDICTIONS = Object.entries(stateData).map(([abbr, s]) => ({
+  value: abbr,
+  code: abbr,
+  name: s.name,
+  kind: "state",
+}));
 
 export default function StateSearchCombobox({ onSelect, statesWithBills }) {
   const [query, setQuery] = useState("");
@@ -136,8 +127,8 @@ export default function StateSearchCombobox({ onSelect, statesWithBills }) {
               : undefined
           }
           aria-autocomplete="list"
-          aria-label="Search states or federal"
-          placeholder="Search state or federal"
+          aria-label="Search states"
+          placeholder="Search states"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -190,7 +181,7 @@ export default function StateSearchCombobox({ onSelect, statesWithBills }) {
                 fontFamily: typography.fontFamily.body,
               }}
             >
-              No jurisdictions found
+              No states found
             </li>
           ) : (
             filtered.map((item, i) => {

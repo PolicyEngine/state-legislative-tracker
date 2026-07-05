@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { useData } from "../context/DataContext";
 import { useProcessedBills, StageBadge, BillActionModal, AnalysisRequestModal } from "./BillActivityFeed";
@@ -19,6 +19,14 @@ const formatUSD = (n, { compact = true } = {}) => {
   if (abs >= 1e3) return `${prefix}$${(abs / 1e3).toFixed(1)}K`;
   return `${prefix}$${abs.toFixed(0)}`;
 };
+
+function formatActionDate(dateLike) {
+  const dt = new Date(dateLike);
+  if (Number.isNaN(dt.getTime())) return null;
+  const opts = { month: "short", day: "numeric" };
+  if (dt.getFullYear() !== CURRENT_CALENDAR_YEAR) opts.year = "numeric";
+  return dt.toLocaleDateString("en-US", opts);
+}
 
 // Pick the impact payload to display — prefer the latest year from impactsByYear, else root.
 function resolveYearImpact(imp) {
@@ -64,6 +72,9 @@ function winnersLosersShares(imp) {
 // ============== Session scopes ==============
 
 const CURRENT_CALENDAR_YEAR = new Date().getFullYear();
+
+// Snapshot of "now" at module load — good enough for a 7-day recency window.
+const WEEK_CUTOFF_TS = Date.now() - 7 * 24 * 3600 * 1000;
 
 // Ordered newest-first. Each item: { id, label, years: Set<number>|null (null = all time) }
 const FEDERAL_SESSIONS = [
@@ -130,19 +141,16 @@ function inSessionYears(yearSet, ...dateCandidates) {
   return !sawAnyYear;
 }
 
-function impactScore(b) {
-  const imp = b.impact;
-  if (!imp) return -Infinity;
-  const budget = Math.abs(readBudget(imp) || 0);
-  const shares = winnersLosersShares(imp);
-  const reach = shares ? (shares.gain + shares.lose) / 100 : 0;
-  return budget + reach * 1e9;
+// Recency key for the hero list: prefer the bill's latest legislative action,
+// fall back to the PE scoring date. ISO date strings compare lexically.
+function recencyKey(b) {
+  return String(b.lastActionDate || b.date || "");
 }
 
 // ============== Main ==============
 
 export default function RedesignHome() {
-  const { research, reformImpacts } = useData();
+  const { research, reformImpacts, loading: dataLoading } = useData();
   const { bills: rawBills, loading: billsLoading } = useProcessedBills(null);
   const [jurisdictionFilter, setJurisdictionFilter] = useState("all"); // all | federal | state
   const [selectedState, setSelectedState] = useState(null); // state abbr when drilled
@@ -171,9 +179,10 @@ export default function RedesignHome() {
   const handleTrackerRowClick = (bill) => {
     const key = `${bill.state}:${normalizeBillNum(bill.bill_number)}`;
     const match = billToResearchId[key];
-    if (match) {
-      const isFederal = match.state === "all" || match.state === "federal";
-      const destination = `${BASE_PATH}/${isFederal ? "federal" : match.state.toLowerCase()}/${match.researchId}`;
+    // Only state analyses have a dedicated page; there is no federal panel.
+    const isStateMatch = match && match.state !== "all" && match.state !== "federal";
+    if (isStateMatch) {
+      const destination = `${BASE_PATH}/${match.state.toLowerCase()}/${match.researchId}`;
       history.pushState(null, "", destination);
       window.dispatchEvent(new PopStateEvent("popstate"));
     } else {
@@ -181,21 +190,19 @@ export default function RedesignHome() {
     }
   };
 
-  const sessionYears = useMemo(
-    () => resolveSessionYears(jurisdictionFilter, sessionScope),
-    [jurisdictionFilter, sessionScope],
-  );
-
-  // Map normalized "STATE:BILLNUM" → legislative year (from processed_bills).
+  // Map normalized "STATE:BILLNUM" → { year, lastActionDate } (from processed_bills).
   // research.date is the PE scoring date, not the bill's session; the authoritative
-  // year lives on the processed_bills row's last_action_date.
-  const billYearByKey = useMemo(() => {
+  // year and latest movement live on the processed_bills row.
+  const billMetaByKey = useMemo(() => {
     const m = new Map();
     for (const b of rawBills) {
       if (!b.state || !b.bill_number) continue;
       const num = b.bill_number.replace(/\s+/g, "").replace(/^([A-Z]+)0+(\d)/, "$1$2").toUpperCase();
       const y = yearOfDate(b.last_action_date) || yearOfDate(b.introduced_date);
-      if (y != null) m.set(`${b.state.toUpperCase()}:${num}`, y);
+      m.set(`${b.state.toUpperCase()}:${num}`, {
+        year: y,
+        lastActionDate: b.last_action_date || null,
+      });
     }
     return m;
   }, [rawBills]);
@@ -203,20 +210,20 @@ export default function RedesignHome() {
   // Returns every year that's plausibly associated with this bill (empty if unknown).
   // Prefers the processed_bills join, falls back to every year mentioned in
   // session_name / last_action_date / date (NY-style biennial sessions contain two years).
-  function billLegislativeYears(researchItem) {
+  const billLegislativeYears = useCallback((researchItem) => {
     const parts = researchItem.id.split("-");
     if (parts.length >= 2) {
       const state = parts[0].toUpperCase();
       const num = parts.slice(1).join("").toUpperCase();
-      const joined = billYearByKey.get(`${state}:${num}`);
-      if (joined != null) return [joined];
+      const joined = billMetaByKey.get(`${state}:${num}`);
+      if (joined?.year != null) return [joined.year];
     }
     return [
       ...yearsOfString(researchItem.session_name),
       ...yearsOfString(researchItem.last_action_date),
       ...yearsOfString(researchItem.date),
     ];
-  }
+  }, [billMetaByKey]);
 
   // Years that actually have data under the current jurisdiction — used to hide
   // empty session options (except the newest federal session and "all").
@@ -251,6 +258,21 @@ export default function RedesignHome() {
     [jurisdictionFilter, yearsWithData],
   );
 
+  // Derive the scope actually applied: if the selected id doesn't exist for this
+  // jurisdiction (state-year vs Congress ids, empty sessions hidden), fall back
+  // to the newest available option. While data is still loading the option list
+  // is incomplete, so trust the selection as-is to keep the "current" default.
+  const stillLoading = billsLoading || dataLoading;
+  const effectiveSessionScope =
+    stillLoading || availableSessionOptions.some((o) => o.id === sessionScope)
+      ? sessionScope
+      : availableSessionOptions[0]?.id || "all";
+
+  const sessionYears = useMemo(
+    () => resolveSessionYears(jurisdictionFilter, effectiveSessionScope),
+    [jurisdictionFilter, effectiveSessionScope],
+  );
+
   const scoredBills = useMemo(() => {
     return research
       .filter((r) => r.type === "bill" && r.status !== "in_review")
@@ -266,47 +288,53 @@ export default function RedesignHome() {
         if (years.length === 0) return true; // unknown-year bills stay visible
         return years.some((y) => sessionYears.has(y));
       })
-      .map((r) => ({ ...r, impact: reformImpacts[r.id] || null }))
+      .map((r) => {
+        const parts = r.id.split("-");
+        const key = parts.length >= 2 ? `${parts[0].toUpperCase()}:${parts.slice(1).join("").toUpperCase()}` : null;
+        return {
+          ...r,
+          impact: reformImpacts[r.id] || null,
+          lastActionDate: (key && billMetaByKey.get(key)?.lastActionDate) || null,
+        };
+      })
       .filter((r) => r.impact)
-      .sort((a, b) => impactScore(b) - impactScore(a));
-  }, [research, reformImpacts, jurisdictionFilter, selectedState, sessionYears]);
+      .sort((a, b) => recencyKey(b).localeCompare(recencyKey(a)));
+  }, [research, reformImpacts, jurisdictionFilter, selectedState, sessionYears, billLegislativeYears, billMetaByKey]);
 
-  const topImpact = scoredBills.slice(0, 6);
 
   const docket = useMemo(() => {
     const filtered = rawBills
       .filter((b) => (jurisdictionFilter === "federal" ? b.state === "US" : jurisdictionFilter === "state" ? b.state !== "US" : true))
       .filter((b) => !selectedState || b.state === selectedState)
       .filter((b) => inSessionYears(sessionYears, b.last_action_date, b.introduced_date));
-    return filtered.slice(0, 30);
+    return { rows: filtered.slice(0, 30), total: filtered.length };
   }, [rawBills, jurisdictionFilter, selectedState, sessionYears]);
 
   const enacted = useMemo(() => {
-    return rawBills
+    const filtered = rawBills
       .filter((b) => b.status === "Signed into Law")
       .filter((b) => (jurisdictionFilter === "federal" ? b.state === "US" : jurisdictionFilter === "state" ? b.state !== "US" : true))
       .filter((b) => !selectedState || b.state === selectedState)
-      .filter((b) => inSessionYears(sessionYears, b.last_action_date, b.introduced_date))
-      .slice(0, 8);
+      .filter((b) => inSessionYears(sessionYears, b.last_action_date, b.introduced_date));
+    return { rows: filtered.slice(0, 8), total: filtered.length };
   }, [rawBills, jurisdictionFilter, selectedState, sessionYears]);
 
   const momentum = useMemo(() => {
     // If a non-current session is scoped, show the most recent actions within
     // that session instead of a 7-day window (which only makes sense for now).
-    const isCurrent = sessionScope === "current";
-    const cutoff = Date.now() - 7 * 24 * 3600 * 1000;
+    const isCurrent = effectiveSessionScope === "current";
     return rawBills
       .filter((b) => b.last_action_date)
-      .filter((b) => (isCurrent ? new Date(b.last_action_date).getTime() >= cutoff : true))
+      .filter((b) => (isCurrent ? new Date(b.last_action_date).getTime() >= WEEK_CUTOFF_TS : true))
       .filter((b) => (jurisdictionFilter === "federal" ? b.state === "US" : jurisdictionFilter === "state" ? b.state !== "US" : true))
       .filter((b) => !selectedState || b.state === selectedState)
       .filter((b) => inSessionYears(sessionYears, b.last_action_date, b.introduced_date))
       .slice(0, 10);
-  }, [rawBills, jurisdictionFilter, selectedState, sessionScope, sessionYears]);
+  }, [rawBills, jurisdictionFilter, selectedState, effectiveSessionScope, sessionYears]);
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: colors.background.tertiary, paddingBottom: spacing["4xl"] }}>
-      <Masthead scoredCount={scoredBills.length} totalCount={rawBills.length} momentumCount={momentum.length} />
+      <Masthead />
       <main style={{ maxWidth: "1280px", margin: "0 auto", padding: `${spacing.lg} ${spacing["2xl"]}` }}>
         <FilterStrip
           jurisdictionFilter={jurisdictionFilter}
@@ -314,11 +342,11 @@ export default function RedesignHome() {
           selectedState={selectedState}
           clearSelectedState={() => setSelectedState(null)}
           onSelectState={setSelectedState}
-          sessionScope={sessionScope}
+          sessionScope={effectiveSessionScope}
           onSessionChange={setSessionScope}
           sessionOptions={availableSessionOptions}
         />
-        <ImpactIndexCard bills={topImpact} />
+        <ImpactIndexCard bills={scoredBills} />
         <div
           className="redesign-three-col"
           style={{
@@ -337,12 +365,14 @@ export default function RedesignHome() {
           />
           <MomentumCard
             momentum={momentum}
+            isCurrentScope={effectiveSessionScope === "current"}
             onBillClick={handleTrackerRowClick}
             billToResearchId={billToResearchId}
             normalizeBillNum={normalizeBillNum}
           />
           <EnactedCard
-            bills={enacted}
+            bills={enacted.rows}
+            total={enacted.total}
             onBillClick={handleTrackerRowClick}
             billToResearchId={billToResearchId}
             normalizeBillNum={normalizeBillNum}
@@ -354,9 +384,9 @@ export default function RedesignHome() {
             bill={actionBill}
             onClose={() => setActionBill(null)}
             onViewAnalysis={() => {
-              if (actionBill.analysisMatch) {
-                const isFederal = actionBill.analysisMatch.state === "all" || actionBill.analysisMatch.state === "federal";
-                const dest = `${BASE_PATH}/${isFederal ? "federal" : actionBill.analysisMatch.state.toLowerCase()}/${actionBill.analysisMatch.researchId}`;
+              const m = actionBill.analysisMatch;
+              if (m && m.state !== "all" && m.state !== "federal") {
+                const dest = `${BASE_PATH}/${m.state.toLowerCase()}/${m.researchId}`;
                 history.pushState(null, "", dest);
                 window.dispatchEvent(new PopStateEvent("popstate"));
               }
@@ -378,7 +408,7 @@ export default function RedesignHome() {
 
 // ============== Masthead ==============
 
-function Masthead({ scoredCount, totalCount, momentumCount }) {
+function Masthead() {
   return (
     <header
       style={{
@@ -400,7 +430,9 @@ function Masthead({ scoredCount, totalCount, momentumCount }) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: spacing.md }}>
-          <img src="/policyengine-favicon.svg" alt="PolicyEngine" style={{ height: "28px", width: "auto" }} />
+          <a href="https://policyengine.org" target="_blank" rel="noopener noreferrer" style={{ display: "flex" }}>
+            <img src="/policyengine-favicon.svg" alt="PolicyEngine" style={{ height: "28px", width: "auto" }} />
+          </a>
           <div>
             <h1
               style={{
@@ -427,46 +459,8 @@ function Masthead({ scoredCount, totalCount, momentumCount }) {
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: spacing["2xl"] }}>
-          <StatPill label="Scored" value={scoredCount} accent={colors.primary[600]} />
-          <StatPill label="Tracked" value={totalCount} />
-          <StatPill label="Moved this week" value={momentumCount} />
-        </div>
       </div>
     </header>
-  );
-}
-
-function StatPill({ label, value, accent }) {
-  return (
-    <div>
-      <div
-        style={{
-          fontSize: typography.fontSize["2xl"],
-          fontWeight: typography.fontWeight.bold,
-          fontFamily: typography.fontFamily.primary,
-          color: accent || colors.secondary[900],
-          letterSpacing: "-0.02em",
-          lineHeight: 1,
-          fontVariantNumeric: "tabular-nums",
-        }}
-      >
-        {value}
-      </div>
-      <div
-        style={{
-          fontSize: "10px",
-          fontWeight: typography.fontWeight.medium,
-          color: colors.text.tertiary,
-          fontFamily: typography.fontFamily.body,
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          marginTop: "4px",
-        }}
-      >
-        {label}
-      </div>
-    </div>
   );
 }
 
@@ -544,12 +538,8 @@ function SessionPicker({ options, selected, onChange }) {
   const triggerRef = useRef(null);
   const popoverRef = useRef(null);
 
-  // If selected id no longer exists in the current jurisdiction's options (e.g. switched
-  // between state/federal), snap back to "current".
-  useEffect(() => {
-    if (!options.some((o) => o.id === selected)) onChange("current");
-  }, [options, selected, onChange]);
-
+  // Reconciling a stale selected id with the available options is the parent's
+  // job (it knows when data has finished loading); here we only render.
   useLayoutEffect(() => {
     if (!open || !triggerRef.current) return;
     setAnchor(triggerRef.current.getBoundingClientRect());
@@ -946,10 +936,24 @@ function CardHeader({ eyebrow, title, subtitle, right }) {
 
 // ============== Impact Index ==============
 
+const IMPACT_PAGE_SIZE = 6;
+
 function ImpactIndexCard({ bills }) {
+  const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(bills.length / IMPACT_PAGE_SIZE));
+  // Clamp instead of resetting via effect so filter changes can't strand us
+  // on a page that no longer exists.
+  const safePage = Math.min(page, totalPages - 1);
+  const start = safePage * IMPACT_PAGE_SIZE;
+  const pageRows = bills.slice(start, start + IMPACT_PAGE_SIZE);
+
   return (
     <Card>
-      <CardHeader eyebrow="Leading the index" title="Impact Index" subtitle="Scored bills ranked by fiscal reach and household impact" />
+      <CardHeader
+        eyebrow="Scored by PolicyEngine"
+        title="Latest scored bills"
+        subtitle={`${bills.length} bill${bills.length === 1 ? "" : "s"} with modeled impacts, newest activity first`}
+      />
       {bills.length === 0 ? (
         <div
           style={{
@@ -963,14 +967,83 @@ function ImpactIndexCard({ bills }) {
           Awaiting scored legislation.
         </div>
       ) : (
-        <div>
-          <ImpactHeaderRow />
-          {bills.map((b, i) => (
-            <ImpactRow key={b.id} rank={i + 1} bill={b} last={i === bills.length - 1} />
-          ))}
-        </div>
+        <>
+          <div style={{ overflowX: "auto" }}>
+            <div style={{ minWidth: "720px" }}>
+              <ImpactHeaderRow />
+              {pageRows.map((b, i) => (
+                <ImpactRow key={b.id} rank={start + i + 1} bill={b} last={i === pageRows.length - 1} />
+              ))}
+            </div>
+          </div>
+          {totalPages > 1 && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: `${spacing.sm} ${spacing.lg}`,
+                borderTop: `1px solid ${colors.border.light}`,
+                backgroundColor: colors.gray[50],
+              }}
+            >
+              <span
+                style={{
+                  fontSize: typography.fontSize.xs,
+                  color: colors.text.tertiary,
+                  fontFamily: typography.fontFamily.body,
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {start + 1}–{start + pageRows.length} of {bills.length}
+              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
+                <PagerButton disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>
+                  ‹ Prev
+                </PagerButton>
+                <span
+                  style={{
+                    fontSize: typography.fontSize.xs,
+                    color: colors.text.secondary,
+                    fontFamily: typography.fontFamily.body,
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {safePage + 1} / {totalPages}
+                </span>
+                <PagerButton disabled={safePage >= totalPages - 1} onClick={() => setPage(safePage + 1)}>
+                  Next ›
+                </PagerButton>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </Card>
+  );
+}
+
+function PagerButton({ disabled, onClick, children }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      style={{
+        padding: `4px ${spacing.md}`,
+        border: `1px solid ${colors.border.light}`,
+        borderRadius: "999px",
+        backgroundColor: disabled ? "transparent" : colors.white,
+        color: disabled ? colors.gray[300] : colors.text.secondary,
+        fontSize: typography.fontSize.xs,
+        fontWeight: typography.fontWeight.semibold,
+        fontFamily: typography.fontFamily.body,
+        cursor: disabled ? "default" : "pointer",
+        transition: "all 0.15s",
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -987,7 +1060,7 @@ function ImpactHeaderRow() {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "36px 56px minmax(0, 1fr) 200px 140px",
+        gridTemplateColumns: "36px 56px minmax(0, 1fr) 90px 200px 140px",
         gap: spacing.md,
         padding: `${spacing.sm} ${spacing.lg}`,
         borderBottom: `1px solid ${colors.border.light}`,
@@ -997,6 +1070,7 @@ function ImpactHeaderRow() {
       <div style={headerStyle}>#</div>
       <div style={headerStyle}>Locus</div>
       <div style={headerStyle}>Bill</div>
+      <div style={headerStyle}>Moved</div>
       <div style={headerStyle}>Households affected</div>
       <div style={{ ...headerStyle, textAlign: "right" }}>Budget, yr 1</div>
     </div>
@@ -1011,7 +1085,8 @@ function ImpactRow({ rank, bill, last }) {
 
   const isFederal = bill.state === "all" || bill.state === "federal" || bill.jurisdiction_code === "US";
   const locus = isFederal ? "FED" : (bill.state || "").toUpperCase();
-  const destination = `${BASE_PATH}/${isFederal ? "federal" : locus.toLowerCase()}/${bill.id}`;
+  // Only state analyses have a dedicated page; federal rows stay on the home view.
+  const destination = isFederal ? `${BASE_PATH}/` : `${BASE_PATH}/${locus.toLowerCase()}/${bill.id}`;
 
   return (
     <a
@@ -1023,7 +1098,7 @@ function ImpactRow({ rank, bill, last }) {
       }}
       style={{
         display: "grid",
-        gridTemplateColumns: "36px 56px minmax(0, 1fr) 200px 140px",
+        gridTemplateColumns: "36px 56px minmax(0, 1fr) 90px 200px 140px",
         gap: spacing.md,
         padding: `${spacing.md} ${spacing.lg}`,
         borderBottom: last ? "none" : `1px solid ${colors.border.light}`,
@@ -1102,6 +1177,17 @@ function ImpactRow({ rank, bill, last }) {
           )}
         </div>
       </div>
+      <div
+        style={{
+          fontSize: typography.fontSize.xs,
+          color: colors.text.tertiary,
+          fontFamily: typography.fontFamily.body,
+          fontVariantNumeric: "tabular-nums",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {bill.lastActionDate ? formatActionDate(bill.lastActionDate) : "—"}
+      </div>
       <div>
         {shares ? (
           <>
@@ -1165,7 +1251,7 @@ function ImpactRow({ rank, bill, last }) {
             fontWeight: typography.fontWeight.medium,
           }}
         >
-          state revenue / yr
+          {isFederal ? "budget impact / yr" : "state revenue / yr"}
         </div>
       </div>
     </a>
@@ -1175,9 +1261,13 @@ function ImpactRow({ rank, bill, last }) {
 // ============== Docket ==============
 
 function DocketCard({ docket, loading, onBillClick, billToResearchId, normalizeBillNum }) {
+  const { rows, total } = docket;
+  const subtitle = total > rows.length
+    ? `${rows.length} of ${total} bills`
+    : `${total} bill${total === 1 ? "" : "s"}`;
   return (
     <Card>
-      <CardHeader eyebrow="All tracked" title="On the Docket" subtitle={`${docket.length} bills`} />
+      <CardHeader eyebrow="All tracked" title="On the Docket" subtitle={subtitle} />
       <div style={{ maxHeight: "520px", overflowY: "auto" }}>
         {loading && (
           <div
@@ -1192,7 +1282,7 @@ function DocketCard({ docket, loading, onBillClick, billToResearchId, normalizeB
             Loading…
           </div>
         )}
-        {!loading && docket.length === 0 && (
+        {!loading && rows.length === 0 && (
           <div
             style={{
               padding: spacing.xl,
@@ -1205,11 +1295,11 @@ function DocketCard({ docket, loading, onBillClick, billToResearchId, normalizeB
             No bills match the current view.
           </div>
         )}
-        {!loading && docket.map((b, i) => (
+        {!loading && rows.map((b, i) => (
           <DocketRow
             key={`${b.state}-${b.bill_number}-${i}`}
             bill={b}
-            last={i === docket.length - 1}
+            last={i === rows.length - 1}
             onClick={() => onBillClick(b)}
             isScored={!!billToResearchId[`${b.state}:${normalizeBillNum(b.bill_number)}`]}
           />
@@ -1321,10 +1411,13 @@ function DocketRow({ bill, last, onClick, isScored }) {
 
 // ============== Enacted (Signed into Law) ==============
 
-function EnactedCard({ bills, onBillClick, billToResearchId, normalizeBillNum }) {
+function EnactedCard({ bills, total, onBillClick, billToResearchId, normalizeBillNum }) {
+  const subtitle = total > bills.length
+    ? `${bills.length} of ${total} bills`
+    : `${total} bill${total === 1 ? "" : "s"}`;
   return (
     <Card>
-      <CardHeader eyebrow="Signed into law" title="Enacted" subtitle={`${bills.length} bill${bills.length === 1 ? "" : "s"}`} />
+      <CardHeader eyebrow="Signed into law" title="Enacted" subtitle={subtitle} />
       <div style={{ maxHeight: "520px", overflowY: "auto" }}>
         {bills.length === 0 ? (
           <div
@@ -1423,10 +1516,14 @@ function EnactedRow({ bill, last, onClick, isScored }) {
 
 // ============== Momentum ==============
 
-function MomentumCard({ momentum, onBillClick, billToResearchId, normalizeBillNum }) {
+function MomentumCard({ momentum, isCurrentScope, onBillClick, billToResearchId, normalizeBillNum }) {
   return (
     <Card>
-      <CardHeader eyebrow="Last 7 days" title="Moving this Week" subtitle="Stage changes" />
+      <CardHeader
+        eyebrow={isCurrentScope ? "Last 7 days" : "Session activity"}
+        title={isCurrentScope ? "Moving this Week" : "Recent Actions"}
+        subtitle={isCurrentScope ? "Stage changes" : "Latest actions in the selected session"}
+      />
       <div style={{ maxHeight: "520px", overflowY: "auto" }}>
         {momentum.length === 0 ? (
           <div
@@ -1438,12 +1535,12 @@ function MomentumCard({ momentum, onBillClick, billToResearchId, normalizeBillNu
               fontFamily: typography.fontFamily.body,
             }}
           >
-            Quiet week.
+            {isCurrentScope ? "Quiet week." : "No recorded actions."}
           </div>
         ) : (
           momentum.map((b, i) => (
             <MomentumRow
-              key={`m-${i}`}
+              key={`m-${b.state}-${b.bill_number}-${i}`}
               bill={b}
               last={i === momentum.length - 1}
               onClick={() => onBillClick(b)}

@@ -2,13 +2,6 @@ export const ALL_YEARS = "all";
 export const CURRENT_SCOPE = "current";
 export const ALL_ACTIVITY_SCOPE = "all_activity";
 
-export const CURRENT_FEDERAL_SESSION = {
-  id: CURRENT_SCOPE,
-  label: "119th Congress",
-  description: "January 3, 2025 to January 3, 2027",
-  years: ["2026", "2025"],
-};
-
 export function extractYearsFromText(text) {
   if (!text) return [];
   const matches = text.match(/\b20\d{2}\b/g) || [];

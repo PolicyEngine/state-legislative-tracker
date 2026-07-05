@@ -790,22 +790,19 @@ export function StateBillActivity({ stateAbbr, onBillSelect, sessionYearSet = nu
     [bills, sessionYearSet, selectedYear],
   );
 
-  const { analyzedBillIds, billToResearchId } = useMemo(() => {
+  const analyzedBillIds = useMemo(() => {
     const ids = new Set();
-    const lookup = {};
     for (const r of research) {
       if (r.type === "bill" && r.status !== "in_review") {
         const parts = r.id.split("-");
         if (parts.length >= 2) {
           const state = parts[0].toUpperCase();
           const num = parts.slice(1).join("").toUpperCase();
-          const key = `${state}:${num}`;
-          ids.add(key);
-          lookup[key] = { researchId: r.id, state };
+          ids.add(`${state}:${num}`);
         }
       }
     }
-    return { analyzedBillIds: ids, billToResearchId: lookup };
+    return ids;
   }, [research]);
 
   const unananalyzedBills = useMemo(
