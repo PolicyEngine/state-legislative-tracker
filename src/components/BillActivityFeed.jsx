@@ -334,7 +334,7 @@ export function useProcessedBills(stateFilter) {
         .select("state, bill_number, title, status, last_action, last_action_date, confidence_score, reform_type, legiscan_url")
         .gt("confidence_score", 19)
         .is("skipped_reason", null)
-        .order("last_action_date", { ascending: false });
+        .order("last_action_date", { ascending: false, nullsFirst: false });
 
       if (stateFilter) {
         query = query.eq("state", stateFilter);
