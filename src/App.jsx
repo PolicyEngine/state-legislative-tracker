@@ -23,8 +23,10 @@ function parsePath() {
   const parts = path.split("/");
   const state = parts[0].toUpperCase();
   const billId = parts[1] || null;
-  // Unknown segments (including retired /federal URLs) fall back to home.
-  return { jurisdiction: stateData[state] ? state : null, billId };
+  // "US" is the federal jurisdiction; other unknown segments (including
+  // retired /federal URLs) fall back to home.
+  const isKnown = Boolean(stateData[state]) || state === "US";
+  return { jurisdiction: isKnown ? state : null, billId };
 }
 
 function notifyParent(path) {
@@ -116,11 +118,15 @@ function App() {
   const isJurisdictionPage = selectedJurisdiction && !isBillPage;
 
   // Home renders the editorial-style RedesignHome with its own masthead;
-  // state/bill pages still use the app shell below.
-  if (!selectedJurisdiction) {
+  // state/bill pages still use the app shell below. Federal has no
+  // StatePanel equivalent — /us browsing is the home view with the
+  // federal filter preselected.
+  if (!selectedJurisdiction || (selectedJurisdiction === "US" && !isBillPage)) {
     return (
       <Suspense fallback={<LoadingPlaceholder />}>
-        <RedesignHome />
+        <RedesignHome
+          initialJurisdictionFilter={selectedJurisdiction === "US" ? "federal" : undefined}
+        />
       </Suspense>
     );
   }
