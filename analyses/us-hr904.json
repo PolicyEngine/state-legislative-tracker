@@ -13,7 +13,8 @@
       "Reduces federal revenue by $94.5 billion in 2026 (PolicyEngine, Enhanced CPS 2024, policyengine-us 1.729.3)",
       "10.4% of households gain; none lose",
       "Average gains rise with income: $104/household in the third decile to $2,817 in the top decile",
-      "No measurable change in overall or child poverty (SPM)"
+      "No measurable change in overall or child poverty (SPM)",
+      "External check: matches PolicyEngine's prior published single-year score ($98.9B for 2025, pre-OBBBA) and CRFB's independent ~$94B first-year estimate; implies ~$1.4-1.6T over 2026-2035, consistent with CRFB, TPC ($1.5T), and Penn Wharton ($1.45T). The slightly lower figure reflects the OBBBA senior deduction shrinking the taxable-benefit base."
     ],
     "tags": [
       "federal",
@@ -175,7 +176,33 @@
       }
     },
     "model_notes": {
-      "analysis_year": 2026
+      "analysis_year": 2026,
+      "external_comparison": {
+        "verdict": "corroborated",
+        "pe_single_year_2026": -94500000000.0,
+        "anchors": [
+          {
+            "source": "PolicyEngine (prior published, 2024)",
+            "figure": "$98.9B single-year 2025 (pre-OBBBA); ~$1.4T 10yr",
+            "url": "https://policyengine.org/us/research/social-security-tax-exemption"
+          },
+          {
+            "source": "CRFB (2024)",
+            "figure": "~$94B first-year; $1.6-1.8T 10yr",
+            "url": "https://www.crfb.org/blogs/donald-trumps-suggestion-end-taxation-social-security-benefits"
+          },
+          {
+            "source": "Tax Policy Center (2024)",
+            "figure": "~$1.5T 10yr",
+            "url": "https://taxpolicycenter.org/taxvox/trumps-social-security-benefit-tax-repeal-would-lower-taxes-accelerate-program-insolvency"
+          },
+          {
+            "source": "Penn Wharton (2025)",
+            "figure": "$1.45T 10yr",
+            "url": "https://budgetmodel.wharton.upenn.edu/p/2025-02-07-eliminating-income-taxes-on-social-security-benefits/"
+          }
+        ]
+      }
     },
     "policyengine_us_version": "1.729.3",
     "dataset_name": "policyengine-us-data",

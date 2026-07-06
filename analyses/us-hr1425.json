@@ -13,7 +13,9 @@
       "Reduces federal revenue by $207 billion in 2026 (PolicyEngine, Enhanced CPS 2024, policyengine-us 1.729.3)",
       "Cuts child poverty (SPM) by 47%, from 17.2% to 9.1%",
       "Cuts overall poverty by 19%, from 16.1% to 13.1%",
-      "39.6% of households gain; none lose"
+      "39.6% of households gain; none lose",
+      "External check (cost): consistent with PolicyEngine's near-identical $5,000 fully-refundable CTC analysis ($241B, 2025) and CRFB's $2-3T/10yr band for this reform shape; the lower figure reflects the higher OBBBA $2,200 baseline.",
+      "External check (child poverty): ARPA's 2021 expansion cut child poverty ~46% (Census SPM) for a smaller credit; PolicyEngine's comparable $5,000 analysis found 41%. Our 47% is defensible but on the optimistic edge of the evidence range."
     ],
     "tags": [
       "federal",
@@ -170,7 +172,39 @@
       }
     },
     "model_notes": {
-      "analysis_year": 2026
+      "analysis_year": 2026,
+      "external_comparison": {
+        "verdict": "corroborated (child-poverty effect at optimistic edge)",
+        "pe_single_year_2026_cost": -207000000000.0,
+        "pe_child_poverty_reduction_pct": 47,
+        "anchors": [
+          {
+            "source": "PolicyEngine Vance $5,000 CTC (near-identical reform)",
+            "figure": "$241B cost, 41% child-poverty cut (2025)",
+            "url": "https://blog.policyengine.org/analysis-of-jd-vances-5-000-child-tax-credit-proposal-6bfde7f7a322"
+          },
+          {
+            "source": "CRFB",
+            "figure": "$5,000 fully-refundable no-limit CTC = $2-3T/10yr (~$200-300B/yr)",
+            "url": "https://www.crfb.org/blogs/kamala-harris-agenda-lower-costs-american-families"
+          },
+          {
+            "source": "JCT (ARPA CTC, one year)",
+            "figure": "~$109B for smaller $3,000/$3,600 phase-out-retaining credit",
+            "url": "https://www.crfb.org/blogs/tax-break-down-child-tax-credit"
+          },
+          {
+            "source": "Census SPM 2021 (ARPA natural experiment)",
+            "figure": "child poverty fell 46%, 9.7%->5.2%",
+            "url": "https://www.census.gov/library/stories/2022/09/record-drop-in-child-poverty.html"
+          },
+          {
+            "source": "Penn Wharton (Keep Your Pay Act)",
+            "figure": "$4,320/$3,600 fully refundable = $1.26T/10yr",
+            "url": "https://budgetmodel.wharton.upenn.edu/p/2026-03-11-the-keep-your-pay-act-budgetary-and-distributional-effects/"
+          }
+        ]
+      }
     },
     "policyengine_us_version": "1.729.3",
     "dataset_name": "policyengine-us-data",
