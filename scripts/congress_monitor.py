@@ -106,6 +106,15 @@ def bill_source_id(congress, bill_type, number):
     return f"us-congress-{congress}-{bill_type}-{number}"
 
 
+def ordinal(n):
+    """119 -> '119th', 121 -> '121st' (needed from the 121st Congress on)."""
+    if 10 <= n % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
 def generate_bill_id(source_id):
     """
     Stable integer PK from the source id (processed_bills.bill_id is INTEGER).
@@ -210,7 +219,7 @@ def classify_stage(bill):
 
 def congress_gov_url(congress, bill_type, number):
     segment = BILL_TYPE_URL_SEGMENTS.get(bill_type, bill_type)
-    return f"https://www.congress.gov/bill/{congress}th-congress/{segment}/{number}"
+    return f"https://www.congress.gov/bill/{ordinal(congress)}-congress/{segment}/{number}"
 
 
 def build_row(seed, bill):
@@ -231,7 +240,7 @@ def build_row(seed, bill):
         "last_action": latest.get("text", ""),
         "last_action_date": latest.get("actionDate") or None,
         "official_url": url,
-        "session_name": f"{congress}th Congress",
+        "session_name": f"{ordinal(congress)} Congress",
         "legiscan_url": url,  # legacy column reused as source URL, as openstates_monitor does
         "matched_query": "curated-federal-seed",
     }
@@ -249,7 +258,7 @@ def parse_tracked_row(row):
     Recover (congress, bill_type, number) from a processed_bills US row,
     using session_name ('119th Congress') + bill_number ('HR 1234').
     """
-    session_match = re.match(r"(\d+)th Congress", row.get("session_name") or "")
+    session_match = re.match(r"(\d+)(?:st|nd|rd|th) Congress", row.get("session_name") or "")
     number_match = re.match(r"([A-Za-z.]+)\s*(\d+)", row.get("bill_number") or "")
     if not session_match or not number_match:
         return None

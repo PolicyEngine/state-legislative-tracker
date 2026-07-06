@@ -95,7 +95,8 @@ export function DataProvider({ children }) {
         item.status !== 'in_review' &&
         item.state &&
         item.state !== 'all' &&
-        item.state !== 'federal'
+        item.state !== 'federal' &&
+        item.state !== 'US'
       ) {
         counts[item.state] = (counts[item.state] || 0) + 1;
       }

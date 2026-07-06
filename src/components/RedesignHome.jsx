@@ -278,8 +278,10 @@ export default function RedesignHome({ initialJurisdictionFilter }) {
     return research
       .filter((r) => r.type === "bill" && r.status !== "in_review")
       .filter((r) => {
-        if (jurisdictionFilter === "federal") return r.state === "all" || r.state === "federal" || r.jurisdiction_code === "US";
-        if (jurisdictionFilter === "state") return r.state !== "all" && r.state !== "federal" && r.jurisdiction_code !== "US";
+        const isFederal =
+          r.state === "all" || r.state === "federal" || r.state === "US" || r.jurisdiction_code === "US";
+        if (jurisdictionFilter === "federal") return isFederal;
+        if (jurisdictionFilter === "state") return !isFederal;
         return true;
       })
       .filter((r) => !selectedState || (r.state || "").toUpperCase() === selectedState)
