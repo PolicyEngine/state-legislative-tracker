@@ -15,7 +15,8 @@ const ChevronRight = () => (
 
 export default function Breadcrumb({ jurisdiction, billLabel, onNavigateHome, onNavigateJurisdiction }) {
   const onBack = billLabel ? onNavigateJurisdiction : onNavigateHome;
-  const jurisdictionLabel = stateData[jurisdiction]?.name || jurisdiction;
+  const jurisdictionLabel =
+    jurisdiction === "US" ? "Federal" : stateData[jurisdiction]?.name || jurisdiction;
 
   return (
     <nav className="breadcrumb-nav" style={{

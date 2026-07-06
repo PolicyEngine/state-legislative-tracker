@@ -149,10 +149,10 @@ function recencyKey(b) {
 
 // ============== Main ==============
 
-export default function RedesignHome() {
+export default function RedesignHome({ initialJurisdictionFilter }) {
   const { research, reformImpacts, loading: dataLoading } = useData();
   const { bills: rawBills, loading: billsLoading } = useProcessedBills(null);
-  const [jurisdictionFilter, setJurisdictionFilter] = useState("all"); // all | federal | state
+  const [jurisdictionFilter, setJurisdictionFilter] = useState(initialJurisdictionFilter || "all"); // all | federal | state
   const [selectedState, setSelectedState] = useState(null); // state abbr when drilled
   const [sessionScope, setSessionScope] = useState("current"); // current | <year> | all
   const [actionBill, setActionBill] = useState(null);
@@ -179,7 +179,8 @@ export default function RedesignHome() {
   const handleTrackerRowClick = (bill) => {
     const key = `${bill.state}:${normalizeBillNum(bill.bill_number)}`;
     const match = billToResearchId[key];
-    // Only state analyses have a dedicated page; there is no federal panel.
+    // State and US bill analyses have dedicated pages (/:state/:id, /us/:id);
+    // legacy state='all' dashboards do not.
     const isStateMatch = match && match.state !== "all" && match.state !== "federal";
     if (isStateMatch) {
       const destination = `${BASE_PATH}/${match.state.toLowerCase()}/${match.researchId}`;
@@ -1110,10 +1111,15 @@ function ImpactRow({ rank, bill, last }) {
   const shares = winnersLosersShares(imp);
   const povertyPct = readPovertyPct(imp);
 
-  const isFederal = bill.state === "all" || bill.state === "federal" || bill.jurisdiction_code === "US";
+  const isFederal = bill.state === "all" || bill.state === "federal" || bill.state === "US" || bill.jurisdiction_code === "US";
   const locus = isFederal ? "FED" : (bill.state || "").toUpperCase();
-  // Only state analyses have a dedicated page; federal rows stay on the home view.
-  const destination = isFederal ? `${BASE_PATH}/` : `${BASE_PATH}/${locus.toLowerCase()}/${bill.id}`;
+  // Federal analyses live under /us; legacy state='all' dashboards have no
+  // bill page, so only route rows that are actual US bill analyses.
+  const destination = isFederal
+    ? bill.state === "US" || bill.id.startsWith("us-")
+      ? `${BASE_PATH}/us/${bill.id}`
+      : `${BASE_PATH}/`
+    : `${BASE_PATH}/${locus.toLowerCase()}/${bill.id}`;
 
   return (
     <a
