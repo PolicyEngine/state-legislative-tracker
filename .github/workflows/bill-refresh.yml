@@ -77,3 +77,12 @@ jobs:
       - name: Auto-triage and update issues
         if: steps.phase.outputs.phase == 'day_3'
         run: python scripts/auto_triage.py
+
+      # Federal bills refresh every day — congress.gov allows 5,000 req/hr,
+      # so the OpenStates 3-day rationing doesn't apply. No-ops with a
+      # notice until the CONGRESS_API_KEY secret is added
+      # (free key: https://api.congress.gov/sign-up/).
+      - name: Refresh federal bills
+        env:
+          CONGRESS_API_KEY: ${{ secrets.CONGRESS_API_KEY }}
+        run: python scripts/congress_monitor.py

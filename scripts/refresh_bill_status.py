@@ -330,6 +330,10 @@ def main():
 
     query = query.is_("skipped_reason", "null")
 
+    # Federal bills are refreshed by congress_monitor.py; OpenStates
+    # doesn't cover Congress, so searching would waste rationed calls.
+    query = query.neq("state", "US")
+
     if args.state:
         query = query.eq("state", args.state)
 
