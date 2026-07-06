@@ -303,20 +303,18 @@ export default function RedesignHome() {
 
 
   const docket = useMemo(() => {
-    const filtered = rawBills
+    return rawBills
       .filter((b) => (jurisdictionFilter === "federal" ? b.state === "US" : jurisdictionFilter === "state" ? b.state !== "US" : true))
       .filter((b) => !selectedState || b.state === selectedState)
       .filter((b) => inSessionYears(sessionYears, b.last_action_date, b.introduced_date));
-    return { rows: filtered.slice(0, 30), total: filtered.length };
   }, [rawBills, jurisdictionFilter, selectedState, sessionYears]);
 
   const enacted = useMemo(() => {
-    const filtered = rawBills
+    return rawBills
       .filter((b) => b.status === "Signed into Law")
       .filter((b) => (jurisdictionFilter === "federal" ? b.state === "US" : jurisdictionFilter === "state" ? b.state !== "US" : true))
       .filter((b) => !selectedState || b.state === selectedState)
       .filter((b) => inSessionYears(sessionYears, b.last_action_date, b.introduced_date));
-    return { rows: filtered.slice(0, 8), total: filtered.length };
   }, [rawBills, jurisdictionFilter, selectedState, sessionYears]);
 
   const momentum = useMemo(() => {
@@ -328,8 +326,7 @@ export default function RedesignHome() {
       .filter((b) => (isCurrent ? new Date(b.last_action_date).getTime() >= WEEK_CUTOFF_TS : true))
       .filter((b) => (jurisdictionFilter === "federal" ? b.state === "US" : jurisdictionFilter === "state" ? b.state !== "US" : true))
       .filter((b) => !selectedState || b.state === selectedState)
-      .filter((b) => inSessionYears(sessionYears, b.last_action_date, b.introduced_date))
-      .slice(0, 10);
+      .filter((b) => inSessionYears(sessionYears, b.last_action_date, b.introduced_date));
   }, [rawBills, jurisdictionFilter, selectedState, effectiveSessionScope, sessionYears]);
 
   return (
@@ -371,8 +368,7 @@ export default function RedesignHome() {
             normalizeBillNum={normalizeBillNum}
           />
           <EnactedCard
-            bills={enacted.rows}
-            total={enacted.total}
+            bills={enacted}
             onBillClick={handleTrackerRowClick}
             billToResearchId={billToResearchId}
             normalizeBillNum={normalizeBillNum}
@@ -976,51 +972,82 @@ function ImpactIndexCard({ bills }) {
               ))}
             </div>
           </div>
-          {totalPages > 1 && (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: `${spacing.sm} ${spacing.lg}`,
-                borderTop: `1px solid ${colors.border.light}`,
-                backgroundColor: colors.gray[50],
-              }}
-            >
-              <span
-                style={{
-                  fontSize: typography.fontSize.xs,
-                  color: colors.text.tertiary,
-                  fontFamily: typography.fontFamily.body,
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {start + 1}–{start + pageRows.length} of {bills.length}
-              </span>
-              <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
-                <PagerButton disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>
-                  ‹ Prev
-                </PagerButton>
-                <span
-                  style={{
-                    fontSize: typography.fontSize.xs,
-                    color: colors.text.secondary,
-                    fontFamily: typography.fontFamily.body,
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {safePage + 1} / {totalPages}
-                </span>
-                <PagerButton disabled={safePage >= totalPages - 1} onClick={() => setPage(safePage + 1)}>
-                  Next ›
-                </PagerButton>
-              </div>
-            </div>
-          )}
+          <PagerFooter
+            page={safePage}
+            totalPages={totalPages}
+            start={start}
+            pageCount={pageRows.length}
+            total={bills.length}
+            setPage={setPage}
+          />
         </>
       )}
     </Card>
   );
+}
+
+function PagerFooter({ page, totalPages, start, pageCount, total, setPage }) {
+  if (totalPages <= 1) return null;
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: `${spacing.sm} ${spacing.lg}`,
+        borderTop: `1px solid ${colors.border.light}`,
+        backgroundColor: colors.gray[50],
+      }}
+    >
+      <span
+        style={{
+          fontSize: typography.fontSize.xs,
+          color: colors.text.tertiary,
+          fontFamily: typography.fontFamily.body,
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {start + 1}–{start + pageCount} of {total}
+      </span>
+      <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
+        <PagerButton disabled={page === 0} onClick={() => setPage(page - 1)}>
+          ‹ Prev
+        </PagerButton>
+        <span
+          style={{
+            fontSize: typography.fontSize.xs,
+            color: colors.text.secondary,
+            fontFamily: typography.fontFamily.body,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {page + 1} / {totalPages}
+        </span>
+        <PagerButton disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>
+          Next ›
+        </PagerButton>
+      </div>
+    </div>
+  );
+}
+
+// Shared pagination state for the three home-page list cards (10 rows/page).
+const LIST_PAGE_SIZE = 10;
+
+function usePagedRows(rows) {
+  const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(rows.length / LIST_PAGE_SIZE));
+  // Clamp instead of resetting via effect so filter changes can't strand us
+  // on a page that no longer exists.
+  const safePage = Math.min(page, totalPages - 1);
+  const start = safePage * LIST_PAGE_SIZE;
+  return {
+    pageRows: rows.slice(start, start + LIST_PAGE_SIZE),
+    page: safePage,
+    totalPages,
+    start,
+    setPage,
+  };
 }
 
 function PagerButton({ disabled, onClick, children }) {
@@ -1261,10 +1288,8 @@ function ImpactRow({ rank, bill, last }) {
 // ============== Docket ==============
 
 function DocketCard({ docket, loading, onBillClick, billToResearchId, normalizeBillNum }) {
-  const { rows, total } = docket;
-  const subtitle = total > rows.length
-    ? `${rows.length} of ${total} bills`
-    : `${total} bill${total === 1 ? "" : "s"}`;
+  const { pageRows: rows, page, totalPages, start, setPage } = usePagedRows(docket);
+  const subtitle = `${docket.length} bill${docket.length === 1 ? "" : "s"}`;
   return (
     <Card>
       <CardHeader eyebrow="All tracked" title="On the Docket" subtitle={subtitle} />
@@ -1305,6 +1330,14 @@ function DocketCard({ docket, loading, onBillClick, billToResearchId, normalizeB
           />
         ))}
       </div>
+      <PagerFooter
+        page={page}
+        totalPages={totalPages}
+        start={start}
+        pageCount={rows.length}
+        total={docket.length}
+        setPage={setPage}
+      />
     </Card>
   );
 }
@@ -1411,10 +1444,9 @@ function DocketRow({ bill, last, onClick, isScored }) {
 
 // ============== Enacted (Signed into Law) ==============
 
-function EnactedCard({ bills, total, onBillClick, billToResearchId, normalizeBillNum }) {
-  const subtitle = total > bills.length
-    ? `${bills.length} of ${total} bills`
-    : `${total} bill${total === 1 ? "" : "s"}`;
+function EnactedCard({ bills, onBillClick, billToResearchId, normalizeBillNum }) {
+  const { pageRows, page, totalPages, start, setPage } = usePagedRows(bills);
+  const subtitle = `${bills.length} bill${bills.length === 1 ? "" : "s"}`;
   return (
     <Card>
       <CardHeader eyebrow="Signed into law" title="Enacted" subtitle={subtitle} />
@@ -1432,17 +1464,25 @@ function EnactedCard({ bills, total, onBillClick, billToResearchId, normalizeBil
             Nothing enacted yet.
           </div>
         ) : (
-          bills.map((b, i) => (
+          pageRows.map((b, i) => (
             <EnactedRow
               key={`enacted-${b.state}-${b.bill_number}-${i}`}
               bill={b}
-              last={i === bills.length - 1}
+              last={i === pageRows.length - 1}
               onClick={() => onBillClick(b)}
               isScored={!!billToResearchId[`${b.state}:${normalizeBillNum(b.bill_number)}`]}
             />
           ))
         )}
       </div>
+      <PagerFooter
+        page={page}
+        totalPages={totalPages}
+        start={start}
+        pageCount={pageRows.length}
+        total={bills.length}
+        setPage={setPage}
+      />
     </Card>
   );
 }
@@ -1517,6 +1557,7 @@ function EnactedRow({ bill, last, onClick, isScored }) {
 // ============== Momentum ==============
 
 function MomentumCard({ momentum, isCurrentScope, onBillClick, billToResearchId, normalizeBillNum }) {
+  const { pageRows, page, totalPages, start, setPage } = usePagedRows(momentum);
   return (
     <Card>
       <CardHeader
@@ -1538,17 +1579,25 @@ function MomentumCard({ momentum, isCurrentScope, onBillClick, billToResearchId,
             {isCurrentScope ? "Quiet week." : "No recorded actions."}
           </div>
         ) : (
-          momentum.map((b, i) => (
+          pageRows.map((b, i) => (
             <MomentumRow
               key={`m-${b.state}-${b.bill_number}-${i}`}
               bill={b}
-              last={i === momentum.length - 1}
+              last={i === pageRows.length - 1}
               onClick={() => onBillClick(b)}
               isScored={!!billToResearchId[`${b.state}:${normalizeBillNum(b.bill_number)}`]}
             />
           ))
         )}
       </div>
+      <PagerFooter
+        page={page}
+        totalPages={totalPages}
+        start={start}
+        pageCount={pageRows.length}
+        total={momentum.length}
+        setPage={setPage}
+      />
     </Card>
   );
 }
@@ -1685,7 +1734,7 @@ function RequestCta() {
             lineHeight: 1.45,
           }}
         >
-          Point us at a bill and we'll run distributional impact, poverty reach, and district-level cuts — usually within a week.
+          Point us at a bill and we&apos;ll run distributional impact, poverty reach, and district-level cuts — usually within a week.
         </p>
       </div>
       <a

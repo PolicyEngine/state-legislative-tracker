@@ -230,21 +230,10 @@ export default function BillOverview({ bill, impact, reformId }) {
             alignItems: "flex-start",
             justifyContent: "space-between",
             gap: spacing.lg,
-            marginBottom: spacing.lg,
+            marginBottom: bill?.status || bill?.url ? spacing.md : 0,
           }}>
-            <div>
-              <h4 style={{
-                margin: 0,
-                fontSize: typography.fontSize.xl,
-                fontWeight: typography.fontWeight.bold,
-                fontFamily: typography.fontFamily.primary,
-                color: colors.secondary[900],
-              }}>
-                {bill?.title || bill?.bill || bill?.id?.toUpperCase()}
-              </h4>
-              <div style={{ display: "flex", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm, flexWrap: "wrap" }}>
-                {bill?.status && <StatusBadge status={bill.status} />}
-              </div>
+            <div style={{ display: "flex", alignItems: "center", gap: spacing.sm, flexWrap: "wrap" }}>
+              {bill?.status && <StatusBadge status={bill.status} />}
             </div>
 
             {bill?.url && (
