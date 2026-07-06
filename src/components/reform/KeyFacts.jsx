@@ -102,64 +102,6 @@ function generateKeyFacts(data, year) {
   return facts;
 }
 
-const ICON_PATHS = {
-  revenue: (
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-    />
-  ),
-  winners: (
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-    />
-  ),
-  losers: (
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"
-    />
-  ),
-  poverty: (
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-    />
-  ),
-  childPoverty: (
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-    />
-  ),
-  custom: (
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-    />
-  ),
-};
-
-const FactIcon = ({ type }) => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-  >
-    {ICON_PATHS[type] || ICON_PATHS.custom}
-  </svg>
-);
-
 export default function KeyFacts({ impact, reformId }) {
   const availableYears = impact?.impactsByYear
     ? Object.keys(impact.impactsByYear).sort()
@@ -189,17 +131,17 @@ export default function KeyFacts({ impact, reformId }) {
   return (
     <div
       style={{
-        backgroundColor: colors.primary[50],
+        backgroundColor: colors.white,
         borderRadius: spacing.radius.xl,
-        border: `1px solid ${colors.primary[200]}`,
+        border: `1px solid ${colors.border.light}`,
         overflow: "hidden",
       }}
     >
       <div
         style={{
           padding: `${spacing.md} ${spacing.xl}`,
-          borderBottom: `1px solid ${colors.primary[200]}`,
-          backgroundColor: colors.primary[100],
+          borderBottom: `1px solid ${colors.border.light}`,
+          backgroundColor: colors.background.secondary,
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -213,7 +155,7 @@ export default function KeyFacts({ impact, reformId }) {
             fontFamily: typography.fontFamily.body,
             textTransform: "uppercase",
             letterSpacing: "0.5px",
-            color: colors.primary[800],
+            color: colors.text.tertiary,
           }}
         >
           Key Facts
@@ -259,28 +201,12 @@ export default function KeyFacts({ impact, reformId }) {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: spacing.md,
                 padding: `${spacing.md} ${spacing.lg}`,
-                backgroundColor: colors.white,
+                backgroundColor: colors.background.secondary,
                 borderRadius: spacing.radius.lg,
-                border: `1px solid ${colors.primary[100]}`,
+                border: `1px solid ${colors.border.light}`,
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 32,
-                  height: 32,
-                  borderRadius: spacing.radius.md,
-                  backgroundColor: colors.primary[100],
-                  color: colors.primary[700],
-                  flexShrink: 0,
-                }}
-              >
-                <FactIcon type={fact.icon} />
-              </div>
               <span
                 style={{
                   fontSize: typography.fontSize.sm,
