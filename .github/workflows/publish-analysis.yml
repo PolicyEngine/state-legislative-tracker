@@ -1,0 +1,33 @@
+name: Publish Analysis Artifact
+
+# Uploads a locally-computed analysis (analyses/*.json) to Supabase.
+# The microsim runs locally; only CI holds the service key, so publishing
+# is a separate, manually-triggered step.
+on:
+  workflow_dispatch:
+    inputs:
+      artifact:
+        description: "Path to the analysis JSON (e.g. analyses/us-hr904.json)"
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install supabase
+
+      - name: Upload analysis to Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python scripts/publish_analysis.py "${{ inputs.artifact }}"

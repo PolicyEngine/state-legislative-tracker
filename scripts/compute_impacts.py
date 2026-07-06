@@ -161,6 +161,20 @@ def get_state_dataset(state: str) -> str:
     return dataset_path
 
 
+def get_national_dataset() -> str:
+    """Download the national Enhanced CPS dataset (for federal reforms)."""
+    from huggingface_hub import hf_hub_download
+
+    print("    Downloading national dataset from Hugging Face...")
+    dataset_path = hf_hub_download(
+        repo_id="policyengine/policyengine-us-data",
+        filename="enhanced_cps_2024.h5",
+        repo_type="model",
+    )
+    print(f"    Dataset ready: {dataset_path}")
+    return dataset_path
+
+
 def get_builtin_reform(reform_name: str):
     """Get a built-in reform class from policyengine-us by name."""
     # Map of supported built-in reforms
@@ -286,14 +300,16 @@ def run_simulations(state: str, reform_params: dict, year: int = 2026):
     """
     from policyengine_us import Microsimulation
 
-    state_dataset = get_state_dataset(state)
+    # Federal reforms (state == "us") run on the national Enhanced CPS;
+    # state reforms use the geocoded state dataset for district impacts.
+    dataset = get_national_dataset() if state == "us" else get_state_dataset(state)
     ReformClass = create_reform_class(reform_params)
 
     print("    Running baseline simulation...")
-    baseline = Microsimulation(dataset=state_dataset)
+    baseline = Microsimulation(dataset=dataset)
 
     print("    Running reform simulation...")
-    reformed = Microsimulation(reform=ReformClass, dataset=state_dataset)
+    reformed = Microsimulation(reform=ReformClass, dataset=dataset)
 
     return baseline, reformed
 
@@ -310,9 +326,11 @@ def compute_budgetary_impact(baseline, reformed, state: str, year: int = 2026) -
     - calculate() returns weighted MicroSeries, so .sum() is already weighted
     - sum(household_weight raw values) for household count
     """
-    # calculate() returns MicroSeries with tax_unit_weight — .sum() is weighted
-    baseline_revenue = baseline.calculate("state_income_tax", year).sum()
-    reform_revenue = reformed.calculate("state_income_tax", year).sum()
+    # calculate() returns MicroSeries with tax_unit_weight — .sum() is weighted.
+    # Federal reforms score against federal income tax; states against theirs.
+    revenue_var = "income_tax" if state == "us" else "state_income_tax"
+    baseline_revenue = baseline.calculate(revenue_var, year).sum()
+    reform_revenue = reformed.calculate(revenue_var, year).sum()
     revenue_change = float(reform_revenue - baseline_revenue)
 
     # Household count: sum of raw weight values (not weighted sum)
@@ -825,21 +843,51 @@ Examples:
         action="store_true",
         help="Store impacts in impacts_by_year structure (for multi-year analysis)"
     )
+    parser.add_argument(
+        "--reform-json",
+        type=str,
+        help="Load a single reform config from a JSON file ({id, state, label, reform}) "
+             "instead of the database. Requires --output; no Supabase needed."
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        help="Write the computed reform_impacts record to this JSON file instead of "
+             "Supabase (publish later with scripts/publish_analysis.py)"
+    )
     args = parser.parse_args()
 
-    # Require Supabase
-    supabase = get_supabase_client()
-    if not supabase:
-        print("Error: SUPABASE_URL and SUPABASE_KEY environment variables required")
-        print("Run: source .env")
+    offline = bool(args.reform_json)
+    if offline and not args.output:
+        print("Error: --reform-json requires --output")
         return 1
+
+    supabase = None
+    if not offline:
+        # Require Supabase
+        supabase = get_supabase_client()
+        if not supabase:
+            print("Error: SUPABASE_URL and SUPABASE_KEY environment variables required")
+            print("Run: source .env")
+            return 1
 
     print("=" * 60)
     print("PolicyEngine Impact Calculator (Local)")
     print("=" * 60)
 
-    # Load reforms from database
-    reforms = load_reforms_from_db(supabase, args.reform_id)
+    # Load reforms from a local file (offline) or the database
+    if offline:
+        with open(args.reform_json) as f:
+            config = json.load(f)
+        reforms = [{
+            "id": config["id"],
+            "state": config["state"].lower(),
+            "label": config.get("label", config["id"]),
+            "reform": config["reform"],
+            "computed": False,
+        }]
+    else:
+        reforms = load_reforms_from_db(supabase, args.reform_id)
 
     if not reforms:
         if args.reform_id:
@@ -907,7 +955,13 @@ Examples:
 
             print("  [6/6] Computing decile and district impacts...")
             decile_impact = compute_decile_impact(baseline, reformed, state, sim_year)
-            district_impacts = compute_district_impacts(baseline, reformed, state, sim_year)
+            if state == "us":
+                # National dataset has no congressional-district geocoding;
+                # federal analyses skip the district breakdown.
+                print("        Federal reform — skipping district impacts")
+                district_impacts = None
+            else:
+                district_impacts = compute_district_impacts(baseline, reformed, state, sim_year)
 
             # Assemble results
             impacts = {
@@ -922,17 +976,41 @@ Examples:
             if district_impacts:
                 impacts["districtImpacts"] = district_impacts
 
-            # Write to database
-            print("  Writing to Supabase...")
-            write_to_supabase(supabase, reform_id, impacts, reform["reform"], sim_year, args.multi_year)
-
-            # Set status to in_review (skip if already published to avoid taking bills offline)
-            current_status = supabase.table("research").select("status").eq("id", reform_id).execute().data
-            if current_status and current_status[0].get("status") == "published":
-                print("  Status already 'published' — preserving (not resetting to in_review)")
+            if offline:
+                # Build the same record write_to_supabase would upsert, but save
+                # it to disk; scripts/publish_analysis.py uploads it in CI where
+                # the Supabase service key lives.
+                record = {
+                    "id": reform_id,
+                    "computed": True,
+                    "computed_at": impacts["computedAt"],
+                    "budgetary_impact": impacts["budgetaryImpact"],
+                    "poverty_impact": impacts["povertyImpact"],
+                    "child_poverty_impact": impacts["childPovertyImpact"],
+                    "winners_losers": impacts["winnersLosers"],
+                    "decile_impact": impacts["decileImpact"],
+                    "district_impacts": impacts.get("districtImpacts"),
+                    "reform_params": reform["reform"],
+                    "model_notes": {"analysis_year": sim_year},
+                    "policyengine_us_version": get_installed_version("policyengine-us"),
+                    "dataset_name": "policyengine-us-data",
+                    "dataset_version": get_installed_version("policyengine-us-data"),
+                }
+                print(f"  Writing record to {args.output}...")
+                with open(args.output, "w") as f:
+                    json.dump({"reform_impacts": record}, f, indent=2)
             else:
-                print("  Setting status to in_review...")
-                update_research_status(supabase, reform_id, "in_review")
+                # Write to database
+                print("  Writing to Supabase...")
+                write_to_supabase(supabase, reform_id, impacts, reform["reform"], sim_year, args.multi_year)
+
+                # Set status to in_review (skip if already published to avoid taking bills offline)
+                current_status = supabase.table("research").select("status").eq("id", reform_id).execute().data
+                if current_status and current_status[0].get("status") == "published":
+                    print("  Status already 'published' — preserving (not resetting to in_review)")
+                else:
+                    print("  Setting status to in_review...")
+                    update_research_status(supabase, reform_id, "in_review")
 
             print(f"\n  [OK] Complete!")
             results[reform_id] = "computed"

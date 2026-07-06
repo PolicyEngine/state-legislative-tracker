@@ -25,7 +25,7 @@ const formatPctChange = (value, decimals = 1) => {
   return `${sign}${value.toFixed(decimals)}%`;
 };
 
-export default function AggregateImpacts({ impacts, billTitle }) {
+export default function AggregateImpacts({ impacts, billTitle, isFederal = false }) {
   const filePrefix = (billTitle || "chart").replace(/[^a-zA-Z0-9]/g, "_");
 
   // Check for multi-year impacts
@@ -95,7 +95,7 @@ export default function AggregateImpacts({ impacts, billTitle }) {
           letterSpacing: "0.5px",
           color: colors.text.tertiary,
         }}>
-          Statewide Impacts
+          {isFederal ? "Nationwide Impacts" : "Statewide Impacts"}
         </h3>
 
         {/* Year Tabs for multi-year reforms */}

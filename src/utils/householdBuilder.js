@@ -91,6 +91,10 @@ export function buildHousehold({
     },
   };
 
+  // Federal reforms pass state="US": no state income tax variable exists,
+  // and omitting state_name lets the API use its default residence.
+  const isFederal = stateCode === "US";
+
   // Build state-specific tax variable name (e.g., "ut_income_tax" for UT)
   const stateTaxVar = `${stateCode.toLowerCase()}_income_tax`;
 
@@ -107,7 +111,7 @@ export function buildHousehold({
         members: memberList,
         // Request output variables
         income_tax: { [year]: null },
-        [stateTaxVar]: { [year]: null },
+        ...(isFederal ? {} : { [stateTaxVar]: { [year]: null } }),
       },
     },
     spm_units: {
@@ -124,7 +128,7 @@ export function buildHousehold({
     households: {
       household: {
         members: memberList,
-        state_name: { [year]: stateCode },
+        ...(isFederal ? {} : { state_name: { [year]: stateCode } }),
         // Request household net income
         household_net_income: { [year]: null },
       },
