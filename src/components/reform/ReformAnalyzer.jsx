@@ -98,9 +98,19 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
     track("reform_analyzer_opened", { state_abbr: stateAbbr, reform_id: reformConfig.id, bill_label: reformConfig.label });
   }, [stateAbbr, reformConfig.id, reformConfig.label]);
 
+  // Federal analyses have no district breakdown (national dataset lacks
+  // district geocoding) and "Statewide" reads wrong for the whole country.
+  const isFederal = stateAbbr === "US";
+  const visibleTabs = isFederal
+    ? TABS.filter((t) => t.id !== "districts").map((t) =>
+        t.id === "statewide" ? { ...t, label: "Nationwide" } : t
+      )
+    : TABS;
+
   // Pre-fetch district GeoJSON so it's ready when user clicks Districts tab
   const [cachedGeoData, setCachedGeoData] = useState(null);
   useEffect(() => {
+    if (isFederal) return undefined;
     const url = `https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_118th_Congressional_Districts/FeatureServer/0/query?where=${encodeURIComponent(`STATE_ABBR='${stateAbbr}'`)}&outFields=*&f=geojson`;
     let cancelled = false;
     fetch(url)
@@ -110,7 +120,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [stateAbbr]);
+  }, [stateAbbr, isFederal]);
 
   const [householdInputs, setHouseholdInputs] = useState({
     headAge: 35,
@@ -194,7 +204,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
         borderBottom: `1px solid ${colors.border.light}`,
         backgroundColor: colors.background.secondary,
       }}>
-        {TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           const isDisabled = tab.id === "household" && householdUnsupported;
@@ -246,7 +256,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
 
         {/* Statewide Tab */}
         {activeTab === "statewide" && (
-          <AggregateImpacts impacts={aggregateImpacts} billTitle={bill?.bill} />
+          <AggregateImpacts impacts={aggregateImpacts} billTitle={bill?.bill} isFederal={isFederal} />
         )}
 
         {/* Districts Tab */}

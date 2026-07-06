@@ -16,7 +16,7 @@ const formatCurrency = (value) => {
  * @param {object} data - The impact data for a specific year
  * @param {string} year - The year label (e.g., "2026")
  */
-function generateKeyFacts(data, year) {
+function generateKeyFacts(data, year, isFederal = false) {
   const facts = [];
   const yearLabel = year ? ` in ${year}` : "";
 
@@ -28,7 +28,7 @@ function generateKeyFacts(data, year) {
     facts.push({
       icon: "revenue",
       parts: [
-        { text: `${verb} state revenue by ` },
+        { text: `${verb} ${isFederal ? "federal" : "state"} revenue by ` },
         { text: `${formatted}`, bold: true },
         { text: yearLabel },
       ],
@@ -124,7 +124,7 @@ export default function KeyFacts({ impact, reformId }) {
   const customFacts = getKeyFacts(reformId) || impact.modelNotes?.key_facts;
   const facts = customFacts
     ? customFacts.map((text) => ({ icon: "custom", parts: [{ text }] }))
-    : generateKeyFacts(yearData, selectedYear);
+    : generateKeyFacts(yearData, selectedYear, reformId?.startsWith("us-"));
 
   if (facts.length === 0) return null;
 

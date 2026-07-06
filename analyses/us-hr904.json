@@ -1,0 +1,184 @@
+{
+  "research": {
+    "id": "us-hr904",
+    "state": "US",
+    "type": "bill",
+    "status": "in_review",
+    "title": "HR 904: No Tax on Social Security",
+    "url": "https://www.congress.gov/bill/119th-congress/house-bill/904",
+    "date": "2026-07-06",
+    "author": "Rep. Jefferson Van Drew (R-NJ-2)",
+    "description": "HR 904 repeals the inclusion of Social Security benefits in gross income under IRC \u00a7 86, ending federal income taxation of Social Security benefits for all recipients. PolicyEngine models the repeal by zeroing both tiers of the taxability formula from tax year 2026, on top of current law including the OBBBA senior deduction.",
+    "key_findings": [
+      "Reduces federal revenue by $94.5 billion in 2026 (PolicyEngine, Enhanced CPS 2024, policyengine-us 1.729.3)",
+      "10.4% of households gain; none lose",
+      "Average gains rise with income: $104/household in the third decile to $2,817 in the top decile",
+      "No measurable change in overall or child poverty (SPM)"
+    ],
+    "tags": [
+      "federal",
+      "social-security",
+      "income-tax"
+    ]
+  },
+  "reform_impacts": {
+    "id": "us-hr904",
+    "computed": true,
+    "computed_at": "2026-07-06T19:21:04.236006+00:00",
+    "budgetary_impact": {
+      "stateRevenueImpact": -94524828141.82031,
+      "netCost": -94524828141.82031,
+      "households": 163970336
+    },
+    "poverty_impact": {
+      "baselineRate": 0.16144204475368448,
+      "reformRate": 0.16144989880438798,
+      "change": 7.854050703498539e-06,
+      "percentChange": 0.004864935101312443
+    },
+    "child_poverty_impact": {
+      "baselineRate": 0.17189349110062482,
+      "reformRate": 0.17189349110062482,
+      "change": 0.0,
+      "percentChange": 0.0
+    },
+    "winners_losers": {
+      "gainMore5Pct": 0.017042695825584375,
+      "gainLess5Pct": 0.08725985612196992,
+      "noChange": 0.8956828422380397,
+      "loseLess5Pct": 1.4605814406109125e-05,
+      "loseMore5Pct": 0.0,
+      "intraDecile": {
+        "all": {
+          "gainMore5Pct": 0.017042695825584375,
+          "gainLess5Pct": 0.08725985612196992,
+          "noChange": 0.8956828422380397,
+          "loseLess5Pct": 1.4605814406109125e-05,
+          "loseMore5Pct": 0.0
+        },
+        "deciles": {
+          "1": {
+            "gainMore5Pct": 0.0,
+            "gainLess5Pct": 0.0014741178899074661,
+            "noChange": 0.9985258821100925,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          },
+          "2": {
+            "gainMore5Pct": 0.0,
+            "gainLess5Pct": 0.003940329131985918,
+            "noChange": 0.9960596708680141,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          },
+          "3": {
+            "gainMore5Pct": 0.006899451218723085,
+            "gainLess5Pct": 0.04421682214783449,
+            "noChange": 0.9488837266334424,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          },
+          "4": {
+            "gainMore5Pct": 0.003130618834739891,
+            "gainLess5Pct": 0.08929005249338012,
+            "noChange": 0.90757932867188,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          },
+          "5": {
+            "gainMore5Pct": 0.0047116840344273376,
+            "gainLess5Pct": 0.14648434657916484,
+            "noChange": 0.8488039693864078,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          },
+          "6": {
+            "gainMore5Pct": 0.02443125535432875,
+            "gainLess5Pct": 0.13774572887235942,
+            "noChange": 0.8377703083289334,
+            "loseLess5Pct": 5.27074443784081e-05,
+            "loseMore5Pct": 0.0
+          },
+          "7": {
+            "gainMore5Pct": 0.027416835275548158,
+            "gainLess5Pct": 0.13898112884908995,
+            "noChange": 0.8336020358753619,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          },
+          "8": {
+            "gainMore5Pct": 0.021835682093317446,
+            "gainLess5Pct": 0.08993231065828049,
+            "noChange": 0.8881758211623406,
+            "loseLess5Pct": 5.618608606140641e-05,
+            "loseMore5Pct": 0.0
+          },
+          "9": {
+            "gainMore5Pct": 0.051483576037722904,
+            "gainLess5Pct": 0.09199504371049821,
+            "noChange": 0.8564842156381576,
+            "loseLess5Pct": 3.716461362127675e-05,
+            "loseMore5Pct": 0.0
+          },
+          "10": {
+            "gainMore5Pct": 0.03051785540703619,
+            "gainLess5Pct": 0.1285386808871982,
+            "noChange": 0.8409434637057657,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          }
+        }
+      }
+    },
+    "decile_impact": {
+      "relative": {
+        "1": 2.2301492729805984e-05,
+        "2": 2.9324178654485017e-05,
+        "3": 0.002301449776892551,
+        "4": 0.004105008552680521,
+        "5": 0.004078699942135024,
+        "6": 0.007730740535994386,
+        "7": 0.006243146698179237,
+        "8": 0.004907067054593873,
+        "9": 0.008946807010484129,
+        "10": 0.0025061007502895677
+      },
+      "average": {
+        "1": 0.3475448391437591,
+        "2": 0.9722643899541359,
+        "3": 104.07152721689624,
+        "4": 243.05466026601061,
+        "5": 303.05200107467743,
+        "6": 737.0774991013585,
+        "7": 773.0594863856924,
+        "8": 739.4789845479003,
+        "9": 1824.8816637803718,
+        "10": 2816.978876137759
+      }
+    },
+    "district_impacts": null,
+    "reform_params": {
+      "gov.irs.social_security.taxability.rate.base.excess": {
+        "2026-01-01.2100-12-31": 0
+      },
+      "gov.irs.social_security.taxability.rate.base.benefit_cap": {
+        "2026-01-01.2100-12-31": 0
+      },
+      "gov.irs.social_security.taxability.rate.additional.excess": {
+        "2026-01-01.2100-12-31": 0
+      },
+      "gov.irs.social_security.taxability.rate.additional.benefit_cap": {
+        "2026-01-01.2100-12-31": 0
+      },
+      "gov.irs.social_security.taxability.rate.additional.bracket": {
+        "2026-01-01.2100-12-31": 0
+      }
+    },
+    "model_notes": {
+      "analysis_year": 2026
+    },
+    "policyengine_us_version": "1.729.3",
+    "dataset_name": "policyengine-us-data",
+    "dataset_version": "1.17.0"
+  }
+}
