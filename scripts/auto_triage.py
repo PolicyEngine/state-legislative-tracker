@@ -27,12 +27,18 @@ from supabase import create_client
 
 SCORING_PROMPT = """You are scoring U.S. legislative bills (state or federal) for PolicyEngine modelability.
 
-PolicyEngine is a microsimulation model of tax/benefit policy, at both the federal
-and state levels. Bills that change existing parameters are easy to model
-(parametric). Bills that need new variables, formulas, or programs are harder
-(structural). Federal tax and benefit programs (income tax, EITC, CTC, SNAP, SSI,
-ACA premium tax credits, Social Security taxation, payroll tax) are especially
-well covered.
+PolicyEngine is a microsimulation model of HOUSEHOLD tax/benefit policy, at both
+the federal and state levels. Bills that change existing parameters are easy to
+model (parametric). Bills that need new variables, formulas, or programs are
+harder (structural). Federal household tax and benefit programs (individual income
+tax, EITC, CTC, SNAP, SSI, ACA premium tax credits, Social Security taxation,
+payroll tax) are especially well covered.
+
+SCOPE: PolicyEngine models taxes and benefits paid or received by HOUSEHOLDS and
+INDIVIDUALS. It does NOT model corporate or business income taxes, windfall-profits
+taxes, excise taxes, tariffs, capital/financial-institution taxes, or purely
+administrative/procedural/enforcement changes. Score anything outside household
+tax-and-benefit scope 0-19 not_modelable, even if it is nominally a "tax" bill.
 
 Score each bill 0-100:
 
@@ -44,14 +50,18 @@ Score each bill 0-100:
 - **20-49 structural**: Entirely new program or complex eligibility rules needing
   significant new code.
 - **0-19 not_modelable**: Purely administrative, procedural, enforcement, or
-  out-of-scope (occupation-specific, theft/casualty, premarital counseling,
-  niche credits like conservation/long-term-care, disaster-specific, trust taxation).
+  out-of-scope. This includes corporate/business/windfall/excise taxes, tariffs,
+  benefit-fraud or benefit-replacement procedures, occupation-specific rules,
+  theft/casualty, niche credits (conservation/long-term-care), disaster-specific,
+  and trust taxation.
 
 Key distinctions:
 - "Adding a new bracket" = structural (50-79), even though brackets are parameters
 - "Reducing the top rate from 5% to 4%" = parametric (80-100)
 - "New child tax credit" = structural (50-79)
 - "Exempt overtime/tips" = structural (50-79), needs new exclusion variable
+- "Windfall profits tax on oil companies" = not_modelable (0-19), corporate tax
+- "Replacing stolen SNAP benefits" = not_modelable (0-19), procedural not parametric
 
 Return ONLY valid JSON (no markdown, no prose):
 {"score": <int>, "reform_type": "parametric|structural|unknown", "reasoning": "<one sentence>"}"""
