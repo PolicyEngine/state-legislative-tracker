@@ -229,10 +229,20 @@ def web():
         if os.path.isfile(file_path):
             return FileResponse(file_path)
 
-        # Check for pre-rendered directory page (e.g. /GA or /GA/ga-sb168)
-        index_path = f"{file_path}/index.html"
-        if os.path.isfile(index_path):
-            return FileResponse(index_path)
+        # Check for pre-rendered directory page (e.g. /GA or /GA/ga-sb168).
+        # Try the raw path first, then a state-case-normalized path: the app
+        # links to bill pages with a lowercased state (/us/us-hr904, /wv/...),
+        # but prerender writes the directory with the state uppercased
+        # (US/us-hr904). Without this, lowercase deep links fall through to the
+        # generic shell and lose their per-page title/meta tags.
+        prerender_candidates = [f"{file_path}/index.html"]
+        norm_parts = full_path.strip("/").split("/")
+        if norm_parts and norm_parts[0]:
+            norm_parts[0] = norm_parts[0].upper()
+            prerender_candidates.append(f"{dist_path}/{'/'.join(norm_parts)}/index.html")
+        for candidate in prerender_candidates:
+            if os.path.isfile(candidate):
+                return FileResponse(candidate)
 
         # Root path — serve homepage
         if not full_path:
