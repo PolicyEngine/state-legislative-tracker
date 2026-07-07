@@ -1,0 +1,41 @@
+name: Triage Unscored Bills
+
+# On-demand modelability scoring for unscored bills (confidence_score=0),
+# state or federal. The daily pipeline also runs this on day 3, but this lets
+# it run standalone — e.g. after a discovery run that inserted new bills but
+# whose triage step was skipped.
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Max bills to score (blank = all unscored)"
+        required: false
+        type: string
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install supabase anthropic
+
+      - name: Triage unscored bills
+        run: |
+          if [ -n "${{ inputs.limit }}" ]; then
+            python scripts/auto_triage.py --limit ${{ inputs.limit }}
+          else
+            python scripts/auto_triage.py
+          fi

@@ -437,7 +437,7 @@ def main():
             row = build_row(seed, bill)
             print(f"{row['status']} | {row['last_action'][:60]} ({row['last_action_date']})")
             if not args.dry_run:
-                supabase.table("processed_bills").upsert(row).execute()
+                supabase.table("processed_bills").upsert(row, on_conflict="bill_id").execute()
             updated += 1
         except Exception as e:
             print(f"error: {e}")
@@ -491,7 +491,7 @@ def discover_and_insert(supabase, api_key, args):
             row = build_discovered_row(congress, bill_type, number, bill)
             print(f"  + US {label}: {row['title'][:60]} [{row['status']}]")
             if not args.dry_run:
-                supabase.table("processed_bills").upsert(row).execute()
+                supabase.table("processed_bills").upsert(row, on_conflict="bill_id").execute()
             inserted += 1
         except Exception as e:
             print(f"  ! US {label}: {e}")
