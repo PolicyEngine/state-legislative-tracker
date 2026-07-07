@@ -25,6 +25,7 @@ import os
 import re
 import sys
 import time
+from datetime import datetime, timedelta, timezone
 
 import requests
 from supabase import create_client
@@ -253,6 +254,103 @@ def build_row(seed, bill):
     return row
 
 
+# ============== Discovery ==============
+#
+# Congress produces ~17k bills per session; almost all are irrelevant or die at
+# introduction. Discovery scans recently-updated bills, keeps those whose title
+# matches tax/benefit terms, and inserts new ones with confidence_score=0 so
+# auto_triage.py scores them for modelability (curated seeds keep their own
+# score and are skipped by triage). Title is the cheap prefilter (available on
+# the list endpoint); the per-bill detail fetch only happens for matches.
+DISCOVERY_CURRENT_CONGRESS = 119
+
+# Loose by design: title is only a prefilter, auto_triage.py is the precision
+# layer that scores modelability. Bare "taxpayer"/"wage" are omitted — they
+# almost exclusively catch IRS-admin and labor bills triage would reject.
+_TAX_BENEFIT_TITLE_RE = re.compile(
+    r"\b("
+    r"tax(es|ation)?|deduction|credit|EITC|earned income|refund|"
+    r"child tax|CTC|dependent care|standard deduction|itemi[sz]|exemption|"
+    r"bracket|marginal rate|capital gains|estate tax|payroll tax|"
+    r"social security|SSI|supplemental security|SNAP|food stamp|"
+    r"medicaid|medicare|premium tax credit|affordable care|ACA|CHIP|"
+    r"TANF|welfare|WIC|housing (voucher|assistance)|section 8|"
+    r"minimum wage|overtime|tips?|filing status|head of household|"
+    r"saver'?s credit|adoption credit|education credit|student loan|"
+    r"unemployment (insurance|compensation)|pension|retirement (saving|account)"
+    r")\b",
+    re.I,
+)
+
+BILL_TYPE_FROM_LIST = {"HR": "hr", "S": "s", "HJRES": "hjres", "SJRES": "sjres"}
+
+
+def title_is_tax_benefit(title):
+    return bool(title and _TAX_BENEFIT_TITLE_RE.search(title))
+
+
+def discover_recent_bills(api_key, since_iso, max_scan):
+    """
+    Scan bills updated since `since_iso` (ISO8601), newest first, and return
+    title-matching (congress, bill_type, number) tuples. Bounded by max_scan
+    bills examined so a daily run stays cheap.
+    """
+    matches = []
+    scanned = 0
+    offset = 0
+    while scanned < max_scan:
+        page = congress_request(
+            f"/bill/{DISCOVERY_CURRENT_CONGRESS}",
+            api_key,
+            {
+                "sort": "updateDate desc",
+                "fromDateTime": since_iso,
+                "limit": 250,
+                "offset": offset,
+            },
+        )
+        bills = (page or {}).get("bills") or []
+        if not bills:
+            break
+        for b in bills:
+            scanned += 1
+            bill_type = BILL_TYPE_FROM_LIST.get((b.get("type") or "").upper())
+            number = b.get("number")
+            if not bill_type or not number:
+                continue
+            if title_is_tax_benefit(b.get("title", "")):
+                matches.append((DISCOVERY_CURRENT_CONGRESS, bill_type, int(number)))
+        if len(bills) < 250:
+            break
+        offset += 250
+    print(f"  scanned {scanned} recently-updated bills, {len(matches)} title matches")
+    return matches
+
+
+def build_discovered_row(congress, bill_type, number, bill):
+    """Row for a discovered (untriaged) federal bill: confidence_score=0."""
+    latest = bill.get("latestAction") or {}
+    url = congress_gov_url(congress, bill_type, number)
+    policy_area = (bill.get("policyArea") or {}).get("name", "")
+    return {
+        "bill_id": generate_bill_id(bill_source_id(congress, bill_type, number)),
+        "state": "US",
+        "bill_number": f"{BILL_TYPE_LABELS.get(bill_type, bill_type.upper())} {number}",
+        "title": bill.get("title", ""),
+        "description": f"Policy area: {policy_area}" if policy_area else "",
+        "status": classify_stage(bill),
+        "status_date": latest.get("actionDate") or None,
+        "last_action": latest.get("text", ""),
+        "last_action_date": latest.get("actionDate") or None,
+        "official_url": url,
+        "session_name": f"{ordinal(congress)} Congress",
+        "legiscan_url": url,
+        "matched_query": "congress-discovery",
+        # 0 (not null) so auto_triage.fetch_unscored_bills picks it up.
+        "confidence_score": 0,
+    }
+
+
 def parse_tracked_row(row):
     """
     Recover (congress, bill_type, number) from a processed_bills US row,
@@ -272,6 +370,12 @@ def main():
     parser = argparse.ArgumentParser(description="Seed and refresh federal bills from congress.gov")
     parser.add_argument("--dry-run", action="store_true", help="Print changes without writing")
     parser.add_argument("--seed-only", action="store_true", help="Only upsert seed bills, skip refreshing others")
+    parser.add_argument("--discover", action="store_true",
+                        help="Also scan recently-updated bills for new tax/benefit legislation")
+    parser.add_argument("--since-days", type=int, default=7,
+                        help="Discovery window: scan bills updated in the last N days (default 7)")
+    parser.add_argument("--max-scan", type=int, default=1500,
+                        help="Discovery cap: max bills to examine per run (default 1500)")
     args = parser.parse_args()
 
     api_key = os.environ.get("CONGRESS_API_KEY")
@@ -341,7 +445,57 @@ def main():
 
     print()
     print(f"Done: {updated} synced, {errors} errors")
+
+    if args.discover:
+        discovered = discover_and_insert(supabase, api_key, args)
+        print(f"Discovery: {discovered} new bill(s) queued for triage")
+
     return 1 if errors and not updated else 0
+
+
+def discover_and_insert(supabase, api_key, args):
+    """Scan recent bills, insert new tax/benefit ones with confidence_score=0.
+
+    Dedup is by bill_id against everything already in processed_bills, so a
+    discovered bill that already exists (seed, prior discovery, or triaged) is
+    skipped outright — never re-inserted with a reset score.
+    """
+    since = (datetime.now(timezone.utc) - timedelta(days=args.since_days)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    print()
+    print("Federal Bill Discovery")
+    print("======================")
+    print(f"Window: bills updated since {since} (max scan {args.max_scan})")
+
+    existing = (
+        supabase.table("processed_bills").select("bill_id").eq("state", "US").execute()
+    )
+    existing_ids = {r["bill_id"] for r in (existing.data or [])}
+
+    candidates = discover_recent_bills(api_key, since, args.max_scan)
+    new = [
+        (c, t, n)
+        for (c, t, n) in candidates
+        if generate_bill_id(bill_source_id(c, t, n)) not in existing_ids
+    ]
+    print(f"  {len(new)} candidate(s) not already in processed_bills")
+
+    inserted = 0
+    for congress, bill_type, number in new:
+        label = f"{BILL_TYPE_LABELS.get(bill_type, bill_type)} {number}"
+        try:
+            bill = fetch_bill(api_key, congress, bill_type, number)
+            if not bill:
+                continue
+            row = build_discovered_row(congress, bill_type, number, bill)
+            print(f"  + US {label}: {row['title'][:60]} [{row['status']}]")
+            if not args.dry_run:
+                supabase.table("processed_bills").upsert(row).execute()
+            inserted += 1
+        except Exception as e:
+            print(f"  ! US {label}: {e}")
+    return inserted
 
 
 if __name__ == "__main__":

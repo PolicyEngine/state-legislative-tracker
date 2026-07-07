@@ -25,11 +25,14 @@ from datetime import datetime
 from anthropic import Anthropic
 from supabase import create_client
 
-SCORING_PROMPT = """You are scoring state legislative bills for PolicyEngine modelability.
+SCORING_PROMPT = """You are scoring U.S. legislative bills (state or federal) for PolicyEngine modelability.
 
-PolicyEngine is a microsimulation model of tax/benefit policy. Bills that change
-existing parameters are easy to model (parametric). Bills that need new variables,
-formulas, or programs are harder (structural).
+PolicyEngine is a microsimulation model of tax/benefit policy, at both the federal
+and state levels. Bills that change existing parameters are easy to model
+(parametric). Bills that need new variables, formulas, or programs are harder
+(structural). Federal tax and benefit programs (income tax, EITC, CTC, SNAP, SSI,
+ACA premium tax credits, Social Security taxation, payroll tax) are especially
+well covered.
 
 Score each bill 0-100:
 
@@ -56,7 +59,9 @@ Return ONLY valid JSON (no markdown, no prose):
 
 def score_bill(client, bill):
     """Score a single bill using Claude."""
-    user_msg = f"""Bill: {bill['state']} {bill['bill_number']}
+    jurisdiction = "Federal (U.S. Congress)" if bill["state"] == "US" else f"State: {bill['state']}"
+    user_msg = f"""Jurisdiction: {jurisdiction}
+Bill: {bill['state']} {bill['bill_number']}
 Title: {bill['title']}
 Description: {bill.get('description', '') or bill['title']}
 

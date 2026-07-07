@@ -70,19 +70,27 @@ jobs:
         if: steps.phase.outputs.phase == 'day_3'
         run: python scripts/refresh_bill_status.py --limit 100 --offset 400
 
-      - name: Discover new bills
+      - name: Discover new state bills
         if: steps.phase.outputs.phase == 'day_3'
         run: python scripts/openstates_monitor.py
+
+      # Discover + refresh federal bills BEFORE triage so newly-found bills
+      # (inserted with confidence_score=0) get scored in the same run.
+      # No-ops with a notice until CONGRESS_API_KEY is set.
+      - name: Discover and refresh federal bills
+        if: steps.phase.outputs.phase == 'day_3'
+        env:
+          CONGRESS_API_KEY: ${{ secrets.CONGRESS_API_KEY }}
+        run: python scripts/congress_monitor.py --discover
 
       - name: Auto-triage and update issues
         if: steps.phase.outputs.phase == 'day_3'
         run: python scripts/auto_triage.py
 
-      # Federal bills refresh every day — congress.gov allows 5,000 req/hr,
-      # so the OpenStates 3-day rationing doesn't apply. No-ops with a
-      # notice until the CONGRESS_API_KEY secret is added
-      # (free key: https://api.congress.gov/sign-up/).
-      - name: Refresh federal bills
+      # Days 1-2: refresh federal bill statuses only (discovery + triage run
+      # on day 3). congress.gov allows 5,000 req/hr, so no rationing needed.
+      - name: Refresh federal bill statuses
+        if: steps.phase.outputs.phase != 'day_3'
         env:
           CONGRESS_API_KEY: ${{ secrets.CONGRESS_API_KEY }}
         run: python scripts/congress_monitor.py
