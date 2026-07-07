@@ -65,7 +65,18 @@ jobs:
         if: steps.phase.outputs.phase == 'day_2'
         run: python scripts/refresh_bill_status.py --limit 200 --offset 200
 
-      # Day 3: Refresh remaining (401+) + discover + auto-triage
+      # Day 3: discover + refresh + auto-triage.
+      # Federal discovery runs FIRST: it's independent of OpenStates and fast,
+      # so its rows persist (with confidence_score=0) even if the slow, rate-
+      # limited OpenStates steps below time out. Triage runs last so it scores
+      # both the federal and state bills discovered this run. No-ops without
+      # CONGRESS_API_KEY.
+      - name: Discover and refresh federal bills
+        if: steps.phase.outputs.phase == 'day_3'
+        env:
+          CONGRESS_API_KEY: ${{ secrets.CONGRESS_API_KEY }}
+        run: python scripts/congress_monitor.py --discover
+
       - name: Refresh bills 401+
         if: steps.phase.outputs.phase == 'day_3'
         run: python scripts/refresh_bill_status.py --limit 100 --offset 400
@@ -73,15 +84,6 @@ jobs:
       - name: Discover new state bills
         if: steps.phase.outputs.phase == 'day_3'
         run: python scripts/openstates_monitor.py
-
-      # Discover + refresh federal bills BEFORE triage so newly-found bills
-      # (inserted with confidence_score=0) get scored in the same run.
-      # No-ops with a notice until CONGRESS_API_KEY is set.
-      - name: Discover and refresh federal bills
-        if: steps.phase.outputs.phase == 'day_3'
-        env:
-          CONGRESS_API_KEY: ${{ secrets.CONGRESS_API_KEY }}
-        run: python scripts/congress_monitor.py --discover
 
       - name: Auto-triage and update issues
         if: steps.phase.outputs.phase == 'day_3'
