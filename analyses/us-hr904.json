@@ -10,11 +10,10 @@
     "author": "Rep. Jefferson Van Drew (R-NJ-2)",
     "description": "HR 904 repeals the inclusion of Social Security benefits in gross income under IRC \u00a7 86, ending federal income taxation of Social Security benefits for all recipients. PolicyEngine models the repeal by zeroing both tiers of the taxability formula from tax year 2026, on top of current law including the OBBBA senior deduction.",
     "key_findings": [
-      "Reduces federal revenue by $94.5 billion in 2026 (PolicyEngine, Enhanced CPS 2024, policyengine-us 1.729.3)",
-      "10.4% of households gain; none lose",
-      "Average gains rise with income: $104/household in the third decile to $2,817 in the top decile",
+      "Reduces federal revenue by $97.8 billion in 2026 (PolicyEngine, populace-us 2024, policyengine-us 1.729.3)",
+      "10.2% of households gain; none lose",
       "No measurable change in overall or child poverty (SPM)",
-      "External check: matches PolicyEngine's prior published single-year score ($98.9B for 2025, pre-OBBBA) and CRFB's independent ~$94B first-year estimate; implies ~$1.4-1.6T over 2026-2035, consistent with CRFB, TPC ($1.5T), and Penn Wharton ($1.45T). The slightly lower figure reflects the OBBBA senior deduction shrinking the taxable-benefit base."
+      "External check: matches CRFB's independent ~$94B first-year estimate and PolicyEngine's prior published single-year score ($98.9B, 2025); implies ~$1.4-1.6T over 2026-2035, consistent with CRFB, TPC ($1.5T), and Penn Wharton ($1.45T)."
     ],
     "tags": [
       "federal",
@@ -25,107 +24,107 @@
   "reform_impacts": {
     "id": "us-hr904",
     "computed": true,
-    "computed_at": "2026-07-06T19:21:04.236006+00:00",
+    "computed_at": "2026-07-09T14:02:40.470438+00:00",
     "budgetary_impact": {
-      "stateRevenueImpact": -94524828141.82031,
-      "netCost": -94524828141.82031,
-      "households": 163970336
+      "stateRevenueImpact": -97846943795.19678,
+      "netCost": -97846943795.19678,
+      "households": 162801264
     },
     "poverty_impact": {
-      "baselineRate": 0.16144204475368448,
-      "reformRate": 0.16144989880438798,
-      "change": 7.854050703498539e-06,
-      "percentChange": 0.004864935101312443
+      "baselineRate": 0.16934958537376332,
+      "reformRate": 0.16910406866066247,
+      "change": -0.0002455167131008573,
+      "percentChange": -0.14497627057012819
     },
     "child_poverty_impact": {
-      "baselineRate": 0.17189349110062482,
-      "reformRate": 0.17189349110062482,
-      "change": 0.0,
-      "percentChange": 0.0
+      "baselineRate": 0.16552530351554517,
+      "reformRate": 0.1655239856249619,
+      "change": -1.3178905832744725e-06,
+      "percentChange": -0.0007961867794736917
     },
     "winners_losers": {
-      "gainMore5Pct": 0.017042695825584375,
-      "gainLess5Pct": 0.08725985612196992,
-      "noChange": 0.8956828422380397,
-      "loseLess5Pct": 1.4605814406109125e-05,
+      "gainMore5Pct": 0.01705567030939435,
+      "gainLess5Pct": 0.08510920019052304,
+      "noChange": 0.8978339425387999,
+      "loseLess5Pct": 1.1869612828017118e-06,
       "loseMore5Pct": 0.0,
       "intraDecile": {
         "all": {
-          "gainMore5Pct": 0.017042695825584375,
-          "gainLess5Pct": 0.08725985612196992,
-          "noChange": 0.8956828422380397,
-          "loseLess5Pct": 1.4605814406109125e-05,
+          "gainMore5Pct": 0.01705567030939435,
+          "gainLess5Pct": 0.08510920019052304,
+          "noChange": 0.8978339425387999,
+          "loseLess5Pct": 1.1869612828017118e-06,
           "loseMore5Pct": 0.0
         },
         "deciles": {
           "1": {
-            "gainMore5Pct": 0.0,
-            "gainLess5Pct": 0.0014741178899074661,
-            "noChange": 0.9985258821100925,
+            "gainMore5Pct": 0.001142632057389674,
+            "gainLess5Pct": 0.00017350318326918998,
+            "noChange": 0.9986838647593411,
             "loseLess5Pct": 0.0,
             "loseMore5Pct": 0.0
           },
           "2": {
-            "gainMore5Pct": 0.0,
-            "gainLess5Pct": 0.003940329131985918,
-            "noChange": 0.9960596708680141,
+            "gainMore5Pct": 0.00017276011687525464,
+            "gainLess5Pct": 0.01068494839354678,
+            "noChange": 0.989142291489578,
             "loseLess5Pct": 0.0,
             "loseMore5Pct": 0.0
           },
           "3": {
-            "gainMore5Pct": 0.006899451218723085,
-            "gainLess5Pct": 0.04421682214783449,
-            "noChange": 0.9488837266334424,
+            "gainMore5Pct": 0.0009980605310648738,
+            "gainLess5Pct": 0.03429994757886071,
+            "noChange": 0.9647019918900744,
             "loseLess5Pct": 0.0,
             "loseMore5Pct": 0.0
           },
           "4": {
-            "gainMore5Pct": 0.003130618834739891,
-            "gainLess5Pct": 0.08929005249338012,
-            "noChange": 0.90757932867188,
-            "loseLess5Pct": 0.0,
+            "gainMore5Pct": 0.00012051059528858203,
+            "gainLess5Pct": 0.05101477918738029,
+            "noChange": 0.9488637004360473,
+            "loseLess5Pct": 1.0097812838801738e-06,
             "loseMore5Pct": 0.0
           },
           "5": {
-            "gainMore5Pct": 0.0047116840344273376,
-            "gainLess5Pct": 0.14648434657916484,
-            "noChange": 0.8488039693864078,
-            "loseLess5Pct": 0.0,
+            "gainMore5Pct": 0.01508409050078559,
+            "gainLess5Pct": 0.08491995599020985,
+            "noChange": 0.899989972305804,
+            "loseLess5Pct": 5.981203200577815e-06,
             "loseMore5Pct": 0.0
           },
           "6": {
-            "gainMore5Pct": 0.02443125535432875,
-            "gainLess5Pct": 0.13774572887235942,
-            "noChange": 0.8377703083289334,
-            "loseLess5Pct": 5.27074443784081e-05,
+            "gainMore5Pct": 0.01204918948130333,
+            "gainLess5Pct": 0.08629746947506002,
+            "noChange": 0.9016532327148542,
+            "loseLess5Pct": 1.0832878247074643e-07,
             "loseMore5Pct": 0.0
           },
           "7": {
-            "gainMore5Pct": 0.027416835275548158,
-            "gainLess5Pct": 0.13898112884908995,
-            "noChange": 0.8336020358753619,
+            "gainMore5Pct": 0.025007704920467735,
+            "gainLess5Pct": 0.16329420292058577,
+            "noChange": 0.8116980921589465,
             "loseLess5Pct": 0.0,
             "loseMore5Pct": 0.0
           },
           "8": {
-            "gainMore5Pct": 0.021835682093317446,
-            "gainLess5Pct": 0.08993231065828049,
-            "noChange": 0.8881758211623406,
-            "loseLess5Pct": 5.618608606140641e-05,
+            "gainMore5Pct": 0.020585333843144343,
+            "gainLess5Pct": 0.11544981673432639,
+            "noChange": 0.8639642938418081,
+            "loseLess5Pct": 5.555807212221912e-07,
             "loseMore5Pct": 0.0
           },
           "9": {
-            "gainMore5Pct": 0.051483576037722904,
-            "gainLess5Pct": 0.09199504371049821,
-            "noChange": 0.8564842156381576,
-            "loseLess5Pct": 3.716461362127675e-05,
+            "gainMore5Pct": 0.0533605591730688,
+            "gainLess5Pct": 0.13198358261010146,
+            "noChange": 0.8146558582168297,
+            "loseLess5Pct": 0.0,
             "loseMore5Pct": 0.0
           },
           "10": {
-            "gainMore5Pct": 0.03051785540703619,
-            "gainLess5Pct": 0.1285386808871982,
-            "noChange": 0.8409434637057657,
-            "loseLess5Pct": 0.0,
+            "gainMore5Pct": 0.04203586187455533,
+            "gainLess5Pct": 0.1729737958318899,
+            "noChange": 0.7849861275747149,
+            "loseLess5Pct": 4.21471883986619e-06,
             "loseMore5Pct": 0.0
           }
         }
@@ -133,28 +132,28 @@
     },
     "decile_impact": {
       "relative": {
-        "1": 2.2301492729805984e-05,
-        "2": 2.9324178654485017e-05,
-        "3": 0.002301449776892551,
-        "4": 0.004105008552680521,
-        "5": 0.004078699942135024,
-        "6": 0.007730740535994386,
-        "7": 0.006243146698179237,
-        "8": 0.004907067054593873,
-        "9": 0.008946807010484129,
-        "10": 0.0025061007502895677
+        "1": 0.0003438584151634616,
+        "2": 0.00011390963482187846,
+        "3": 0.0008285299814906455,
+        "4": 0.002259230136275465,
+        "5": 0.004728937944692626,
+        "6": 0.004756668837228493,
+        "7": 0.007977668668425962,
+        "8": 0.008099934054310025,
+        "9": 0.009373108007946612,
+        "10": 0.006538891984988459
       },
       "average": {
-        "1": 0.3475448391437591,
-        "2": 0.9722643899541359,
-        "3": 104.07152721689624,
-        "4": 243.05466026601061,
-        "5": 303.05200107467743,
-        "6": 737.0774991013585,
-        "7": 773.0594863856924,
-        "8": 739.4789845479003,
-        "9": 1824.8816637803718,
-        "10": 2816.978876137759
+        "1": 6.303747775143792,
+        "2": 3.7716613530542418,
+        "3": 36.995443045177105,
+        "4": 128.81576103564154,
+        "5": 329.385465164547,
+        "6": 398.04914891593796,
+        "7": 810.3452222292246,
+        "8": 1035.2973053681249,
+        "9": 1654.6450584054448,
+        "10": 3281.1291344196857
       }
     },
     "district_impacts": null,
@@ -179,7 +178,7 @@
       "analysis_year": 2026,
       "external_comparison": {
         "verdict": "corroborated",
-        "pe_single_year_2026": -94500000000.0,
+        "pe_single_year_2026": -97800000000.0,
         "anchors": [
           {
             "source": "PolicyEngine (prior published, 2024)",
@@ -205,7 +204,7 @@
       }
     },
     "policyengine_us_version": "1.729.3",
-    "dataset_name": "policyengine-us-data",
+    "dataset_name": "populace-us",
     "dataset_version": "1.17.0"
   }
 }
