@@ -161,18 +161,16 @@ def get_state_dataset(state: str) -> str:
     return dataset_path
 
 
-def get_national_dataset() -> str:
-    """Download the national Enhanced CPS dataset (for federal reforms)."""
-    from huggingface_hub import hf_hub_download
+def get_national_dataset():
+    """National dataset for federal reforms: the current policyengine-us
+    default (populace-us). Returning None lets Microsimulation use its
+    default, so this tracks the model's dataset version automatically.
+    """
+    from policyengine_us import Microsimulation
 
-    print("    Downloading national dataset from Hugging Face...")
-    dataset_path = hf_hub_download(
-        repo_id="policyengine/policyengine-us-data",
-        filename="enhanced_cps_2024.h5",
-        repo_type="model",
-    )
-    print(f"    Dataset ready: {dataset_path}")
-    return dataset_path
+    default = getattr(Microsimulation, "default_dataset", None)
+    print(f"    Using national default dataset: {default}")
+    return None
 
 
 def get_builtin_reform(reform_name: str):
@@ -300,16 +298,22 @@ def run_simulations(state: str, reform_params: dict, year: int = 2026):
     """
     from policyengine_us import Microsimulation
 
-    # Federal reforms (state == "us") run on the national Enhanced CPS;
-    # state reforms use the geocoded state dataset for district impacts.
+    # Federal reforms (state == "us") run nationally on the current default
+    # dataset (populace-us); state reforms use the geocoded state dataset for
+    # district impacts. get_national_dataset() returns None so Microsimulation
+    # uses its default.
     dataset = get_national_dataset() if state == "us" else get_state_dataset(state)
     ReformClass = create_reform_class(reform_params)
 
     print("    Running baseline simulation...")
-    baseline = Microsimulation(dataset=dataset)
+    baseline = Microsimulation(dataset=dataset) if dataset else Microsimulation()
 
     print("    Running reform simulation...")
-    reformed = Microsimulation(reform=ReformClass, dataset=dataset)
+    reformed = (
+        Microsimulation(reform=ReformClass, dataset=dataset)
+        if dataset
+        else Microsimulation(reform=ReformClass)
+    )
 
     return baseline, reformed
 
@@ -993,7 +997,9 @@ Examples:
                     "reform_params": reform["reform"],
                     "model_notes": {"analysis_year": sim_year},
                     "policyengine_us_version": get_installed_version("policyengine-us"),
-                    "dataset_name": "policyengine-us-data",
+                    # Federal runs on the national default (populace-us); state
+                    # runs on the geocoded policyengine-us-data state files.
+                    "dataset_name": "populace-us" if state == "us" else "policyengine-us-data",
                     "dataset_version": get_installed_version("policyengine-us-data"),
                 }
                 print(f"  Writing record to {args.output}...")
