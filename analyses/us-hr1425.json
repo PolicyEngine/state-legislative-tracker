@@ -10,12 +10,12 @@
     "author": "Rep. Mackenzie, Ryan [R-PA-7]",
     "description": "HR 1425 amends IRC \u00a724 to raise the Child Tax Credit to $5,000 per qualifying child (from the current-law $2,200 base), make it fully refundable, and remove the income phase-out. PolicyEngine models it by setting the base CTC amount to $5,000, enabling full refundability, and zeroing the phase-out from tax year 2025, against current law including OBBBA.",
     "key_findings": [
-      "Reduces federal revenue by $207 billion in 2026 (PolicyEngine, Enhanced CPS 2024, policyengine-us 1.729.3)",
-      "Cuts child poverty (SPM) by 47%, from 17.2% to 9.1%",
-      "Cuts overall poverty by 19%, from 16.1% to 13.1%",
-      "39.6% of households gain; none lose",
-      "External check (cost): consistent with PolicyEngine's near-identical $5,000 fully-refundable CTC analysis ($241B, 2025) and CRFB's $2-3T/10yr band for this reform shape; the lower figure reflects the higher OBBBA $2,200 baseline.",
-      "External check (child poverty): ARPA's 2021 expansion cut child poverty ~46% (Census SPM) for a smaller credit; PolicyEngine's comparable $5,000 analysis found 41%. Our 47% is defensible but on the optimistic edge of the evidence range."
+      "Reduces federal revenue by $225.5 billion in 2026 (PolicyEngine, populace-us 2024, policyengine-us 1.729.3)",
+      "Cuts child poverty (SPM) by 40%, from 16.6% to 9.9%",
+      "Cuts overall poverty by 14%, from 16.9% to 14.5%",
+      "43.5% of households gain; none lose",
+      "External check (cost): within CRFB's $2-3T/10yr band for a $5,000 fully-refundable no-phase-out CTC, and consistent with PolicyEngine's near-identical $5,000 CTC analysis ($241B).",
+      "External check (child poverty): the 40% cut closely matches PolicyEngine's comparable $5,000 CTC analysis (41%) and ARPA's measured 46% (Census SPM) for a smaller credit."
     ],
     "tags": [
       "federal",
@@ -27,106 +27,106 @@
   "reform_impacts": {
     "id": "us-hr1425",
     "computed": true,
-    "computed_at": "2026-07-06T21:54:21.235952+00:00",
+    "computed_at": "2026-07-09T14:09:18.690455+00:00",
     "budgetary_impact": {
-      "stateRevenueImpact": -207128753792.6172,
-      "netCost": -207128753792.6172,
-      "households": 163970336
+      "stateRevenueImpact": -225517387052.77197,
+      "netCost": -225517387052.77197,
+      "households": 162801264
     },
     "poverty_impact": {
-      "baselineRate": 0.16144204475368448,
-      "reformRate": 0.13107471721599867,
-      "change": -0.030367327537685812,
-      "percentChange": -18.810048884116824
+      "baselineRate": 0.16934958537376332,
+      "reformRate": 0.14514657558432897,
+      "change": -0.02420300978943435,
+      "percentChange": -14.291744344113422
     },
     "child_poverty_impact": {
-      "baselineRate": 0.17189349110062482,
-      "reformRate": 0.09063162003300755,
-      "change": -0.08126187106761727,
-      "percentChange": -47.27454806304873
+      "baselineRate": 0.16552530351554517,
+      "reformRate": 0.0994270700046663,
+      "change": -0.06609823351087887,
+      "percentChange": -39.932404355731215
     },
     "winners_losers": {
-      "gainMore5Pct": 0.2011922204495172,
-      "gainLess5Pct": 0.19502957274762278,
-      "noChange": 0.60377820680286,
+      "gainMore5Pct": 0.2359429660313952,
+      "gainLess5Pct": 0.19941092306249536,
+      "noChange": 0.5646461109061095,
       "loseLess5Pct": 0.0,
       "loseMore5Pct": 0.0,
       "intraDecile": {
         "all": {
-          "gainMore5Pct": 0.2011922204495172,
-          "gainLess5Pct": 0.19502957274762278,
-          "noChange": 0.60377820680286,
+          "gainMore5Pct": 0.2359429660313952,
+          "gainLess5Pct": 0.19941092306249536,
+          "noChange": 0.5646461109061095,
           "loseLess5Pct": 0.0,
           "loseMore5Pct": 0.0
         },
         "deciles": {
           "1": {
-            "gainMore5Pct": 0.15846739006459598,
-            "gainLess5Pct": 0.0,
-            "noChange": 0.841532609935404,
+            "gainMore5Pct": 0.07569045492490507,
+            "gainLess5Pct": 0.00015878455530685606,
+            "noChange": 0.9241507605197881,
             "loseLess5Pct": 0.0,
             "loseMore5Pct": 0.0
           },
           "2": {
-            "gainMore5Pct": 0.3112490796432626,
+            "gainMore5Pct": 0.2040987518001576,
             "gainLess5Pct": 0.0,
-            "noChange": 0.6887509203567374,
+            "noChange": 0.7959012481998424,
             "loseLess5Pct": 0.0,
             "loseMore5Pct": 0.0
           },
           "3": {
-            "gainMore5Pct": 0.361752958565844,
+            "gainMore5Pct": 0.401646097738456,
             "gainLess5Pct": 0.0,
-            "noChange": 0.638247041434156,
+            "noChange": 0.598353902261544,
             "loseLess5Pct": 0.0,
             "loseMore5Pct": 0.0
           },
           "4": {
-            "gainMore5Pct": 0.4473284168173885,
-            "gainLess5Pct": 0.04573681032378519,
-            "noChange": 0.5069347728588263,
+            "gainMore5Pct": 0.4295826479126756,
+            "gainLess5Pct": 0.07226120170229562,
+            "noChange": 0.4981561503850288,
             "loseLess5Pct": 0.0,
             "loseMore5Pct": 0.0
           },
           "5": {
-            "gainMore5Pct": 0.27398772522262677,
-            "gainLess5Pct": 0.1014651493685397,
-            "noChange": 0.6245471254088335,
+            "gainMore5Pct": 0.3150785243835341,
+            "gainLess5Pct": 0.19522684176729604,
+            "noChange": 0.4896946338491699,
             "loseLess5Pct": 0.0,
             "loseMore5Pct": 0.0
           },
           "6": {
-            "gainMore5Pct": 0.21099926922624765,
-            "gainLess5Pct": 0.19637071818705207,
-            "noChange": 0.5926300125867002,
+            "gainMore5Pct": 0.31018975798758547,
+            "gainLess5Pct": 0.2595294954984242,
+            "noChange": 0.43028074651399034,
             "loseLess5Pct": 0.0,
             "loseMore5Pct": 0.0
           },
           "7": {
-            "gainMore5Pct": 0.10459145995506096,
-            "gainLess5Pct": 0.3762565046691679,
-            "noChange": 0.5191520353757711,
+            "gainMore5Pct": 0.3323836049129661,
+            "gainLess5Pct": 0.1760710001373924,
+            "noChange": 0.4915453949496415,
             "loseLess5Pct": 0.0,
             "loseMore5Pct": 0.0
           },
           "8": {
-            "gainMore5Pct": 0.10114311705484978,
-            "gainLess5Pct": 0.38128277539924443,
-            "noChange": 0.5175741075459057,
+            "gainMore5Pct": 0.20056976407984525,
+            "gainLess5Pct": 0.39344368075005454,
+            "noChange": 0.4059865551701002,
             "loseLess5Pct": 0.0,
             "loseMore5Pct": 0.0
           },
           "9": {
-            "gainMore5Pct": 0.040626209600936325,
-            "gainLess5Pct": 0.3212435499443583,
-            "noChange": 0.6381302404547053,
+            "gainMore5Pct": 0.08461277182437185,
+            "gainLess5Pct": 0.4481547221560889,
+            "noChange": 0.4672325060195392,
             "loseLess5Pct": 0.0,
             "loseMore5Pct": 0.0
           },
           "10": {
-            "gainMore5Pct": 0.001776578344359676,
-            "gainLess5Pct": 0.5279402195840804,
-            "noChange": 0.47028320207155994,
+            "gainMore5Pct": 0.005577284749454878,
+            "gainLess5Pct": 0.4492635040580953,
+            "noChange": 0.5451592111924497,
             "loseLess5Pct": 0.0,
             "loseMore5Pct": 0.0
           }
@@ -135,28 +135,28 @@
     },
     "decile_impact": {
       "relative": {
-        "1": 0.027867120069701466,
-        "2": 0.025407300995088155,
-        "3": 0.02985730014291749,
-        "4": 0.030423716888181872,
-        "5": 0.017969270903449013,
-        "6": 0.013753951260767743,
-        "7": 0.01164752742474685,
-        "8": 0.01031173110468671,
-        "9": 0.0067998081301505735,
-        "10": 0.001956191040771728
+        "1": 0.010841045688743844,
+        "2": 0.01643894830585973,
+        "3": 0.025236992823788086,
+        "4": 0.029241782012056544,
+        "5": 0.02578485571025264,
+        "6": 0.0243966315017607,
+        "7": 0.01889620276166757,
+        "8": 0.01867250228169061,
+        "9": 0.010998866112993824,
+        "10": 0.0036598922704236905
       },
       "average": {
-        "1": 434.27917042880716,
-        "2": 842.397473205693,
-        "3": 1350.1467012859127,
-        "4": 1801.3668126118112,
-        "5": 1335.1370736756503,
-        "6": 1311.3527676743681,
-        "7": 1442.2585282617301,
-        "8": 1553.944211764154,
-        "9": 1386.9579571120103,
-        "10": 2198.853672944784
+        "1": 198.7423155200796,
+        "2": 544.309935740036,
+        "3": 1126.8798371837033,
+        "4": 1667.2946874421984,
+        "5": 1795.996646954168,
+        "6": 2041.5670583764725,
+        "7": 1919.4138366256852,
+        "8": 2386.6356401294393,
+        "9": 1941.641923521937,
+        "10": 1836.485322726397
       }
     },
     "district_impacts": null,
@@ -174,9 +174,9 @@
     "model_notes": {
       "analysis_year": 2026,
       "external_comparison": {
-        "verdict": "corroborated (child-poverty effect at optimistic edge)",
-        "pe_single_year_2026_cost": -207000000000.0,
-        "pe_child_poverty_reduction_pct": 47,
+        "verdict": "corroborated",
+        "pe_single_year_2026_cost": -225500000000.0,
+        "pe_child_poverty_reduction_pct": 40,
         "anchors": [
           {
             "source": "PolicyEngine Vance $5,000 CTC (near-identical reform)",
@@ -207,7 +207,7 @@
       }
     },
     "policyengine_us_version": "1.729.3",
-    "dataset_name": "policyengine-us-data",
+    "dataset_name": "populace-us",
     "dataset_version": "1.17.0"
   }
 }
