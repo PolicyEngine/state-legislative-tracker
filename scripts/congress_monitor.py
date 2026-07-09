@@ -102,6 +102,12 @@ SEED_BILLS = [
 ]
 
 
+# Membership set so provenance can be derived, not hardcoded — the refresh
+# loop rebuilds every existing US row via build_row, so a hardcoded
+# matched_query would relabel discovered bills as seeds on every run.
+SEED_KEYS = {(s["congress"], s["bill_type"], s["number"]) for s in SEED_BILLS}
+
+
 def bill_source_id(congress, bill_type, number):
     """Canonical source id, e.g. 'us-congress-119-hr-1234'."""
     return f"us-congress-{congress}-{bill_type}-{number}"
@@ -243,7 +249,11 @@ def build_row(seed, bill):
         "official_url": url,
         "session_name": f"{ordinal(congress)} Congress",
         "legiscan_url": url,  # legacy column reused as source URL, as openstates_monitor does
-        "matched_query": "curated-federal-seed",
+        # Derive provenance from seed membership so a refresh of a discovered
+        # bill doesn't relabel it as a curated seed.
+        "matched_query": "curated-federal-seed"
+        if (congress, bill_type, number) in SEED_KEYS
+        else "congress-discovery",
     }
     # Curation is the triage for seeds; only set on rows that carry it so a
     # refresh never nulls out a score auto_triage assigned.
