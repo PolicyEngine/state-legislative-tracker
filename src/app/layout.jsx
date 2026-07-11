@@ -1,7 +1,7 @@
 import Script from 'next/script';
 import './globals.css';
 
-const SITE_URL = 'https://www.policyengine.org/us/state-legislative-tracker';
+const SITE_URL = 'https://www.policyengine.org/us/bill-tracker';
 const TITLE = '2026 State Legislative Tracker | PolicyEngine US';
 const DESCRIPTION =
   'Track state-level tax and benefit legislation across all 50 states. See fiscal impacts, winners and losers, and district-level analysis powered by PolicyEngine microsimulation.';
