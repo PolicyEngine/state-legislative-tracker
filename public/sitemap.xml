@@ -1,262 +1,262 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/AL</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/AL</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/AK</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/AK</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/AZ</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/AZ</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/AR</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/AR</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/CA</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/CA</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/CO</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/CO</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/CT</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/CT</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/DE</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/DE</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/FL</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/FL</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/GA</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/GA</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/HI</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/HI</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/ID</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/ID</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/IL</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/IL</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/IN</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/IN</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/IA</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/IA</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/KS</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/KS</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/KY</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/KY</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/LA</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/LA</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/ME</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/ME</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/MD</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/MD</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/MA</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/MA</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/MI</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/MI</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/MN</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/MN</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/MS</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/MS</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/MO</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/MO</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/MT</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/MT</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/NE</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/NE</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/NV</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/NV</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/NH</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/NH</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/NJ</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/NJ</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/NM</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/NM</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/NY</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/NY</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/NC</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/NC</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/ND</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/ND</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/OH</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/OH</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/OK</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/OK</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/OR</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/OR</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/PA</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/PA</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/RI</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/RI</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/SC</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/SC</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/SD</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/SD</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/TN</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/TN</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/TX</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/TX</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/UT</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/UT</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/VT</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/VT</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/VA</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/VA</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/WA</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/WA</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/WV</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/WV</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/WI</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/WI</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/WY</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/WY</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.policyengine.org/us/state-legislative-tracker/DC</loc>
+    <loc>https://www.policyengine.org/us/bill-tracker/DC</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>

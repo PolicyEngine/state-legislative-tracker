@@ -2,7 +2,7 @@
 
 Tracks state and federal tax and transfer legislation relevant to [PolicyEngine](https://policyengine.org), while keeping a state-first browsing experience for state bills. The pipeline scores bills for modelability and computes fiscal impacts using microsimulation.
 
-**Live app:** [state-legislative-tracker.modal.run](https://policengine--state-legislative-tracker.modal.run)
+**Live app:** [policyengine.org/us/bill-tracker](https://www.policyengine.org/us/bill-tracker) (served from [policyengine--state-legislative-tracker.modal.run](https://policyengine--state-legislative-tracker.modal.run))
 
 ## Architecture
 
