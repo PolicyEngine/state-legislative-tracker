@@ -107,7 +107,10 @@ function setDescription(html, desc) {
 }
 
 function addCanonical(html, url) {
-  return html.replace("</head>", `    <link rel="canonical" href="${url}" />\n  </head>`);
+  // The Next.js layout bakes a site-level canonical into every exported
+  // page; strip it so each page carries exactly one canonical URL.
+  const stripped = html.replace(/<link rel="canonical"[^>]*\/?>/gi, "");
+  return stripped.replace("</head>", `    <link rel="canonical" href="${url}" />\n  </head>`);
 }
 
 function addNoscript(html, content) {
