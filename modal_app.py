@@ -14,8 +14,12 @@ RUNTIME_SECRET_NAME = "state-research-tracker-runtime"
 REPO_URL = "https://github.com/PolicyEngine/state-legislative-tracker.git"
 BRANCH = "main"
 
-# Bump this when source code changes to rebuild the app layer
-APP_VERSION = "v40"
+# Bump this when source code changes to rebuild the app layer.
+# Caveat: the deploy workflow runs on the same push that bumps this, and the
+# builder clones main independently — if the clone races the push, the bumped
+# cache key can capture the pre-push code (happened at v40). If deployed
+# content looks stale, bump again on a fresh commit.
+APP_VERSION = "v41"
 
 # Evaluated at deploy time — unique command string busts Modal's layer cache
 _now = datetime.datetime.utcnow().isoformat()
