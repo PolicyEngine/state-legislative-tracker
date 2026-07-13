@@ -5,6 +5,12 @@ name: Publish Reform
 # the validated reform_dict, upserts research + reform_impacts to Supabase as
 # in_review (hidden on the site), and opens a bill-review PR — merging that PR
 # fires publish-bill.yml, which flips the entry to published and redeploys.
+#
+# STATE-LEVEL ONLY: federal reforms need the national (populace-us) dataset,
+# which exceeds GitHub-hosted runner memory (verified 2026-07-13: OOM-killed
+# a 16GB runner even with 24GB swap). Compute federal reforms locally and
+# publish via publish-analysis.yml; the CRM router sends federal reforms to
+# the dashboard route instead.
 on:
   workflow_dispatch:
     inputs:
