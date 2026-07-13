@@ -1,0 +1,187 @@
+name: Publish Reform
+
+# Triggered by the CRM publication router (workflow_dispatch) once a human
+# approves adding a scored reform to the bill tracker. Computes impacts from
+# the validated reform_dict, upserts research + reform_impacts to Supabase as
+# in_review (hidden on the site), and opens a bill-review PR — merging that PR
+# fires publish-bill.yml, which flips the entry to published and redeploys.
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        description: 'Reform slug, e.g. "us-ctc-restoration-2026" (lowercase, [a-z0-9-])'
+        required: true
+        type: string
+      state:
+        description: '"us" for federal, or a 2-letter state code (e.g. "ut")'
+        required: true
+        default: 'us'
+        type: string
+      label:
+        description: 'Short display label (≤60 chars)'
+        required: true
+        type: string
+      reform_json:
+        description: 'Validated reform_dict JSON (param path → {date_range: value}), from /analyze-policy'
+        required: true
+        type: string
+      title:
+        description: 'Research entry title'
+        required: true
+        type: string
+      description:
+        description: 'One-paragraph neutral provisions summary'
+        required: false
+        default: ''
+        type: string
+      tags:
+        description: 'Comma-separated lowercase tags, e.g. "federal,child-tax-credit"'
+        required: false
+        default: ''
+        type: string
+      source_url:
+        description: 'Primary source URL (bill page, news article)'
+        required: false
+        default: ''
+        type: string
+      dry_run:
+        description: 'Compute + validate only: no Supabase write, no PR'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  publish-reform:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60  # microsim + dataset download dominate
+    permissions:
+      contents: write        # push the bill/{id} branch
+      pull-requests: write   # open the bill-review PR
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install policyengine-us policyengine-us-data supabase numpy pyyaml python-dotenv huggingface_hub
+
+      - name: Build reform config
+        # Inputs come in via env (never inline ${{ }} into shell/python) and are
+        # validated here: id must be a safe slug (it becomes a file path and a
+        # branch name), reform_json must parse as a JSON object.
+        env:
+          REFORM_ID: ${{ inputs.id }}
+          REFORM_STATE: ${{ inputs.state }}
+          REFORM_LABEL: ${{ inputs.label }}
+          REFORM_JSON: ${{ inputs.reform_json }}
+        run: |
+          python3 - << 'EOF'
+          import json, os, re, sys
+          reform_id = os.environ["REFORM_ID"]
+          state = os.environ["REFORM_STATE"].strip().lower()
+          if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", reform_id):
+              sys.exit(f"id {reform_id!r} must match ^[a-z0-9][a-z0-9-]*$")
+          if not re.fullmatch(r"[a-z]{2}", state):
+              sys.exit(f"state {state!r} must be 'us' or a 2-letter state code")
+          reform = json.loads(os.environ["REFORM_JSON"])
+          if not isinstance(reform, dict) or not reform:
+              sys.exit("reform_json must be a non-empty JSON object")
+          config = {
+              "id": reform_id,
+              "state": state,
+              "label": os.environ["REFORM_LABEL"],
+              "reform": reform,
+          }
+          with open("/tmp/reform-config.json", "w") as f:
+              json.dump(config, f, indent=2)
+          print(json.dumps(config, indent=2))
+          EOF
+
+      - name: Compute impacts
+        env:
+          # State datasets (states/XX.h5) and populace-us come from the
+          # policyengine/policyengine-us-data HF repo; token needed if gated.
+          HUGGING_FACE_HUB_TOKEN: ${{ secrets.HUGGING_FACE_TOKEN }}
+          REFORM_ID: ${{ inputs.id }}
+        run: |
+          python scripts/compute_impacts.py \
+            --reform-json /tmp/reform-config.json \
+            --output "analyses/${REFORM_ID}.json"
+
+      - name: Merge research metadata
+        env:
+          REFORM_ID: ${{ inputs.id }}
+          REFORM_STATE: ${{ inputs.state }}
+          REFORM_TITLE: ${{ inputs.title }}
+          REFORM_DESCRIPTION: ${{ inputs.description }}
+          REFORM_TAGS: ${{ inputs.tags }}
+          REFORM_SOURCE_URL: ${{ inputs.source_url }}
+        run: python scripts/merge_research_metadata.py "analyses/${REFORM_ID}.json"
+
+      - name: Upload analysis to Supabase (in_review)
+        if: inputs.dry_run == false
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          REFORM_ID: ${{ inputs.id }}
+        run: python scripts/publish_analysis.py "analyses/${REFORM_ID}.json"
+
+      - name: Validate artifact (dry run)
+        if: inputs.dry_run == true
+        env:
+          REFORM_ID: ${{ inputs.id }}
+        run: python scripts/publish_analysis.py "analyses/${REFORM_ID}.json" --dry-run
+
+      - name: Open bill-review PR
+        if: inputs.dry_run == false
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REFORM_ID: ${{ inputs.id }}
+          REFORM_TITLE: ${{ inputs.title }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          BRANCH="bill/${REFORM_ID}"
+          git checkout -b "$BRANCH"
+          git add "analyses/${REFORM_ID}.json"
+          git commit -m "Add scored reform: ${REFORM_ID}"
+          git push -u origin "$BRANCH" --force
+          PR_URL=$(gh pr create \
+            --title "Publish reform: ${REFORM_TITLE}" \
+            --label bill-review \
+            --body "Automated publication from the CRM research pipeline.
+
+          The reform's impacts were computed by this workflow run and upserted to Supabase as \`in_review\` (hidden on the site). **Merging this PR publishes the entry** on the bill tracker (publish-bill.yml flips status to published and redeploys Modal).
+
+          Artifact: \`analyses/${REFORM_ID}.json\`
+
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)" \
+            --head "$BRANCH" --base main)
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          echo "Opened $PR_URL"
+
+      - name: Write publication result
+        # Normalized cross-repo contract consumed by the CRM publication
+        # tracker: publication-result artifact containing result.json.
+        if: always()
+        env:
+          PR_URL: ${{ steps.pr.outputs.pr_url }}
+        run: |
+          python3 -c "import json, os; json.dump({'pr_url': os.environ.get('PR_URL') or None}, open('/tmp/result.json', 'w'))"
+          cat /tmp/result.json
+
+      - name: Upload publication result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-result
+          path: |
+            /tmp/result.json
+            analyses/*.json
+          if-no-files-found: warn
+          retention-days: 30
