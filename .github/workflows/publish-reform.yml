@@ -69,6 +69,16 @@ jobs:
       - name: Install dependencies
         run: pip install policyengine-us policyengine-us-data supabase numpy pyyaml python-dotenv huggingface_hub
 
+      - name: Add swap
+        # The national (populace-us) microsim peaks above the 16GB hosted-runner
+        # RAM — the runner cancels the step without swap. /mnt has ~60GB free.
+        run: |
+          sudo fallocate -l 24G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
+
       - name: Build reform config
         # Inputs come in via env (never inline ${{ }} into shell/python) and are
         # validated here: id must be a safe slug (it becomes a file path and a
