@@ -1,0 +1,318 @@
+{
+  "reform_impacts": {
+    "id": "ga-hb463-2026",
+    "computed": true,
+    "computed_at": "2026-07-15T16:30:25.056141+00:00",
+    "budgetary_impact": {
+      "stateRevenueImpact": -282165820.48890877,
+      "netCost": -282165820.48890877,
+      "households": 4265797
+    },
+    "poverty_impact": {
+      "baselineRate": 0.2197591975796587,
+      "reformRate": 0.21968301247679556,
+      "change": -7.618510286314106e-05,
+      "percentChange": -0.034667537787821306
+    },
+    "child_poverty_impact": {
+      "baselineRate": 0.24127789689745605,
+      "reformRate": 0.24124619719057,
+      "change": -3.169970688604584e-05,
+      "percentChange": -0.013138255635375639
+    },
+    "winners_losers": {
+      "gainMore5Pct": 1.1046332558456235e-10,
+      "gainLess5Pct": 0.11400535258743771,
+      "noChange": 0.8859946473020989,
+      "loseLess5Pct": 0.0,
+      "loseMore5Pct": 0.0,
+      "intraDecile": {
+        "all": {
+          "gainMore5Pct": 1.1046332558456235e-10,
+          "gainLess5Pct": 0.11400535258743771,
+          "noChange": 0.8859946473020989,
+          "loseLess5Pct": 0.0,
+          "loseMore5Pct": 0.0
+        },
+        "deciles": {
+          "1": {
+            "gainMore5Pct": 1.1046332558456235e-09,
+            "gainLess5Pct": 0.0065315427310461615,
+            "noChange": 0.9934684561643207,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          },
+          "2": {
+            "gainMore5Pct": 0.0,
+            "gainLess5Pct": 0.0086012980563104,
+            "noChange": 0.9913987019436894,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          },
+          "3": {
+            "gainMore5Pct": 0.0,
+            "gainLess5Pct": 0.00926566108687652,
+            "noChange": 0.9907343389131233,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          },
+          "4": {
+            "gainMore5Pct": 0.0,
+            "gainLess5Pct": 0.026968906241666184,
+            "noChange": 0.9730310937583335,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          },
+          "5": {
+            "gainMore5Pct": 0.0,
+            "gainLess5Pct": 0.06407077937734368,
+            "noChange": 0.9359292206226564,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          },
+          "6": {
+            "gainMore5Pct": 0.0,
+            "gainLess5Pct": 0.04771936378402755,
+            "noChange": 0.9522806362159724,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          },
+          "7": {
+            "gainMore5Pct": 0.0,
+            "gainLess5Pct": 0.10562604435440191,
+            "noChange": 0.8943739556455981,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          },
+          "8": {
+            "gainMore5Pct": 0.0,
+            "gainLess5Pct": 0.1810744954028766,
+            "noChange": 0.8189255045971234,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          },
+          "9": {
+            "gainMore5Pct": 0.0,
+            "gainLess5Pct": 0.2729818058810039,
+            "noChange": 0.7270181941189959,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          },
+          "10": {
+            "gainMore5Pct": 0.0,
+            "gainLess5Pct": 0.4172136289588243,
+            "noChange": 0.5827863710411756,
+            "loseLess5Pct": 0.0,
+            "loseMore5Pct": 0.0
+          }
+        }
+      }
+    },
+    "decile_impact": {
+      "relative": {
+        "1": 6.524170730504077e-05,
+        "2": 0.00018730591305475948,
+        "3": 0.0002476923225639098,
+        "4": 0.00034258838487339607,
+        "5": 0.0005184823846028331,
+        "6": 0.000628060349368974,
+        "7": 0.0006944589313044701,
+        "8": 0.0007556089628411908,
+        "9": 0.0007773701826968946,
+        "10": 0.0007052486490639098
+      },
+      "average": {
+        "1": 0.7988100059747962,
+        "2": 5.687014081699847,
+        "3": 10.725986824684366,
+        "4": 18.941934477520327,
+        "5": 36.06323849361588,
+        "6": 55.49077310858027,
+        "7": 77.9206360687306,
+        "8": 109.3899467349609,
+        "9": 151.93862648863742,
+        "10": 331.83870715637767
+      }
+    },
+    "district_impacts": {
+      "GA-1": {
+        "districtName": "Congressional District 1",
+        "avgBenefit": 58.0,
+        "householdsAffected": 307782,
+        "totalBenefit": 17849139.0,
+        "winnersShare": 0.11,
+        "losersShare": 0.0,
+        "povertyPctChange": 0.0,
+        "childPovertyPctChange": 0.0
+      },
+      "GA-2": {
+        "districtName": "Congressional District 2",
+        "avgBenefit": 42.0,
+        "householdsAffected": 301875,
+        "totalBenefit": 12731384.0,
+        "winnersShare": 0.1,
+        "losersShare": 0.0,
+        "povertyPctChange": 0.0,
+        "childPovertyPctChange": 0.0
+      },
+      "GA-3": {
+        "districtName": "Congressional District 3",
+        "avgBenefit": 68.0,
+        "householdsAffected": 310350,
+        "totalBenefit": 21245997.0,
+        "winnersShare": 0.11,
+        "losersShare": 0.0,
+        "povertyPctChange": 0.0,
+        "childPovertyPctChange": 0.0
+      },
+      "GA-4": {
+        "districtName": "Congressional District 4",
+        "avgBenefit": 83.0,
+        "householdsAffected": 293786,
+        "totalBenefit": 24510552.0,
+        "winnersShare": 0.12,
+        "losersShare": 0.0,
+        "povertyPctChange": -0.05,
+        "childPovertyPctChange": 0.0
+      },
+      "GA-5": {
+        "districtName": "Congressional District 5",
+        "avgBenefit": 85.0,
+        "householdsAffected": 305742,
+        "totalBenefit": 26076358.0,
+        "winnersShare": 0.12,
+        "losersShare": 0.0,
+        "povertyPctChange": -0.12,
+        "childPovertyPctChange": 0.0
+      },
+      "GA-6": {
+        "districtName": "Congressional District 6",
+        "avgBenefit": 74.0,
+        "householdsAffected": 303941,
+        "totalBenefit": 22444148.0,
+        "winnersShare": 0.12,
+        "losersShare": 0.0,
+        "povertyPctChange": -0.13,
+        "childPovertyPctChange": -0.15
+      },
+      "GA-7": {
+        "districtName": "Congressional District 7",
+        "avgBenefit": 95.0,
+        "householdsAffected": 312577,
+        "totalBenefit": 29544424.0,
+        "winnersShare": 0.12,
+        "losersShare": 0.0,
+        "povertyPctChange": 0.0,
+        "childPovertyPctChange": 0.0
+      },
+      "GA-8": {
+        "districtName": "Congressional District 8",
+        "avgBenefit": 50.0,
+        "householdsAffected": 301529,
+        "totalBenefit": 15225945.0,
+        "winnersShare": 0.1,
+        "losersShare": 0.0,
+        "povertyPctChange": -0.02,
+        "childPovertyPctChange": 0.0
+      },
+      "GA-9": {
+        "districtName": "Congressional District 9",
+        "avgBenefit": 49.0,
+        "householdsAffected": 303837,
+        "totalBenefit": 14864785.0,
+        "winnersShare": 0.11,
+        "losersShare": 0.0,
+        "povertyPctChange": 0.0,
+        "childPovertyPctChange": 0.0
+      },
+      "GA-10": {
+        "districtName": "Congressional District 10",
+        "avgBenefit": 63.0,
+        "householdsAffected": 312287,
+        "totalBenefit": 19540283.0,
+        "winnersShare": 0.11,
+        "losersShare": 0.0,
+        "povertyPctChange": -0.13,
+        "childPovertyPctChange": 0.0
+      },
+      "GA-11": {
+        "districtName": "Congressional District 11",
+        "avgBenefit": 98.0,
+        "householdsAffected": 305290,
+        "totalBenefit": 29924368.0,
+        "winnersShare": 0.12,
+        "losersShare": 0.0,
+        "povertyPctChange": -0.0,
+        "childPovertyPctChange": 0.0
+      },
+      "GA-12": {
+        "districtName": "Congressional District 12",
+        "avgBenefit": 60.0,
+        "householdsAffected": 308082,
+        "totalBenefit": 18346881.0,
+        "winnersShare": 0.11,
+        "losersShare": 0.0,
+        "povertyPctChange": 0.0,
+        "childPovertyPctChange": 0.0
+      },
+      "GA-13": {
+        "districtName": "Congressional District 13",
+        "avgBenefit": 42.0,
+        "householdsAffected": 294945,
+        "totalBenefit": 12456376.0,
+        "winnersShare": 0.11,
+        "losersShare": 0.0,
+        "povertyPctChange": -0.0,
+        "childPovertyPctChange": 0.0
+      },
+      "GA-14": {
+        "districtName": "Congressional District 14",
+        "avgBenefit": 57.0,
+        "householdsAffected": 303765,
+        "totalBenefit": 17405332.0,
+        "winnersShare": 0.1,
+        "losersShare": 0.0,
+        "povertyPctChange": 0.0,
+        "childPovertyPctChange": 0.0
+      }
+    },
+    "reform_params": {
+      "gov.states.ga.tax.income.main.flat_rate": {
+        "2026-01-01.2026-12-31": 0.0499
+      },
+      "gov.states.ga.tax.income.agi.exclusions.tips.cap": {
+        "2026-01-01.2026-12-31": 1750
+      },
+      "gov.states.ga.tax.income.agi.exclusions.overtime.cap": {
+        "2026-01-01.2026-12-31": 1750
+      }
+    },
+    "model_notes": {
+      "analysis_year": 2026
+    },
+    "policyengine_us_version": "1.772.0",
+    "dataset_name": "policyengine-us-data",
+    "dataset_version": "1.115.4"
+  },
+  "research": {
+    "id": "ga-hb463-2026",
+    "state": "GA",
+    "type": "bill",
+    "status": "in_review",
+    "title": "Georgia HB 463 (2026): flat income tax rate to 4.99%",
+    "url": "https://gov.georgia.gov/press-releases/2026-05-11/gov-kemp-signs-legislation-lowering-taxes-and-supporting-economic-growth",
+    "date": "2026-07-15",
+    "author": "PolicyEngine",
+    "description": "Georgia HB 463 (2026), signed May 11, 2026, sets the state flat individual income tax rate at 4.99% for tax year 2026 \u2014 0.10 percentage points below the previously scheduled 5.09% and 0.20 percentage points below the 2025 rate \u2014 and creates temporary AGI exclusions of up to $1,750 each for tips and overtime pay (2026-2028). Impacts on this page measure the 2026 rate acceleration against the prior-law 5.09% schedule using PolicyEngine Georgia data. Measured against the 2025 rate instead, the year-over-year reduction is roughly twice as large; external estimates of that framing are $778M (Governor OPB) and $797-948M (GBPI/ITEP). The tips and overtime exclusions are not scored due to a microdata imputation gap.",
+    "key_findings": [
+      "Reduces government revenue by $0.3 billion in 2026 (PolicyEngine policyengine-us-data, policyengine-us 1.772.0)",
+      "11.4% of households gain; 0.0% lose",
+      "No measurable change in overall poverty (SPM)"
+    ],
+    "tags": [
+      "georgia",
+      "state-income-tax",
+      "flat-rate"
+    ]
+  }
+}
