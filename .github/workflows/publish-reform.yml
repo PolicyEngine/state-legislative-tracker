@@ -85,7 +85,7 @@ jobs:
         run: |
           pip install policyengine-us-data supabase numpy pyyaml python-dotenv huggingface_hub
           pip install --upgrade policyengine-us
-          python -c 'import policyengine_us, policyengine_us_data; print("model", policyengine_us.__version__, "/ data", policyengine_us_data.__version__)'
+          python -c 'from importlib.metadata import version; print("model", version("policyengine-us"), "/ data", version("policyengine-us-data"))'
 
       - name: Add swap
         # The national (populace-us) microsim peaks above the 16GB hosted-runner
