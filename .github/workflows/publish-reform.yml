@@ -55,6 +55,11 @@ on:
         required: false
         default: ''
         type: string
+      review_notes:
+        description: 'Markdown appended to the bill-review PR body: the decision log (baseline framing, scope, routing) and validation record (verdict, benchmark table, dry-run link, known limitations). Reviewers should be able to approve from the PR alone.'
+        required: false
+        default: ''
+        type: string
       dry_run:
         description: 'Compute + validate only: no Supabase write, no PR'
         required: false
@@ -179,6 +184,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REFORM_ID: ${{ inputs.id }}
           REFORM_TITLE: ${{ inputs.title }}
+          REVIEW_NOTES: ${{ inputs.review_notes }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -187,16 +194,35 @@ jobs:
           git add "analyses/${REFORM_ID}.json"
           git commit -m "Add scored reform: ${REFORM_ID}"
           git push -u origin "$BRANCH" --force
+          # Assemble the PR body: standard header + computed headline numbers
+          # from the artifact + the caller's decision/validation record.
+          python3 - << 'EOF'
+          import json, os
+          reform_id = os.environ["REFORM_ID"]
+          with open(f"analyses/{reform_id}.json") as f:
+              a = json.load(f)
+          budget = a.get("reform_impacts", {}).get("budgetary_impact") or {}
+          rev = budget.get("stateRevenueImpact")
+          rev_line = f"2026 state revenue impact: **${rev:,.0f}**" if isinstance(rev, (int, float)) else ""
+          body = f"""Automated publication from the reform-scoring pipeline.
+
+          The reform's impacts were computed by [this workflow run]({os.environ['RUN_URL']}) and upserted to Supabase as `in_review` (hidden on the site). **Merging this PR publishes the entry** on the bill tracker (publish-bill.yml flips status to published and redeploys Modal).
+
+          Artifact: `analyses/{reform_id}.json`
+          {rev_line}
+
+          {os.environ.get('REVIEW_NOTES', '').strip() or '_No review notes provided — the dispatching pipeline should pass the decision log and validation record via the `review_notes` input._'}
+
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)"""
+          # De-indent the literal block above
+          body = "\n".join(line[10:] if line.startswith(" " * 10) else line for line in body.splitlines())
+          with open("/tmp/pr-body.md", "w") as f:
+              f.write(body)
+          EOF
           PR_URL=$(gh pr create \
             --title "Publish reform: ${REFORM_TITLE}" \
             --label bill-review \
-            --body "Automated publication from the CRM research pipeline.
-
-          The reform's impacts were computed by this workflow run and upserted to Supabase as \`in_review\` (hidden on the site). **Merging this PR publishes the entry** on the bill tracker (publish-bill.yml flips status to published and redeploys Modal).
-
-          Artifact: \`analyses/${REFORM_ID}.json\`
-
-          🤖 Generated with [Claude Code](https://claude.com/claude-code)" \
+            --body-file /tmp/pr-body.md \
             --head "$BRANCH" --base main)
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
           echo "Opened $PR_URL"
