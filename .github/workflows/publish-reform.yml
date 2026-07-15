@@ -78,7 +78,14 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install policyengine-us policyengine-us-data supabase numpy pyyaml python-dotenv huggingface_hub
+        # policyengine-us-data pins an old policyengine-us (currently ==1.693.5),
+        # which predates recently-added state parameters (e.g. GA HB463's
+        # flat_rate). Install data first, then upgrade the model — the same
+        # current-model pairing the hosted API scores against.
+        run: |
+          pip install policyengine-us-data supabase numpy pyyaml python-dotenv huggingface_hub
+          pip install --upgrade policyengine-us
+          python -c 'import policyengine_us, policyengine_us_data; print("model", policyengine_us.__version__, "/ data", policyengine_us_data.__version__)'
 
       - name: Add swap
         # The national (populace-us) microsim peaks above the 16GB hosted-runner
