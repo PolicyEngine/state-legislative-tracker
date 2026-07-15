@@ -31,6 +31,11 @@ on:
         description: 'Validated reform_dict JSON (param path → {date_range: value}), from /analyze-policy'
         required: true
         type: string
+      baseline_json:
+        description: 'Optional baseline override (same JSON shape). For ENACTED bills already in the policyengine-us baseline: set this to the prior-law counterfactual and reform_json to the bill, so impacts carry the bill''s true effect and signs.'
+        required: false
+        default: ''
+        type: string
       title:
         description: 'Research entry title'
         required: true
@@ -94,6 +99,7 @@ jobs:
           REFORM_STATE: ${{ inputs.state }}
           REFORM_LABEL: ${{ inputs.label }}
           REFORM_JSON: ${{ inputs.reform_json }}
+          BASELINE_JSON: ${{ inputs.baseline_json }}
         run: |
           python3 - << 'EOF'
           import json, os, re, sys
@@ -106,11 +112,18 @@ jobs:
           reform = json.loads(os.environ["REFORM_JSON"])
           if not isinstance(reform, dict) or not reform:
               sys.exit("reform_json must be a non-empty JSON object")
+          baseline_raw = os.environ.get("BASELINE_JSON", "").strip()
+          baseline = None
+          if baseline_raw:
+              baseline = json.loads(baseline_raw)
+              if not isinstance(baseline, dict) or not baseline:
+                  sys.exit("baseline_json, when set, must be a non-empty JSON object")
           config = {
               "id": reform_id,
               "state": state,
               "label": os.environ["REFORM_LABEL"],
               "reform": reform,
+              "baseline": baseline,
           }
           with open("/tmp/reform-config.json", "w") as f:
               json.dump(config, f, indent=2)

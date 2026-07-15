@@ -290,9 +290,15 @@ def create_reform_class(reform_params: dict):
     return DynamicReform
 
 
-def run_simulations(state: str, reform_params: dict, year: int = 2026):
+def run_simulations(state: str, reform_params: dict, year: int = 2026, baseline_params: dict | None = None):
     """
     Run baseline and reform microsimulations.
+
+    ``baseline_params`` overrides the baseline with a custom parameter set —
+    needed when scoring an ENACTED bill that is already current law in the
+    installed policyengine-us release. There the counterfactual (prior law)
+    is the baseline and the bill's parameters are the reform, so impacts come
+    out with the bill's true effect and correct signs.
 
     Returns tuple of (baseline, reformed) Microsimulation objects.
     """
@@ -306,7 +312,15 @@ def run_simulations(state: str, reform_params: dict, year: int = 2026):
     ReformClass = create_reform_class(reform_params)
 
     print("    Running baseline simulation...")
-    baseline = Microsimulation(dataset=dataset) if dataset else Microsimulation()
+    if baseline_params:
+        BaselineClass = create_reform_class(baseline_params)
+        baseline = (
+            Microsimulation(reform=BaselineClass, dataset=dataset)
+            if dataset
+            else Microsimulation(reform=BaselineClass)
+        )
+    else:
+        baseline = Microsimulation(dataset=dataset) if dataset else Microsimulation()
 
     print("    Running reform simulation...")
     reformed = (
@@ -888,6 +902,7 @@ Examples:
             "state": config["state"].lower(),
             "label": config.get("label", config["id"]),
             "reform": config["reform"],
+            "baseline": config.get("baseline"),
             "computed": False,
         }]
     else:
@@ -937,7 +952,9 @@ Examples:
 
             # Run simulations
             print("  [1/6] Running microsimulations...")
-            baseline, reformed = run_simulations(state, reform["reform"], sim_year)
+            baseline, reformed = run_simulations(
+                state, reform["reform"], sim_year, baseline_params=reform.get("baseline")
+            )
 
             # Compute all impacts
             print("  [2/6] Computing budgetary impact...")
