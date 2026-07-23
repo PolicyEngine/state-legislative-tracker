@@ -35,7 +35,7 @@ const descriptions = {
   "ga-sb520": "Shifts Georgia from a flat 5.19% income tax to a graduated system (2%-6%), increases standard deductions to $17,000/$34,000, creates a refundable state EITC at 20% of federal, and expands the child tax credit to $1,250 (refundable). Phase 1 (2026): Standard deduction, CTC, and EITC provisions. Phase 2 (2027): Progressive tax brackets.",
 
   // Hawaii
-  "hi-hb2306": "Freezes Hawaii income tax bracket thresholds at 2025 levels, increases top three marginal rates by 1pp (9%→10%, 10%→11%, 11%→12%), expands the child and dependent care credit (50%-5% match up to $160k AGI vs current 25%-15% up to $50k), and extends Act 163 enhanced credits (40% EITC, expanded CDCC limits, food/excise credit) through 2033. Effective for taxable years beginning after December 31, 2026.",
+  "hi-hb2306": "Freezes Hawaii income tax bracket thresholds at 2025 levels, increases top three marginal rates by 1pp (9%→10%, 10%→11%, 11%→12%), expands the child and dependent care credit (50%-5% match up to $160k AGI vs current 25%-15% up to $50k), and extends Act 163 enhanced credits (40% EITC, expanded CDCC limits, food/excise credit) through 2032. Effective for taxable years beginning after December 31, 2026.",
   "hi-sb3125-hd1": "Freezes Hawaii income tax bracket thresholds at 2025 levels, increases top three marginal rates by 1pp (9%→10%, 10%→11%, 11%→12%), expands the child and dependent care credit (50%-5% match up to $160k AGI vs current 25%-15% up to $50k), and extends Act 163 enhanced credits (40% EITC, expanded CDCC limits, food/excise credit) through 2032. Effective for taxable years beginning after December 31, 2026.",
 
   // Idaho
