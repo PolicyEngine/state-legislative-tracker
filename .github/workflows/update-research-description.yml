@@ -1,0 +1,80 @@
+name: Update Research Description
+
+# Maintainer tool: fix a research record's description without local Supabase
+# creds (they live only in repo secrets). Optionally redeploys Modal so the
+# prerendered page meta picks up the change. Write-access users only
+# (workflow_dispatch).
+
+on:
+  workflow_dispatch:
+    inputs:
+      reform_id:
+        description: "Research record id (e.g. al-hb527)"
+        required: true
+        type: string
+      new_description:
+        description: "Replacement description text"
+        required: true
+        type: string
+      redeploy:
+        description: "Redeploy Modal after update (rebuilds prerendered pages)"
+        type: boolean
+        default: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install supabase
+
+      - name: Update description
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          REFORM_ID: ${{ inputs.reform_id }}
+          NEW_DESCRIPTION: ${{ inputs.new_description }}
+        run: |
+          python3 << 'EOF'
+          import os
+          from supabase import create_client
+
+          supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
+          reform_id = os.environ["REFORM_ID"]
+          description = os.environ["NEW_DESCRIPTION"]
+
+          result = (
+              supabase.table("research")
+              .update({"description": description})
+              .eq("id", reform_id)
+              .execute()
+          )
+
+          if result.data:
+              print(f"Updated description for {reform_id}")
+          else:
+              print(f"No research record found for {reform_id}")
+              exit(1)
+          EOF
+
+      - name: Checkout code
+        if: ${{ inputs.redeploy }}
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Install Modal
+        if: ${{ inputs.redeploy }}
+        run: pip install modal
+
+      - name: Redeploy with updated pre-rendered pages
+        if: ${{ inputs.redeploy }}
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: modal deploy modal_app.py
