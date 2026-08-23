@@ -1,5 +1,5 @@
 {
- "built": "2026-08-18",
+ "built": "2026-08-24",
  "id": "state_fiscal_notes",
  "meta": {
   "id": "state_fiscal_notes",
@@ -8,38 +8,13 @@
   "model": "official fiscal notes",
   "url": "https://github.com/PolicyEngine/state-legislative-tracker",
   "auto": false,
-  "claims": 5
+  "claims": 7
  },
  "row_defaults": {
   "relationship": "held_out",
   "pub": 0
  },
  "rows": [
-  {
-   "id": "466a722a3f5807d238ca",
-   "policy": "ga-hb1001",
-   "metric": "budgetary_impact",
-   "unit": "usd",
-   "value_kind": "amount",
-   "geography": "GA",
-   "status": "comparable",
-   "value": -778000000.0,
-   "conditions": {
-    "bill_title": "Georgia Income Tax Rate Cut (HB1001)",
-    "range_low": -661300000.0,
-    "range_high": -894699999.9999999
-   },
-   "provenance": {
-    "source": "Official fiscal note",
-    "url": null
-   },
-   "pe": {
-    "value": -800583615.0
-   },
-   "delta": -22583615.0,
-   "ratio": 1.0290277827763497,
-   "notes": "PE baseline rate mismatch: policyengine-us already has GA rate at 5.09% for 2026 (per prior HB1015 legislation), while the fiscal note treats the current rate as 5.19% (measuring from 2025 current-law baseline). The fiscal note measures the full 0.20pp cut (5.19%->4.99%), but PE natively only sees a 0.10pp cut (5.09%->4.99%) for year=2026."
-  },
   {
    "id": "9463ec49c8df237866ad",
    "policy": "ks-hb2629",
@@ -64,7 +39,101 @@
    "notes": "The fiscal note scores the same provisions PE modeled (standard deduction to $3,805/$8,640/$6,480 from TY2026, same baseline). Its fiscal-year mapping (FY2027 = 100% TY2026 + 30% TY2027) implies about -$10.6M for TY2026 vs PE's -$8.88M \u2014 a 16% smaller magnitude, plausibly because KDOR simulates actual Kansas returns (capturing all standard-deduction claimants) while PE uses survey-based microdata. The FY2026 column is zero and FY2027 stacks 130% of a tax year, so per-tax-year figures are the right comparison."
   },
   {
-   "id": "0198e842222011a78204",
+   "id": "b7fbc1af9d5e93387202",
+   "policy": "ga-hb1001",
+   "metric": "budgetary_impact",
+   "unit": "usd",
+   "value_kind": "amount",
+   "geography": "GA",
+   "status": "comparable",
+   "value": -760000000.0,
+   "conditions": {
+    "bill_title": "Georgia Income Tax Rate Cut (HB1001)",
+    "range_low": -840000000,
+    "range_high": -680000000
+   },
+   "provenance": {
+    "source": "GA Dept. of Audits & Accounts / OPB, Fiscal Research Center (revised note, Feb 24, 2026)",
+    "url": "https://opb.georgia.gov/document/fiscal-notes-2026/lc-59-0226-ec-revised/download"
+   },
+   "pe": {
+    "value": -800583615.0
+   },
+   "delta": -40583615.0,
+   "ratio": 1.0533994934210527,
+   "notes": "The fiscal note scores the full 0.20pp cut (5.19%->4.99%) from a 5.19% baseline; its individual-income-tax impacts are -$840M (FY2027, inflated by refunds of over-withholding) and -$680M (FY2028, first normalized year), which bracket PE's -$800.6M. At validation time policyengine-us encoded GA at 5.09% for 2026 (per the HB 1437 schedule as accelerated by HB 1015 and HB 111), so PE natively saw a 0.10pp cut and the analysis scaled to model the full cut. Note the premise is now historical: HB 1001 died in the Senate and the 4.99% rate was enacted via HB 463; policyengine-us master now encodes 4.99% for 2026."
+  },
+  {
+   "id": "b3a1140454f0ac4770e1",
+   "policy": "ri-hb8338",
+   "metric": "budgetary_impact",
+   "unit": "usd",
+   "value_kind": "amount",
+   "geography": "RI",
+   "status": "comparable",
+   "value": -36730000,
+   "conditions": {
+    "bill_title": "House Bill 8338"
+   },
+   "provenance": {
+    "source": "Niskanen Center (McKee $325 CTC proposal)",
+    "url": "https://www.niskanencenter.org/rhode-island-child-tax-credit-would-be-bold-simple-and-fiscally-responsible/"
+   },
+   "pe": {
+    "value": -87586418
+   },
+   "delta": -50856418,
+   "ratio": 2.3846016335420637,
+   "notes": "Verified verbatim: $36.73M net 2027, $71.51M gross standalone, $265,965 phase-out, dependent-exemption swap."
+  },
+  {
+   "id": "f5c20722e776f6ce93ba",
+   "policy": "ri-hb8338",
+   "metric": "budgetary_impact",
+   "unit": "usd",
+   "value_kind": "amount",
+   "geography": "RI",
+   "status": "comparable",
+   "value": -46000000,
+   "conditions": {
+    "bill_title": "House Bill 8338"
+   },
+   "provenance": {
+    "source": "Enacted FY2027 budget CTC (context, not comparable)",
+    "url": "https://rhodeislandcurrent.com/2026/06/05/house-approves-15-2b-fy27-budget-with-marquee-acquisition-millionaires-tax/"
+   },
+   "pe": {
+    "value": -87586418
+   },
+   "delta": -41586418,
+   "ratio": 1.9040525652173914,
+   "notes": "Enacted $330/child credit: $23M partial FY2027, $46M full-year; phase-out begins at $88,500 single / $110,640 married. Budget kept the dependent exemption."
+  },
+  {
+   "id": "dfb043e0a4401ec24736",
+   "policy": "ut-hb210",
+   "metric": "budgetary_impact",
+   "unit": "usd",
+   "value_kind": "amount",
+   "geography": "UT",
+   "status": "comparable",
+   "value": 1288900,
+   "conditions": {
+    "bill_title": "Utah HB210 S2: Marriage Penalty Removal"
+   },
+   "provenance": {
+    "source": "Utah Office of the Legislative Fiscal Analyst (2nd Sub. HB210, 2026-02-05)",
+    "url": "https://pf.utleg.gov/public-web/sessions/2026GS/fiscal-notes/HB0210S02.fn.pdf"
+   },
+   "pe": {
+    "value": 11482293
+   },
+   "delta": 10193393,
+   "ratio": 8.908598805182715,
+   "notes": "The LFA scored 2nd Sub. HB210 (the version PE modeled), and the steady-state sign agrees: both score it revenue-raising ongoing, because halving single/HOH phase-out thresholds outweighs the new ~$158 joint-filer credit (~113,000 taxpayers pay ~$161 more vs ~125,000 paying ~$150 less, per the note). Magnitude diverges sharply: PE's +$11.48M is ~9x the LFA's ongoing +$1.29M/yr - and if compared to the LFA's first year (FY2027 nets -$299,400 due to a one-time item), even the sign differs. PE likely over-scores the threshold-halving pickup or under-scores the credit. Caveat: the House voted down (31-42, Mar 2 2026) the later S05 version, which phases thresholds in from 2030."
+  },
+  {
+   "id": "8b7ed394875f0b6ab8b9",
    "policy": "ct-sb78",
    "metric": "budgetary_impact",
    "unit": "usd",
@@ -76,7 +145,7 @@
     "bill_title": "CT SB78: SS Benefit Deduction Threshold Elimination"
    },
    "provenance": {
-    "source": "Connecticut OFA fiscal note for sSB-1 Sec. 6 (identical policy, enacted 5/26/26)",
+    "source": "Connecticut OFA score of sSB-1 Sec. 6, committee version (identical policy; struck by Senate Amendment A before passage - not enacted)",
     "url": "https://www.cga.ct.gov/2026/FN/PDF/2026SB-00001-R000692-FN.PDF"
    },
    "pe": {
@@ -84,7 +153,7 @@
    },
    "delta": 1356448,
    "ratio": 0.9764096,
-   "notes": "No OFA note exists for SB78 itself; the identical policy (full SS deduction for all filers) was enacted via SB 1 Sec. 6, which OFA scored at -$57.5M (General Fund, FY28, capturing tax year 2027 as enacted). PE's -$56.1M for TY2026 is within 2.4% - and a TY2026-basis OFA figure would be slightly smaller given benefit growth, tightening the agreement. Internally consistent with OFA's Tax Expenditure Report: the existing deduction costs $223M/yr, and extending only the remaining 25% exemption to above-threshold filers plausibly costs about a quarter of that."
+   "notes": "No OFA note exists for SB78 itself; the identical policy (full SS deduction for all filers) appeared as Sec. 6 of the Finance committee's sSB-1 (File 692), which OFA scored at -$57.5M (General Fund, FY28, capturing tax year 2027). PE's TY2026 -$56.1M is within 2.4% - and since OFA notes the loss grows annually with beneficiaries, a slightly smaller TY2026 figure is expected. Consistent with OFA's Tax Expenditure Report ($223M/yr for the existing deduction; this bill adds only the remaining 25% for above-threshold filers). Caveat: Senate Amendment A replaced sSB-1 with the budget implementer before passage, so this is a score-vs-score comparison against a proposed, unenacted version; the $75K/$100K thresholds remain current law."
   },
   {
    "id": "c3307d75c50c41d75cd9",
@@ -108,29 +177,6 @@
    "delta": 166856448,
    "ratio": 0.2517648071748879,
    "notes": "Cost of the existing SS deduction (upper bound: full deduction for ~325,500 taxpayers); the bill adds only the remaining 25% for above-threshold filers."
-  },
-  {
-   "id": "dfb043e0a4401ec24736",
-   "policy": "ut-hb210",
-   "metric": "budgetary_impact",
-   "unit": "usd",
-   "value_kind": "amount",
-   "geography": "UT",
-   "status": "comparable",
-   "value": 1288900,
-   "conditions": {
-    "bill_title": "Utah HB210 S2: Marriage Penalty Removal"
-   },
-   "provenance": {
-    "source": "Utah Office of the Legislative Fiscal Analyst (2nd Sub. HB210, 2026-02-05)",
-    "url": "https://pf.utleg.gov/public-web/sessions/2026GS/fiscal-notes/HB0210S02.fn.pdf"
-   },
-   "pe": {
-    "value": 11482293
-   },
-   "delta": 10193393,
-   "ratio": 8.908598805182715,
-   "notes": "The LFA scored exactly the version PE modeled (2nd Sub.), and the ongoing sign agrees: both score the bill as revenue-raising, because halving single/HOH phase-out thresholds outweighs the new ~$158 joint-filer credit. But magnitude diverges sharply: PE's +$11.48M is roughly 9x the LFA's steady-state +$1.29M/yr (Tax Commission data: ~113,000 taxpayers pay ~$161 more vs ~125,000 paying ~$150 less), suggesting PE over-scores the threshold-halving pickup or under-scores the credit. The note's FY2027 total nets to -$299,400 only because of a one-time -$1.59M item. The bill was later substituted through S05 and failed in the House 31-42."
   }
  ]
 }
