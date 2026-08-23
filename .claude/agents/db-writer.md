@@ -119,6 +119,15 @@ validation_record = {
     "difference_from_fiscal_note_pct": calculate_difference_pct(),
     "within_range": abs(difference_pct) < 25,
     "external_analyses": validation["external_analyses"],
+    # Pin what this validation actually checked, so drift is detectable:
+    # scripts/check_validation_drift.py compares this snapshot against the
+    # live reform_impacts / processed_bills rows and queues re-validation.
+    "validated_against": {
+        "pe_estimate": impacts["budgetary_impact"]["stateRevenueImpact"],
+        "model_version": impact_record["policyengine_us_version"],
+        "computed_at": impact_record["computed_at"],
+        "bill_status": research_record.get("status"),
+    },
     "iteration_log": [
         {
             "timestamp": datetime.utcnow().isoformat(),
