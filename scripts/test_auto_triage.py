@@ -15,7 +15,7 @@ from pathlib import Path
 import httpx2
 import pytest
 from anthropic import Anthropic, DefaultHttpxClient
-from hypothesis import given, settings
+from hypothesis import example, given, settings
 from hypothesis import strategies as st
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -115,13 +115,14 @@ def test_truncated_response_raises():
 
 # Invariant: score_bill returns exactly the object the model wrote in its text
 # block, whatever thinking block precedes it and whether or not it wrapped the
-# JSON in a markdown fence. Backticks are excluded from the reasoning because
-# the fence stripping splits on them.
+# JSON in a markdown fence. Triple backticks are excluded from the reasoning
+# because the fence stripping splits on them; the explicit example covers
+# single backticks, quotes, braces, backslashes and newlines.
 scores = st.fixed_dictionaries(
     {
         "score": st.integers(min_value=0, max_value=100),
         "reform_type": st.sampled_from(["parametric", "structural", "unknown"]),
-        "reasoning": st.text(alphabet=st.characters(exclude_characters="`"), max_size=200),
+        "reasoning": st.text(max_size=200).filter(lambda s: "```" not in s),
     }
 )
 
@@ -132,6 +133,16 @@ scores = st.fixed_dictionaries(
     fence=st.sampled_from(["", "```\n", "```json\n"]),
     leading_thinking=st.booleans(),
     padding=st.sampled_from(["", " ", "\n"]),
+)
+@example(
+    expected={
+        "score": 85,
+        "reform_type": "parametric",
+        "reasoning": 'Sets `rate` to "4.99%" in {gov.states.ga.tax} \\ ``x``\nonly.',
+    },
+    fence="```json\n",
+    leading_thinking=True,
+    padding="\n",
 )
 def test_parsed_score_round_trips(expected, fence, leading_thinking, padding):
     payload = json.dumps(expected)
