@@ -30,7 +30,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install supabase anthropic
+        run: pip install supabase "anthropic>=1.9"
 
       - name: Triage unscored bills
         run: |

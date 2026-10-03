@@ -6,6 +6,7 @@ Scores bills on modelability (0-100) based on PolicyEngine parameter structure,
 then updates per-state GitHub issues with the current triage state.
 
 Usage:
+    pip install supabase "anthropic>=1.9"
     export ANTHROPIC_API_KEY=...
     export SUPABASE_URL=...
     export SUPABASE_KEY=...
@@ -78,12 +79,21 @@ Description: {bill.get('description', '') or bill['title']}
 Score this bill."""
 
     response = client.messages.create(
-        model="claude-sonnet-4-5",
-        max_tokens=300,
+        model="claude-sonnet-5-5",
+        # Thinking counts toward max_tokens, so leave headroom above the short JSON reply.
+        max_tokens=4096,
+        output_config={"effort": "low"},
         system=SCORING_PROMPT,
         messages=[{"role": "user", "content": user_msg}],
     )
-    text = response.content[0].text.strip()
+    if response.stop_reason == "refusal":
+        details = getattr(response, "stop_details", None)
+        category = getattr(details, "category", None) or "unspecified"
+        raise RuntimeError(f"Claude declined to score this bill (category: {category})")
+    if response.stop_reason == "max_tokens":
+        raise RuntimeError("Response hit max_tokens before the JSON was complete")
+    # A thinking block can precede the answer, so read text blocks by type.
+    text = "".join(b.text for b in response.content if b.type == "text").strip()
     # Strip markdown fences if present
     if text.startswith("```"):
         text = text.split("```")[1]

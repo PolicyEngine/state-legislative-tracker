@@ -39,7 +39,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install requests supabase anthropic
+        run: pip install requests supabase "anthropic>=1.9"
 
       - name: Determine phase
         id: phase

@@ -52,6 +52,8 @@ python scripts/openstates_monitor.py --query "earned income tax credit"
 
 Claude Code scores unscored bills for PolicyEngine modelability (0-100). Presents proposed scores for human review before writing to Supabase and creating a GitHub issue.
 
+Automated scoring in `scripts/auto_triage.py` uses `claude-sonnet-5-5` with low effort. It runs on day 3 of the daily bill pipeline or through the manual triage workflow, scoring unscored bills without rescoring existing records.
+
 ```
 /triage-bills           # Score all unscored bills
 /triage-bills GA        # Score only Georgia bills
