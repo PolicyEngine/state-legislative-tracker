@@ -1,4 +1,4 @@
-import { memo, useState, useEffect } from "react";
+import { memo, useState } from "react";
 import { stateData } from "../data/states";
 import { useData } from "../context/DataContext";
 import ResearchCard from "./ResearchCard";
@@ -60,23 +60,16 @@ function SectionHeader({ children }) {
 
 const StatePanel = memo(({ stateAbbr, onClose, initialBillId }) => {
   const state = stateData[stateAbbr];
-  const { getBillsForState, getResearchForState, loading } = useData();
-  const [activeBill, setActiveBill] = useState(null);
-
-  if (!state) return null;
+  const { getBillsForState, getResearchForState } = useData();
+  const [activeBillId, setActiveBillId] = useState(initialBillId ?? null);
 
   // Get bills and research from Supabase
   const bills = getBillsForState(stateAbbr);
 
-  // Open bill from URL hash on mount
-  useEffect(() => {
-    if (initialBillId && bills.length > 0 && !activeBill) {
-      const match = bills.find(b => b.id === initialBillId && b.reformConfig);
-      if (match) setActiveBill(match);
-    }
-  }, [initialBillId, bills.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const research = getResearchForState(stateAbbr);
+  const activeBill = bills.find((bill) => bill.id === activeBillId) ?? null;
+
+  if (!state) return null;
 
   // Separate research by status
   const published = research.filter((r) => r.status === "published");
@@ -237,7 +230,7 @@ const StatePanel = memo(({ stateAbbr, onClose, initialBillId }) => {
                   onClick={() => {
                     if (bill.reformConfig) {
                       track("bill_clicked", { state_abbr: stateAbbr, bill_id: bill.bill, has_reform: true });
-                      setActiveBill(bill);
+                      setActiveBillId(bill.id);
                       history.pushState(null, "", `${BASE_PATH}/${stateAbbr}/${bill.id}`);
                       window.parent.postMessage({ type: "pathchange", path: `/${stateAbbr}/${bill.id}` }, "*");
                       window.parent.postMessage({ type: "hashchange", hash: `${stateAbbr}/${bill.id}` }, "*");
@@ -497,7 +490,7 @@ const StatePanel = memo(({ stateAbbr, onClose, initialBillId }) => {
           billUrl={activeBill.url}
           bill={activeBill}
           onClose={() => {
-            setActiveBill(null);
+            setActiveBillId(null);
             history.pushState(null, "", `${BASE_PATH}/${stateAbbr}`);
             window.parent.postMessage({ type: "pathchange", path: `/${stateAbbr}` }, "*");
             window.parent.postMessage({ type: "hashchange", hash: stateAbbr }, "*");

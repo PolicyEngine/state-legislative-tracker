@@ -83,7 +83,7 @@ const TABS = [
   { id: "household", label: "Your Household", icon: UserIcon },
 ];
 
-export default function ReformAnalyzer({ reformConfig, stateAbbr, billUrl, bill, onClose }) {
+export default function ReformAnalyzer({ reformConfig, stateAbbr, bill, onClose }) {
   const { compareReform, loading, error, apiVersion } = usePolicyEngineAPI();
   const { getImpact } = useData();
   const [activeTab, setActiveTab] = useState("overview");

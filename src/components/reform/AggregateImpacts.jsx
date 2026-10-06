@@ -18,11 +18,6 @@ const formatCurrency = (value) => {
   return `${sign}$${absValue.toFixed(0)}`;
 };
 
-const formatPercent = (value, decimals = 1) => {
-  if (value === null || value === undefined) return "N/A";
-  return `${(value * 100).toFixed(decimals)}%`;
-};
-
 const formatPctChange = (value, decimals = 1) => {
   if (value === null || value === undefined) return "N/A";
   const sign = value > 0 ? "+" : "";

@@ -143,7 +143,7 @@ function getImpactHoverColor(avgBenefit, maxBenefit) {
 }
 
 // Gradient legend scale bar
-function ImpactLegend({ maxBenefit, allPositive, allNegative }) {
+function ImpactLegend({ maxBenefit, allNegative }) {
   const formatVal = (v) => {
     const abs = Math.abs(v);
     if (abs >= 1e9) return `$${(abs / 1e9).toFixed(1)}B`;
@@ -187,11 +187,14 @@ function ImpactLegend({ maxBenefit, allPositive, allNegative }) {
   );
 }
 
-function UtahDistrictMap({ reformId }) {
+function UtahDistrictMap({ reformId, selectedYear }) {
   const [selectedDistrict, setSelectedDistrict] = useState(null);
   const { getImpact } = useData();
   const reformImpacts = getImpact(reformId);
-  const hasDistrictData = reformImpacts?.districtImpacts;
+  const yearImpacts = selectedYear && reformImpacts?.impactsByYear?.[selectedYear]
+    ? reformImpacts.impactsByYear[selectedYear]
+    : reformImpacts;
+  const hasDistrictData = yearImpacts?.districtImpacts;
 
   // Calculate max benefit and direction for color scaling
   const districtValues = hasDistrictData
@@ -634,7 +637,7 @@ function CardBasedDistrictView({ stateAbbr, reformId }) {
   }
 
   const maxBenefit = hasDistrictData
-    ? Math.max(...districts.map(d => Math.abs(yearImpacts.districtImpacts[`${stateAbbr}-${d.id}`]?.avgBenefit || 0)))
+    ? Math.max(...districts.map(d => Math.abs(reformImpacts.districtImpacts[`${stateAbbr}-${d.id}`]?.avgBenefit || 0)))
     : 100;
 
   return (
@@ -645,7 +648,7 @@ function CardBasedDistrictView({ stateAbbr, reformId }) {
     }}>
       {districts.map((district) => {
         const impact = hasDistrictData
-          ? yearImpacts.districtImpacts[`${stateAbbr}-${district.id}`]
+          ? reformImpacts.districtImpacts[`${stateAbbr}-${district.id}`]
           : null;
         const avgBenefit = impact?.avgBenefit || 0;
         const isPositive = avgBenefit > 0;
