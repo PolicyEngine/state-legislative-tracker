@@ -201,6 +201,63 @@ def get_builtin_reform(reform_name: str):
         raise ValueError(f"Could not find reform class in {module_path}")
 
 
+def _resolve_parameter(params, param_path: str):
+    """Walk a parameter path, including array indices like "brackets[0]"."""
+    import re
+
+    param = params
+    for part in param_path.split("."):
+        match = re.match(r"(\w+)\[(\d+)\]", part)
+        if match:
+            param = getattr(param, match.group(1))[int(match.group(2))]
+        else:
+            param = getattr(param, part)
+    return param
+
+
+def _period_start(period: str) -> str:
+    """The start date of a reform_params period key."""
+    if "." in period and len(period) > 10:
+        return period.split(".")[0]
+    return period if "-" in period else f"{period}-01-01"
+
+
+def _plain(value):
+    """A parameter value as JSON can hold it (numpy scalars and arrays included)."""
+    if hasattr(value, "tolist"):
+        return value.tolist()
+    if hasattr(value, "item"):
+        return value.item()
+    return value
+
+
+def baseline_parameter_values(baseline, reform_params: dict) -> dict:
+    """Each reform parameter's value under the baseline the run used.
+
+    Same shape as reform_params, {path: {period: value}}, read at the start of
+    each period the reform sets. For a bill still in the legislature that is
+    current law; for an enacted bill scored with baseline_json it is the
+    prior-law counterfactual — the only record of what the bill changed once
+    policyengine-us includes it. Stored as reform_impacts.baseline_params.
+    """
+    params = baseline.tax_benefit_system.parameters
+    values = {}
+    for param_path, periods in reform_params.items():
+        if param_path.startswith("_"):
+            continue
+        try:
+            param = _resolve_parameter(params, param_path)
+        except (AttributeError, IndexError):
+            print(f"    Baseline value skipped (no such parameter): {param_path}")
+            continue
+        if not callable(param) or not hasattr(param, "values_list"):
+            print(f"    Baseline value skipped (not a single parameter): {param_path}")
+            continue
+        keys = periods.keys() if isinstance(periods, dict) else ["2026-01-01.2100-12-31"]
+        values[param_path] = {key: _plain(param(_period_start(key))) for key in keys}
+    return values
+
+
 def create_reform_class(reform_params: dict):
     """Create a PolicyEngine Reform class from parameter dict.
 
@@ -703,7 +760,7 @@ def _resolve_pe_us_version(supabase, reform_id: str, reform_params: dict) -> str
     return current_version
 
 
-def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: dict, analysis_year: int, multi_year: bool = False):
+def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: dict, analysis_year: int, multi_year: bool = False, baseline_params: dict | None = None):
     """Write impacts to Supabase reform_impacts table.
 
     If multi_year=True, stores impacts in model_notes.impacts_by_year[year] instead of
@@ -763,6 +820,7 @@ def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: di
             "decile_impact": impacts["decileImpact"],
             "district_impacts": impacts.get("districtImpacts"),
             "reform_params": reform_params,
+            "baseline_params": baseline_params,
             "model_notes": model_notes,
             "policyengine_us_version": pe_us_version,
             "dataset_name": "policyengine-us-data",
@@ -784,6 +842,7 @@ def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: di
             "decile_impact": impacts["decileImpact"],
             "district_impacts": impacts.get("districtImpacts"),
             "reform_params": reform_params,
+            "baseline_params": baseline_params,
             "model_notes": model_notes,
             "policyengine_us_version": pe_us_version,
             "dataset_name": "policyengine-us-data",
@@ -955,6 +1014,8 @@ Examples:
             baseline, reformed = run_simulations(
                 state, reform["reform"], sim_year, baseline_params=reform.get("baseline")
             )
+            # What the bill changes each parameter FROM, under the baseline used.
+            baseline_params = baseline_parameter_values(baseline, reform["reform"])
 
             # Compute all impacts
             print("  [2/6] Computing budgetary impact...")
@@ -1012,6 +1073,7 @@ Examples:
                     "decile_impact": impacts["decileImpact"],
                     "district_impacts": impacts.get("districtImpacts"),
                     "reform_params": reform["reform"],
+                    "baseline_params": baseline_params,
                     "model_notes": {"analysis_year": sim_year},
                     "policyengine_us_version": get_installed_version("policyengine-us"),
                     # Federal runs on the national default (populace-us); state
@@ -1025,7 +1087,10 @@ Examples:
             else:
                 # Write to database
                 print("  Writing to Supabase...")
-                write_to_supabase(supabase, reform_id, impacts, reform["reform"], sim_year, args.multi_year)
+                write_to_supabase(
+                    supabase, reform_id, impacts, reform["reform"], sim_year, args.multi_year,
+                    baseline_params=baseline_params,
+                )
 
                 # Set status to in_review (skip if already published to avoid taking bills offline)
                 current_status = supabase.table("research").select("status").eq("id", reform_id).execute().data

@@ -57,9 +57,17 @@ CREATE TABLE reform_impacts (
   winners_losers JSONB,
   decile_impact JSONB,
   inequality JSONB,
-  district_impacts JSONB
+  district_impacts JSONB,
+  reform_params JSONB,                    -- What the bill sets: {path: {"start.end": value}}
+  baseline_params JSONB                   -- What it changes FROM: same shape, each path's value
+                                          -- under the baseline the run used (current law, or the
+                                          -- prior-law counterfactual for an enacted bill)
 );
 ```
+
+`baseline_params` is written by `compute_impacts.py` on every run. Rows scored
+before it existed are filled by `scripts/backfill_baseline_params.py`; enacted
+bills need their prior-law counterfactual passed with `--baseline-json`.
 
 **JSONB Structures**:
 
