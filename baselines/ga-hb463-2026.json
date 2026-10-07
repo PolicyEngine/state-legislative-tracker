@@ -1,0 +1,11 @@
+{
+  "gov.states.ga.tax.income.main.flat_rate": {
+    "2026-01-01.2026-12-31": 0.0509
+  },
+  "gov.states.ga.tax.income.agi.exclusions.tips.cap": {
+    "2026-01-01.2026-12-31": 0
+  },
+  "gov.states.ga.tax.income.agi.exclusions.overtime.cap": {
+    "2026-01-01.2026-12-31": 0
+  }
+}
