@@ -1,0 +1,8 @@
+{
+  "gov.states.or.tax.income.credits.eitc.match.no_young_child": {
+    "2026-01-01.2100-12-31": 0.09
+  },
+  "gov.states.or.tax.income.credits.eitc.match.has_young_child": {
+    "2026-01-01.2100-12-31": 0.12
+  }
+}
