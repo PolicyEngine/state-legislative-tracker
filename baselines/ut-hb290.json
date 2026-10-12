@@ -1,0 +1,17 @@
+{
+  "gov.states.ut.tax.income.credits.ctc.reduction.start.JOINT": {
+    "2026-01-01.2100-12-31": 54000
+  },
+  "gov.states.ut.tax.income.credits.ctc.reduction.start.SINGLE": {
+    "2026-01-01.2100-12-31": 43000
+  },
+  "gov.states.ut.tax.income.credits.ctc.reduction.start.SEPARATE": {
+    "2026-01-01.2100-12-31": 27000
+  },
+  "gov.states.ut.tax.income.credits.ctc.reduction.start.SURVIVING_SPOUSE": {
+    "2026-01-01.2100-12-31": 54000
+  },
+  "gov.states.ut.tax.income.credits.ctc.reduction.start.HEAD_OF_HOUSEHOLD": {
+    "2026-01-01.2100-12-31": 43000
+  }
+}
