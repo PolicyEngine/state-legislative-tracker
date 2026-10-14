@@ -144,9 +144,11 @@ jobs:
 
       - name: Compute impacts
         env:
-          # State datasets (states/XX.h5) and populace-us come from the
-          # policyengine/policyengine-us-data HF repo; token needed if gated.
-          HUGGING_FACE_HUB_TOKEN: ${{ secrets.HUGGING_FACE_TOKEN }}
+          # State datasets (states/XX.h5) come from the public, ungated
+          # policyengine/policyengine-us-data Hugging Face repo, and the
+          # national default from the public, ungated populace-us dataset, so
+          # the download needs no Hugging Face token. If either is ever gated,
+          # use a Trusted Publishers OIDC exchange, not a stored token.
           REFORM_ID: ${{ inputs.id }}
         run: |
           python scripts/compute_impacts.py \
