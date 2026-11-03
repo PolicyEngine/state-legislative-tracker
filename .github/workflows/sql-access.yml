@@ -1,0 +1,31 @@
+name: SQL access
+
+on:
+  pull_request:
+    paths:
+      - "scripts/sql/**"
+      - ".github/workflows/sql-access.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Test each role's access to processed_bills
+        env:
+          TRACKER_TEST_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
+        run: bunx vitest run scripts/sql
