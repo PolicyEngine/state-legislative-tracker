@@ -5,6 +5,22 @@ on:
     paths:
       - "scripts/sql/**"
       - ".github/workflows/sql-access.yml"
+      - "vitest.config.mjs"
+      - "src/test/setup.js"
+      - "package.json"
+      - "bun.lock"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/sql/**"
+      - ".github/workflows/sql-access.yml"
+      - "vitest.config.mjs"
+      - "src/test/setup.js"
+      - "package.json"
+      - "bun.lock"
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -28,4 +44,5 @@ jobs:
       - name: Test each role's access to processed_bills
         env:
           TRACKER_TEST_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          TRACKER_TEST_POSTGRES_REQUIRED: "1"
         run: bunx vitest run scripts/sql
