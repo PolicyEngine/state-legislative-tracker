@@ -8,6 +8,8 @@
 //   the table owner reads;
 // - it holds SELECT on processed_bills and nothing else on the table or its id
 //   sequence, so it can't insert, update, delete or truncate;
+// - it holds SELECT and nothing else on every view built on processed_bills,
+//   directly or through other views, so it can't write the table through one;
 // - a stray insert, update or delete grant still changes no rows, and an
 //   insert still fails. RLS doesn't cover TRUNCATE, so the revoke is its only
 //   guard;
@@ -36,6 +38,9 @@ const MIGRATION = "009_processed_bills_rls.sql";
 // refuses to run both. Only 005 matches the columns the scripts use.
 const SUPERSEDED = "004_add_confidence_score.sql";
 const READ_ROLES = ["anon", "authenticated"];
+// Each test replays SQL through psql, which can outlast Vitest's default
+// timeouts on a busy machine.
+const TIMEOUT = 120_000;
 
 // Supabase's defaults: both roles can use the schema, and each new table grants
 // them everything. Nothing in scripts/sql creates processed_bills, so the columns
@@ -112,6 +117,49 @@ const FEED =
   "select bill_number from processed_bills " +
   "where confidence_score > 19 and skipped_reason is null " +
   "order by last_action_date desc nulls last";
+// pending_analysis rewritten with NOT EXISTS: the same columns from one table,
+// so PostgreSQL can write processed_bills through it.
+const PENDING_ANALYSIS_ANTI_JOIN = `
+create or replace view pending_analysis as
+select pb.bill_id, pb.state, pb.bill_number, pb.title, pb.status, pb.last_action,
+  pb.last_action_date, pb.legiscan_url, pb.confidence_score, pb.reform_type,
+  pb.scoring_reasoning
+from processed_bills pb
+where not exists (select 1 from research r where r.legiscan_bill_id = pb.bill_id)
+  and pb.skipped_reason is null
+order by pb.confidence_score desc, pb.state, pb.bill_number`;
+// What anon, authenticated and PUBLIC hold on each view built on
+// processed_bills, directly or through other views, for every privilege type
+// this server knows (17 adds MAINTAIN). It finds the views through
+// information_schema, not through the catalog walk 009 runs.
+const REPORT = `
+with recursive
+  roles(role) as (values ('anon'::name), ('authenticated'::name), ('public'::name)),
+  owner(oid) as (select oid from pg_roles where rolname = current_user),
+  relation_privileges(privilege) as (
+    select privilege_type from aclexplode(acldefault('r', (select oid from owner)))),
+  column_privileges(privilege) as (
+    values ('SELECT'), ('INSERT'), ('UPDATE'), ('REFERENCES')),
+  views(oid) as (
+    select format('%I.%I', view_schema, view_name)::regclass
+    from information_schema.view_table_usage
+    where table_schema = 'public' and table_name = 'processed_bills'
+    union
+    select format('%I.%I', u.view_schema, u.view_name)::regclass
+    from information_schema.view_table_usage as u
+    join views as v on format('%I.%I', u.table_schema, u.table_name)::regclass = v.oid),
+  checks(kind, object, role, privilege, held) as (
+    select 'view', v.oid::regclass::text, role, privilege,
+      has_table_privilege(role, v.oid, privilege)
+    from views as v, roles, relation_privileges
+    union all
+    select 'view columns', v.oid::regclass::text, role, privilege,
+      has_any_column_privilege(role, v.oid, privilege)
+    from views as v, roles, column_privileges)
+select jsonb_agg(to_jsonb(checks) order by kind, object, role, privilege) from checks`;
+// anon and authenticated keep SELECT and nothing else; PUBLIC keeps nothing.
+const allowed = ({ role, privilege }) => role !== "public" && privilege === "SELECT";
+const violations = (checks) => checks.filter((check) => check.held !== allowed(check));
 
 function psql(url, sql) {
   const result = spawnSync(
@@ -124,7 +172,7 @@ function psql(url, sql) {
   return result.stdout.trim();
 }
 
-describe.skipIf(!ADMIN_URL)("processed_bills access", () => {
+describe.skipIf(!ADMIN_URL)("processed_bills access", { timeout: TIMEOUT }, () => {
   const name = `tracker_rls_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
   const url = ADMIN_URL ? Object.assign(new URL(ADMIN_URL), { pathname: `/${name}` }).href : "";
   const migrationSql = readFileSync(path.join(SQL_DIR, MIGRATION), "utf8");
@@ -142,6 +190,10 @@ describe.skipIf(!ADMIN_URL)("processed_bills access", () => {
       `begin;\n${setup};\nset local request.jwt.claims = '${claims}';\nset local role ${role};\n${sql};\nrollback;`,
     );
   }
+
+  // Runs sql as the owner after setup, then rolls back.
+  const asOwner = (sql, setup = "") => psql(url, `begin;\n${setup};\n${sql};\nrollback;`);
+  const report = (setup = "") => JSON.parse(asOwner(REPORT, setup));
 
   const changed = (statement) =>
     `with changed as (${statement} returning 1) select count(*) from changed`;
@@ -162,11 +214,11 @@ describe.skipIf(!ADMIN_URL)("processed_bills access", () => {
     for (const file of files.filter((file) => file >= MIGRATION)) {
       psql(url, readFileSync(path.join(SQL_DIR, file), "utf8"));
     }
-  });
+  }, TIMEOUT);
 
   afterAll(() => {
     psql(ADMIN_URL, `drop database if exists ${name} with (force)`);
-  });
+  }, TIMEOUT);
 
   it("starts with anon able to read and change every row, so the checks below can fail", () => {
     expect(openBefore).toBe(String(SEED_ROWS));
@@ -212,6 +264,37 @@ describe.skipIf(!ADMIN_URL)("processed_bills access", () => {
       ).toBe("f");
     });
 
+    it("holds SELECT and nothing else on every view built on processed_bills", () => {
+      const checks = report().filter((check) => check.role === role);
+      expect(checks.map((check) => check.object)).toContain("pending_analysis");
+      expect(violations(checks)).toEqual([]);
+    });
+
+    it("can't write processed_bills through a view, a view on a view or a later rewrite", () => {
+      const views = `
+        create view bills_feed as select * from processed_bills where skipped_reason is null;
+        create view federal_bills_feed as select * from bills_feed where state = 'US'`;
+      // New views take the schema's default privileges, and each writes the
+      // table with its owner's privileges, so anon can write through them.
+      const federal = asOwner("select count(*) from federal_bills_feed", views);
+      expect(Number(federal)).toBeGreaterThan(0);
+      expect(asRole(role, changed("update federal_bills_feed set title = 'changed'"), views)).toBe(federal);
+      // Running 009 closes both; a later CREATE OR REPLACE keeps it closed.
+      const closed = `${views};\n${migrationSql}\n${PENDING_ANALYSIS_ANTI_JOIN}`;
+      for (const view of ["bills_feed", "federal_bills_feed", "pending_analysis"]) {
+        for (const write of [
+          `update ${view} set title = 'changed'`,
+          `delete from ${view}`,
+          `insert into ${view} (bill_id) values (100)`,
+        ]) {
+          expect(() => asRole(role, write, closed), write).toThrow(
+            new RegExp(`42501: permission denied for view ${view}`),
+          );
+        }
+      }
+      expect(violations(report(closed).filter((check) => check.role === role))).toEqual([]);
+    });
+
     it("changes nothing with a stray insert, update or delete grant", () => {
       const grant = `grant insert, update, delete on processed_bills to ${role}`;
       // An explicit id skips the sequence, which the role can't use either, so
@@ -246,6 +329,14 @@ describe.skipIf(!ADMIN_URL)("processed_bills access", () => {
         ),
       ).toBe("f");
     });
+  });
+
+  it("leaves PUBLIC no privilege on any view built on processed_bills", () => {
+    for (const setup of ["", `grant all on pending_analysis to public;\n${migrationSql}`]) {
+      const checks = report(setup).filter((check) => check.role === "public");
+      expect(checks.map((check) => check.object)).toContain("pending_analysis");
+      expect(violations(checks)).toEqual([]);
+    }
   });
 
   it("lets the service role run each write the scripts use", () => {
