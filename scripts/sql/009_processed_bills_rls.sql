@@ -44,11 +44,11 @@ $$;
 
 -- A view writes its tables with its owner's privileges, and these policies
 -- don't bind the table's owner, so a write grant on an updatable view that
--- owner holds would let anon write this table. Every view built on
--- processed_bills, directly or through other views, keeps SELECT and nothing
--- else. CREATE OR REPLACE VIEW keeps these grants. A view created later, or
--- dropped and created again, takes the schema's default privileges, so run
--- this file again after either.
+-- owner holds would let anon write this table. On every view built on
+-- processed_bills, directly or through other views, anon and authenticated
+-- keep SELECT and nothing else. CREATE OR REPLACE VIEW keeps these grants. A
+-- view created later, or dropped and created again, takes its creator's
+-- default privileges, so run this file again after either.
 DO $$
 DECLARE
   dependent regclass;

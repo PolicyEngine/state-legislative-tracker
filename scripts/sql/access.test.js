@@ -114,8 +114,9 @@ create table processed_bills (
 // Bills shaped like each writer's rows. LegiScan ids carry a federal bill, a
 // skipped bill, scores of 0 and null and a bill with no action date.
 // congress_monitor.py's ids (20,000,000 to 29,999,999) carry both of its
-// matched_query labels, and openstates_monitor.py's (10,000,000 to
-// 99,999,999) carry one of its search queries and an OpenStates source.
+// matched_query labels. An id in openstates_monitor.py's range (10,000,000 to
+// 99,999,999) carries one of its search queries and source 'openstates', the
+// value 006 lists besides its 'legiscan' default.
 const SEED = `
 insert into processed_bills
   (bill_id, state, bill_number, title, status, last_action, last_action_date,
@@ -217,9 +218,10 @@ const allowed = ({ kind, role, privilege }) =>
   role !== "public" && privilege === "SELECT" && kind !== "sequence" && kind !== "column grant";
 const violations = (checks) => checks.filter((check) => check.held !== allowed(check));
 
-// Bills as the writers store them, with ids from LegiScan's own range,
-// openstates_monitor.py's 10,000,000 to 99,999,999 and congress_monitor.py's
-// 20,000,000 to 29,999,999.
+// Bills with ids below 10,000,000, where LegiScan's sit, in
+// openstates_monitor.py's 10,000,000 to 99,999,999 and in congress_monitor.py's
+// 20,000,000 to 29,999,999, with the writers' matched_query labels, both
+// sources 006 lists, and nulls.
 const BILLS = fc.uniqueArray(
   fc.record({
     billId: fc.oneof(
