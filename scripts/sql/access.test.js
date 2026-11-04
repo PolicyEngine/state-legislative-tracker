@@ -487,7 +487,8 @@ describe.skipIf(!ADMIN_URL).each(ID_COLUMNS)("processed_bills access, with %s", 
     }
   });
 
-  it("lets the service role run each write the scripts use", () => {
+  it("lets the service role read every row and run each write the scripts use", () => {
+    expect(asRole("service_role", READS)).toBe(ownerReads());
     expect(asRole("service_role", changed("update processed_bills set status = 'x' where id = 1"))).toBe("1");
     expect(asRole("service_role", UPSERT)).toBe("upserted");
     expect(asRole("service_role", changed("insert into processed_bills (bill_id) values (100)"))).toBe("1");
@@ -503,13 +504,11 @@ describe.skipIf(!ADMIN_URL).each(ID_COLUMNS)("processed_bills access, with %s", 
       grant all on sequence ${sequence} to public;
       grant all on pending_analysis to public;
       ${migrationSql}`;
+    expect(asRole("service_role", READS, setup)).toBe(ownerReads());
     expect(asRole("service_role", changed("update processed_bills set status = 'x' where id = 1"), setup)).toBe("1");
     expect(asRole("service_role", UPSERT, setup)).toBe("upserted");
     expect(asRole("service_role", changed("insert into processed_bills (bill_id) values (100)"), setup)).toBe("1");
     expect(asRole("service_role", changed("delete from processed_bills where id = 1"), setup)).toBe("1");
-    expect(asRole("service_role", "select count(*) from pending_analysis", setup)).toBe(
-      psql(url, "select count(*) from pending_analysis"),
-    );
   });
 
   it("keeps row level security on every table and only these two policies here", () => {
