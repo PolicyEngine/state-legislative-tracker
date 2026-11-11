@@ -82,18 +82,31 @@ export function buildApiPolicy(reform) {
   return apiPolicy;
 }
 
-export function usePolicyEngineAPI() {
+/**
+ * Household calculations through the dashboard API. `readModelVersion`
+ * reads the deployed policyengine-us version from the country metadata, a
+ * large download; pass false when the version isn't needed, as for reforms
+ * that need no structural code.
+ */
+export function usePolicyEngineAPI({ readModelVersion = true } = {}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [apiVersion, setApiVersion] = useState(null);
 
   useEffect(() => {
-    fetchApiVersion().then(setApiVersion);
-  }, []);
+    if (!readModelVersion) return undefined;
+    let cancelled = false;
+    fetchApiVersion().then((version) => {
+      if (!cancelled) setApiVersion(version);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [readModelVersion]);
 
-  // Internal function that doesn't manage loading state. Resolves with the
-  // Public API's answer shape ({status, message, result}), which
-  // ResultsDisplay reads.
+  // Internal function that doesn't manage loading state. Resolves with
+  // {status, message, result}, the shape ResultsDisplay reads; the Public
+  // API's other answer fields are not kept.
   const runCalculation = async (household, reform = null) => {
     const request = { country: "us", household };
 

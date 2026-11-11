@@ -77,7 +77,11 @@ const TABS = [
 ];
 
 export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
-  const { compareReform, loading, error, apiVersion } = usePolicyEngineAPI();
+  // Only structural reforms are gated on the deployed model's version.
+  const isStructural = reformNeedsStructuralCode(reformConfig.reform);
+  const { compareReform, loading, error, apiVersion } = usePolicyEngineAPI({
+    readModelVersion: isStructural,
+  });
   const { getImpact } = useData();
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -89,7 +93,6 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
   // This avoids the old disabled→enabled flash by keeping the tab consistently
   // disabled until the version check confirms support.
   const requiredVersion = aggregateImpacts?.policyengineUsVersion;
-  const isStructural = reformNeedsStructuralCode(reformConfig.reform);
   const householdUnsupported =
     isStructural &&
     (!apiVersion || !requiredVersion || compareSemver(apiVersion, requiredVersion) < 0);
