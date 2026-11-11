@@ -1,15 +1,19 @@
 import { useState, useCallback, useEffect } from "react";
+import { createPolicyEngineApiClient } from "@policyengine/api-client";
 
-const API_BASE = "https://api.policyengine.org";
+// www.policyengine.org's dashboard API, which forwards to the PolicyEngine
+// Public API with PolicyEngine's credential. The tracker's pages are served
+// from www.policyengine.org, so these are same-origin requests there.
+const policyengine = createPolicyEngineApiClient();
 
 // Module-level cache so all hook instances share the same fetch
 let _apiVersionPromise = null;
 
 function fetchApiVersion() {
   if (!_apiVersionPromise) {
-    _apiVersionPromise = fetch(`${API_BASE}/us/metadata`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => data?.result?.version || null)
+    _apiVersionPromise = policyengine
+      .getMetadata("us")
+      .then((metadata) => metadata?.version || null)
       .catch(() => null);
   }
   return _apiVersionPromise;
@@ -87,28 +91,23 @@ export function usePolicyEngineAPI() {
     fetchApiVersion().then(setApiVersion);
   }, []);
 
-  // Internal function that doesn't manage loading state
+  // Internal function that doesn't manage loading state. Resolves with the
+  // Public API's answer shape ({status, message, result}), which
+  // ResultsDisplay reads.
   const runCalculation = async (household, reform = null) => {
-    const payload = { household };
+    const request = { country: "us", household };
 
     if (reform) {
-      payload.policy = buildApiPolicy(reform);
+      request.policy = buildApiPolicy(reform);
     }
 
-    const response = await fetch(`${API_BASE}/us/calculate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("API error response:", data);
-      throw new Error(data.message || data.error || `API error: ${response.status}`);
+    try {
+      const result = await policyengine.calculateHousehold(request);
+      return { status: "ok", message: null, result };
+    } catch (err) {
+      console.error("Dashboard API error:", err.status ?? "no answer", err.body ?? err.message);
+      throw err;
     }
-
-    return data;
   };
 
   const calculateHousehold = useCallback(async (household, reform = null) => {
