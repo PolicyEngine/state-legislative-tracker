@@ -44,12 +44,12 @@ function calculateRequests() {
     .map(([, init]) => JSON.parse(String(init.body)));
 }
 
-async function renderPolicyEngineHook() {
+async function renderPolicyEngineHook(options) {
   // The hook caches the model version for the whole module, so each test
   // loads a fresh copy.
   vi.resetModules();
   const { usePolicyEngineAPI, buildApiPolicy } = await import("./usePolicyEngineAPI");
-  return { hook: renderHook(() => usePolicyEngineAPI()), buildApiPolicy };
+  return { hook: renderHook(() => usePolicyEngineAPI(options)), buildApiPolicy };
 }
 
 beforeEach(() => {
@@ -112,6 +112,39 @@ describe("usePolicyEngineAPI through the dashboard API", () => {
 
     // Then
     await waitFor(() => expect(hook.result.current.apiVersion).toBe("1.612.3"));
+  });
+
+  it("given a reform that needs no structural code then it reads no metadata", async () => {
+    // Given
+    answerFromDashboardApi({ calculate: () => jsonAnswer({}) });
+
+    // When
+    const { hook } = await renderPolicyEngineHook({ readModelVersion: false });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    // Then
+    const requestedUrls = fetchMock.mock.calls.map(([input]) => String(input));
+    expect(requestedUrls).not.toContain(DASHBOARD_API_METADATA_URL);
+    expect(hook.result.current.apiVersion).toBeNull();
+  });
+
+  it("given the metadata read fails then the model version stays unknown", async () => {
+    // Given
+    fetchMock.mockImplementation(async () =>
+      jsonAnswer({ status: "error", message: "The Public API did not answer in time.", result: null }, 504),
+    );
+
+    // When
+    const { hook } = await renderPolicyEngineHook();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    // Then
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toContain(DASHBOARD_API_METADATA_URL);
+    expect(hook.result.current.apiVersion).toBeNull();
   });
 
   it("given the dashboard API refuses a calculation then the error carries its message", async () => {
