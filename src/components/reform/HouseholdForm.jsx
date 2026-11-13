@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { colors, typography, spacing } from "../../designTokens";
-import { SHARED_LIMIT_EXPLANATION } from "../../hooks/usePolicyEngineAPI";
 
 function formatWithCommas(n) {
   return Number(n).toLocaleString("en-US");
@@ -158,6 +157,8 @@ export default function HouseholdForm({
   // Whole seconds until the page may calculate again after a refusal for
   // the firewall's limit; 0 when it may now.
   calculationPauseSeconds = 0,
+  // The user-facing message of the refusal that started the pause.
+  calculationPauseReason,
   stateAbbr,
   availableYears,
 }) {
@@ -526,9 +527,9 @@ export default function HouseholdForm({
           fontSize: typography.fontSize.sm,
           fontFamily: typography.fontFamily.body,
         }}>
-          {/* Only the explanation is announced; the countdown changes
-              every second. */}
-          <span role="status">{SHARED_LIMIT_EXPLANATION}.</span> This page
+          {/* Only the refusal's message is announced; the countdown
+              changes every second. */}
+          <span role="status">{calculationPauseReason}</span> This page
           can calculate again in {calculationPauseSeconds} s.
         </p>
       )}

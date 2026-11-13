@@ -21,25 +21,43 @@ export const SHARED_LIMIT_EXPLANATION =
   "limit on calculations a minute";
 
 /**
+ * Why a calculation was refused during a pause. The pause may have started
+ * from a request with no answer, which only may have met the limit.
+ */
+const LIMIT_MAY_HAVE_BEEN_REACHED_MESSAGE = `${SHARED_LIMIT_EXPLANATION}, which may have been reached.`;
+
+/**
  * When the page may send household calculations again after a refusal for
- * the firewall's limit, in `Date.now()` milliseconds. Every household
- * calculation checks it before it is sent.
+ * the firewall's limit, in `Date.now()` milliseconds, and the user-facing
+ * message of the refusal that started the pause. Every household
+ * calculation checks the time before it is sent.
  */
 let householdCalculationsPausedUntil = 0;
+let householdCalculationPauseMessage = LIMIT_MAY_HAVE_BEEN_REACHED_MESSAGE;
 const pauseListeners = new Set();
 
 /**
  * Stops the page from sending household calculations for `milliseconds`
  * (the firewall's one-minute window unless given); 0 ends a pause.
+ * `reason` is the user-facing message of the refusal that started it.
  */
-export function pauseHouseholdCalculations(milliseconds = RATE_LIMIT_WAIT_MILLISECONDS) {
+export function pauseHouseholdCalculations(
+  milliseconds = RATE_LIMIT_WAIT_MILLISECONDS,
+  reason = LIMIT_MAY_HAVE_BEEN_REACHED_MESSAGE
+) {
   householdCalculationsPausedUntil = Date.now() + milliseconds;
+  householdCalculationPauseMessage = reason;
   pauseListeners.forEach((listener) => listener());
 }
 
 /** Milliseconds until the page may send household calculations again; 0 when it may now. */
 export function householdCalculationPauseRemaining() {
   return Math.max(0, householdCalculationsPausedUntil - Date.now());
+}
+
+/** The user-facing message of the refusal that started the latest pause. */
+export function householdCalculationPauseReason() {
+  return householdCalculationPauseMessage;
 }
 
 /** Calls `listener` whenever a pause starts or is ended early; returns the unsubscribe function. */
@@ -51,19 +69,24 @@ export function onHouseholdCalculationPause(listener) {
 }
 
 /**
- * Whole seconds until the page may calculate again after a refusal for the
- * firewall's limit, 0 when it may now. Counts down once a second during a
- * pause.
+ * `secondsRemaining`: whole seconds until the page may calculate again after
+ * a refusal for the firewall's limit, 0 when it may now; counts down once a
+ * second during a pause. `reason`: the user-facing message of the refusal
+ * that started the pause.
  */
 export function useHouseholdCalculationPause() {
   const [secondsRemaining, setSecondsRemaining] = useState(() =>
     Math.ceil(householdCalculationPauseRemaining() / 1000)
   );
+  const [reason, setReason] = useState(householdCalculationPauseReason);
   useEffect(() => {
     let countdown;
     const update = () => {
       const seconds = Math.ceil(householdCalculationPauseRemaining() / 1000);
       setSecondsRemaining(seconds);
+      // A second refusal can start a new pause with another message while
+      // the seconds stay the same.
+      setReason(householdCalculationPauseReason());
       if (seconds > 0 && countdown === undefined) {
         countdown = setInterval(update, 1000);
       } else if (seconds === 0 && countdown !== undefined) {
@@ -80,7 +103,7 @@ export function useHouseholdCalculationPause() {
       }
     };
   }, []);
-  return secondsRemaining;
+  return { secondsRemaining, reason };
 }
 
 /**
@@ -228,7 +251,8 @@ export function buildApiPolicy(reform) {
  *
  * `error` is the message of a failure to show in place of the results. A
  * failure the firewall's limit may have caused leaves it null: the page
- * keeps its last answer and explains the limit by the Calculate button.
+ * keeps its last answer and shows the failure's message by the Calculate
+ * button, from the pause it started.
  */
 export function usePolicyEngineAPI({ readModelVersion = true } = {}) {
   const [loading, setLoading] = useState(false);
@@ -257,13 +281,11 @@ export function usePolicyEngineAPI({ readModelVersion = true } = {}) {
     }
 
     if (householdCalculationPauseRemaining() > 0) {
-      // Held back during the pause after a refusal, so never sent. The
-      // pause may have started from a request with no answer, which only
-      // may have met the limit.
-      throw new HouseholdCalculationError(
-        `${SHARED_LIMIT_EXPLANATION}, which may have been reached.`,
-        { status: null, rateLimited: true }
-      );
+      // Held back during the pause after a refusal, so never sent.
+      throw new HouseholdCalculationError(LIMIT_MAY_HAVE_BEEN_REACHED_MESSAGE, {
+        status: null,
+        rateLimited: true,
+      });
     }
 
     try {
@@ -277,8 +299,9 @@ export function usePolicyEngineAPI({ readModelVersion = true } = {}) {
       const failure = classifyCalculationFailure(err);
       if (failure.rateLimited) {
         // Pause at once, even if the household's other calculation has
-        // already failed and the caller never sees this refusal.
-        pauseHouseholdCalculations();
+        // already failed and the caller never sees this refusal; the pause
+        // keeps this refusal's message for the page to show.
+        pauseHouseholdCalculations(RATE_LIMIT_WAIT_MILLISECONDS, failure.message);
       }
       throw failure;
     }

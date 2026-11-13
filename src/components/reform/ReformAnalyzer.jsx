@@ -87,7 +87,10 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
   const { compareReform, loading, error, apiVersion } = usePolicyEngineAPI({
     readModelVersion: isStructural,
   });
-  const calculationPauseSeconds = useHouseholdCalculationPause();
+  const {
+    secondsRemaining: calculationPauseSeconds,
+    reason: calculationPauseReason,
+  } = useHouseholdCalculationPause();
   const { getImpact } = useData();
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -315,6 +318,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
                 onSubmit={handleCalculate}
                 loading={loading}
                 calculationPauseSeconds={calculationPauseSeconds}
+                calculationPauseReason={calculationPauseReason}
                 stateAbbr={stateAbbr}
                 availableYears={
                   aggregateImpacts?.impactsByYear
