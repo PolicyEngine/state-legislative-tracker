@@ -22,6 +22,9 @@ const REFORM_RESULT = { households: { household: { household_net_income: { 2026:
 // The reform's net income, shown only in the results.
 const REFORM_NET_INCOME_TEXT = "$45,500";
 
+// Above an answer kept after a refusal: it is not for the refused household.
+const KEPT_ANSWER_NOTE = "The results below are for the household calculated before.";
+
 const EXPLANATION_SENTENCE =
   "Everyone on your network, such as a workshop or an office, shares a limit on " +
   "calculations a minute.";
@@ -138,6 +141,32 @@ describe("ReformAnalyzer's household tab when the dashboard API's rate limit ref
     expect(calculateButton()).toHaveTextContent("Calculate Impact");
     expect(calculateButton()).toBeEnabled();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.queryByText(REFORM_NET_INCOME_TEXT)).toBeInTheDocument();
+  });
+
+  it("given an answer on screen when the next calculation is refused for the limit then the page says the answer is for the household calculated before, until the next answer", async () => {
+    // Given
+    answerCalculationsWith(calculatedHousehold);
+    await renderHouseholdTab();
+    await calculate();
+    expect(screen.queryByText(KEPT_ANSWER_NOTE)).not.toBeInTheDocument();
+
+    // When
+    answerCalculationsWith(tooManyRequests);
+    await calculate();
+
+    // Then
+    expect(screen.queryByText(KEPT_ANSWER_NOTE)).toBeInTheDocument();
+    expect(screen.queryByText(REFORM_NET_INCOME_TEXT)).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(screen.queryByText(KEPT_ANSWER_NOTE)).toBeInTheDocument();
+
+    answerCalculationsWith(calculatedHousehold);
+    await calculate();
+    expect(screen.queryByText(KEPT_ANSWER_NOTE)).not.toBeInTheDocument();
     expect(screen.queryByText(REFORM_NET_INCOME_TEXT)).toBeInTheDocument();
   });
 
