@@ -1,15 +1,180 @@
 import { useState, useCallback, useEffect } from "react";
+import {
+  createPolicyEngineApiClient,
+  DEFAULT_BASE_URL,
+  PolicyEngineApiError,
+  RATE_LIMIT_WAIT_MILLISECONDS,
+} from "@policyengine/api-client";
 
-const API_BASE = "https://api.policyengine.org";
+// www.policyengine.org's dashboard API, which forwards to the PolicyEngine
+// Public API with PolicyEngine's credential. The tracker's pages are served
+// from www.policyengine.org, so these are same-origin requests there.
+const policyengine = createPolicyEngineApiClient();
+
+/**
+ * What the page says about the firewall's limit on household calculations
+ * (30 a minute for each IP address), which everyone behind one address
+ * shares. Callers add the final full stop.
+ */
+export const SHARED_LIMIT_EXPLANATION =
+  "Everyone on your network, such as a workshop or an office, shares a " +
+  "limit on calculations a minute";
+
+/**
+ * Why a calculation was refused during a pause. The pause may have started
+ * from a request with no answer, which only may have met the limit.
+ */
+const LIMIT_MAY_HAVE_BEEN_REACHED_MESSAGE = `${SHARED_LIMIT_EXPLANATION}, which may have been reached.`;
+
+/**
+ * When the page may send household calculations again after a refusal for
+ * the firewall's limit, in `Date.now()` milliseconds, and the user-facing
+ * message of the refusal that started the pause. Every household
+ * calculation checks the time before it is sent.
+ */
+let householdCalculationsPausedUntil = 0;
+let householdCalculationPauseMessage = LIMIT_MAY_HAVE_BEEN_REACHED_MESSAGE;
+const pauseListeners = new Set();
+
+/**
+ * Stops the page from sending household calculations for `milliseconds`
+ * (the firewall's one-minute window unless given); 0 ends a pause.
+ * `reason` is the user-facing message of the refusal that started it.
+ */
+export function pauseHouseholdCalculations(
+  milliseconds = RATE_LIMIT_WAIT_MILLISECONDS,
+  reason = LIMIT_MAY_HAVE_BEEN_REACHED_MESSAGE
+) {
+  householdCalculationsPausedUntil = Date.now() + milliseconds;
+  householdCalculationPauseMessage = reason;
+  pauseListeners.forEach((listener) => listener());
+}
+
+/** Milliseconds until the page may send household calculations again; 0 when it may now. */
+export function householdCalculationPauseRemaining() {
+  return Math.max(0, householdCalculationsPausedUntil - Date.now());
+}
+
+/** The user-facing message of the refusal that started the latest pause. */
+export function householdCalculationPauseReason() {
+  return householdCalculationPauseMessage;
+}
+
+/** Calls `listener` whenever a pause starts or is ended early; returns the unsubscribe function. */
+export function onHouseholdCalculationPause(listener) {
+  pauseListeners.add(listener);
+  return () => {
+    pauseListeners.delete(listener);
+  };
+}
+
+/**
+ * `secondsRemaining`: whole seconds until the page may calculate again after
+ * a refusal for the firewall's limit, 0 when it may now; counts down once a
+ * second during a pause. `reason`: the user-facing message of the refusal
+ * that started the pause.
+ */
+export function useHouseholdCalculationPause() {
+  const [secondsRemaining, setSecondsRemaining] = useState(() =>
+    Math.ceil(householdCalculationPauseRemaining() / 1000)
+  );
+  const [reason, setReason] = useState(householdCalculationPauseReason);
+  useEffect(() => {
+    let countdown;
+    const update = () => {
+      const seconds = Math.ceil(householdCalculationPauseRemaining() / 1000);
+      setSecondsRemaining(seconds);
+      // A second refusal can start a new pause with another message while
+      // the seconds stay the same.
+      setReason(householdCalculationPauseReason());
+      if (seconds > 0 && countdown === undefined) {
+        countdown = setInterval(update, 1000);
+      } else if (seconds === 0 && countdown !== undefined) {
+        clearInterval(countdown);
+        countdown = undefined;
+      }
+    };
+    update();
+    const unsubscribe = onHouseholdCalculationPause(update);
+    return () => {
+      unsubscribe();
+      if (countdown !== undefined) {
+        clearInterval(countdown);
+      }
+    };
+  }, []);
+  return { secondsRemaining, reason };
+}
+
+/**
+ * A household calculation failed. `message` is written for the user;
+ * `rateLimited` says whether the firewall's limit may have refused it: a
+ * 429, no readable answer on another origin (which is how such a page sees
+ * the firewall's 429), or a calculation held back during the pause after a
+ * refusal.
+ */
+export class HouseholdCalculationError extends Error {
+  constructor(message, { status, rateLimited, cause }) {
+    super(message, { cause });
+    this.name = "HouseholdCalculationError";
+    /** The dashboard API's HTTP status, or null when no answer was read. */
+    this.status = status;
+    this.rateLimited = rateLimited;
+  }
+}
+
+/**
+ * Whether the page is served from the dashboard API's own origin
+ * (www.policyengine.org), where the firewall's 429 is readable.
+ */
+function pageSharesDashboardApiOrigin() {
+  return globalThis.location?.origin === new URL(DEFAULT_BASE_URL).origin;
+}
+
+/** Turns a failure of the dashboard API client into a message for the user. */
+function classifyCalculationFailure(error) {
+  if (error.status === 429) {
+    return new HouseholdCalculationError(
+      `${SHARED_LIMIT_EXPLANATION}, and it has been reached.`,
+      { status: 429, rateLimited: true, cause: error }
+    );
+  }
+  if (error.status === null) {
+    if (pageSharesDashboardApiOrigin()) {
+      // The firewall's 429 would be readable here, so this is a network
+      // failure.
+      return new HouseholdCalculationError(
+        "PolicyEngine's calculation service could not be reached. Check " +
+          "your connection and try again.",
+        { status: null, rateLimited: false, cause: error }
+      );
+    }
+    // On another origin, such as the tracker's own Modal host, the
+    // firewall's 429 has no CORS headers, so the browser reports a network
+    // failure. So does the dashboard API's 403 for an origin it does not
+    // allow.
+    return new HouseholdCalculationError(
+      "PolicyEngine's calculation service could not be reached. " +
+        `${SHARED_LIMIT_EXPLANATION}, which may have been reached.`,
+      { status: null, rateLimited: true, cause: error }
+    );
+  }
+  // Any other refusal keeps the dashboard API's own message.
+  return new HouseholdCalculationError(error.message, {
+    status: error.status,
+    rateLimited: false,
+    cause: error,
+  });
+}
 
 // Module-level cache so all hook instances share the same fetch
 let _apiVersionPromise = null;
 
 function fetchApiVersion() {
   if (!_apiVersionPromise) {
-    _apiVersionPromise = fetch(`${API_BASE}/us/metadata`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => data?.result?.version || null)
+    _apiVersionPromise = policyengine
+      .getMetadata("us")
+      .then((metadata) => metadata?.version || null)
       .catch(() => null);
   }
   return _apiVersionPromise;
@@ -78,37 +243,68 @@ export function buildApiPolicy(reform) {
   return apiPolicy;
 }
 
-export function usePolicyEngineAPI() {
+/**
+ * Household calculations through the dashboard API. `readModelVersion`
+ * reads the deployed policyengine-us version from the country metadata, a
+ * large download; pass false when the version isn't needed, as for reforms
+ * that need no structural code.
+ *
+ * `error` is the message of a failure to show in place of the results. A
+ * failure the firewall's limit may have caused leaves it null: the page
+ * keeps its last answer and shows the failure's message by the Calculate
+ * button, from the pause it started.
+ */
+export function usePolicyEngineAPI({ readModelVersion = true } = {}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [apiVersion, setApiVersion] = useState(null);
 
   useEffect(() => {
-    fetchApiVersion().then(setApiVersion);
-  }, []);
+    if (!readModelVersion) return undefined;
+    let cancelled = false;
+    fetchApiVersion().then((version) => {
+      if (!cancelled) setApiVersion(version);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [readModelVersion]);
 
-  // Internal function that doesn't manage loading state
+  // Internal function that doesn't manage loading state. Resolves with
+  // {status, message, result}, the shape ResultsDisplay reads; the Public
+  // API's other answer fields are not kept.
   const runCalculation = async (household, reform = null) => {
-    const payload = { household };
+    const request = { country: "us", household };
 
     if (reform) {
-      payload.policy = buildApiPolicy(reform);
+      request.policy = buildApiPolicy(reform);
     }
 
-    const response = await fetch(`${API_BASE}/us/calculate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("API error response:", data);
-      throw new Error(data.message || data.error || `API error: ${response.status}`);
+    if (householdCalculationPauseRemaining() > 0) {
+      // Held back during the pause after a refusal, so never sent.
+      throw new HouseholdCalculationError(LIMIT_MAY_HAVE_BEEN_REACHED_MESSAGE, {
+        status: null,
+        rateLimited: true,
+      });
     }
 
-    return data;
+    try {
+      const result = await policyengine.calculateHousehold(request);
+      return { status: "ok", message: null, result };
+    } catch (err) {
+      console.error("Dashboard API error:", err.status ?? "no answer", err.body ?? err.message);
+      if (!(err instanceof PolicyEngineApiError)) {
+        throw err;
+      }
+      const failure = classifyCalculationFailure(err);
+      if (failure.rateLimited) {
+        // Pause at once, even if the household's other calculation has
+        // already failed and the caller never sees this refusal; the pause
+        // keeps this refusal's message for the page to show.
+        pauseHouseholdCalculations(RATE_LIMIT_WAIT_MILLISECONDS, failure.message);
+      }
+      throw failure;
+    }
   };
 
   const calculateHousehold = useCallback(async (household, reform = null) => {
@@ -118,7 +314,7 @@ export function usePolicyEngineAPI() {
     try {
       return await runCalculation(household, reform);
     } catch (err) {
-      setError(err.message);
+      setError(err.rateLimited ? null : err.message);
       throw err;
     } finally {
       setLoading(false);
@@ -138,7 +334,7 @@ export function usePolicyEngineAPI() {
 
       return { baseline, reform };
     } catch (err) {
-      setError(err.message);
+      setError(err.rateLimited ? null : err.message);
       throw err;
     } finally {
       setLoading(false);

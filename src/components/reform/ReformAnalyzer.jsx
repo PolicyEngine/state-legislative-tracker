@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { colors, typography, spacing } from "../../designTokens";
-import { usePolicyEngineAPI, compareSemver, reformNeedsStructuralCode } from "../../hooks/usePolicyEngineAPI";
+import {
+  usePolicyEngineAPI,
+  useHouseholdCalculationPause,
+  compareSemver,
+  reformNeedsStructuralCode,
+} from "../../hooks/usePolicyEngineAPI";
 import { buildHousehold } from "../../utils/householdBuilder";
 import { useData } from "../../context/DataContext";
 import { track } from "../../lib/analytics";
@@ -77,7 +82,15 @@ const TABS = [
 ];
 
 export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
-  const { compareReform, loading, error, apiVersion } = usePolicyEngineAPI();
+  // Only structural reforms are gated on the deployed model's version.
+  const isStructural = reformNeedsStructuralCode(reformConfig.reform);
+  const { compareReform, loading, error, apiVersion } = usePolicyEngineAPI({
+    readModelVersion: isStructural,
+  });
+  const {
+    secondsRemaining: calculationPauseSeconds,
+    reason: calculationPauseReason,
+  } = useHouseholdCalculationPause();
   const { getImpact } = useData();
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -89,7 +102,6 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
   // This avoids the old disabled→enabled flash by keeping the tab consistently
   // disabled until the version check confirms support.
   const requiredVersion = aggregateImpacts?.policyengineUsVersion;
-  const isStructural = reformNeedsStructuralCode(reformConfig.reform);
   const householdUnsupported =
     isStructural &&
     (!apiVersion || !requiredVersion || compareSemver(apiVersion, requiredVersion) < 0);
@@ -134,8 +146,12 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
     expenses: {},
   });
 
+  // The answer on screen. A failure the firewall's limit may have caused
+  // keeps it; any other failure's error is shown in its place.
   const [results, setResults] = useState(null);
-  const [hasCalculated, setHasCalculated] = useState(false);
+  // Whether the answer on screen was kept after a refusal for the limit,
+  // so it is for the household calculated before, not the refused one.
+  const [resultsKeptAfterRefusal, setResultsKeptAfterRefusal] = useState(false);
 
   const handleCalculate = async () => {
     track("household_calculated", {
@@ -158,10 +174,17 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
       );
 
       setResults({ baseline, reform });
-      setHasCalculated(true);
+      setResultsKeptAfterRefusal(false);
     } catch (err) {
       console.error("Calculation error:", err);
-      setHasCalculated(true);
+      if (err?.rateLimited) {
+        setResultsKeptAfterRefusal(true);
+      } else {
+        // The error replaces the answer on screen, so forget the answer:
+        // a later refusal for the limit must not bring it back.
+        setResults(null);
+        setResultsKeptAfterRefusal(false);
+      }
     }
   };
 
@@ -294,6 +317,8 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
                 onChange={setHouseholdInputs}
                 onSubmit={handleCalculate}
                 loading={loading}
+                calculationPauseSeconds={calculationPauseSeconds}
+                calculationPauseReason={calculationPauseReason}
                 stateAbbr={stateAbbr}
                 availableYears={
                   aggregateImpacts?.impactsByYear
@@ -341,12 +366,24 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
                     Calculating your impact...
                   </p>
                 </div>
-              ) : hasCalculated ? (
-                <ResultsDisplay
-                  baseline={results?.baseline}
-                  reform={results?.reform}
-                  error={error}
-                />
+              ) : error || results ? (
+                <>
+                  {results && resultsKeptAfterRefusal && (
+                    <p style={{
+                      margin: `0 0 ${spacing.sm}`,
+                      color: colors.text.secondary,
+                      fontSize: typography.fontSize.sm,
+                      fontFamily: typography.fontFamily.body,
+                    }}>
+                      The results below are for the household calculated before.
+                    </p>
+                  )}
+                  <ResultsDisplay
+                    baseline={results?.baseline}
+                    reform={results?.reform}
+                    error={error}
+                  />
+                </>
               ) : (
                 <div style={{
                   display: "flex",
