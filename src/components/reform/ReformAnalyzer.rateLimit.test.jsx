@@ -25,9 +25,14 @@ const REFORM_NET_INCOME_TEXT = "$45,500";
 // Above an answer kept after a refusal: it is not for the refused household.
 const KEPT_ANSWER_NOTE = "The results below are for the household calculated before.";
 
-const EXPLANATION_SENTENCE =
+// The pause notice's reason: the message of the refusal that started it.
+const LIMIT_REACHED_MESSAGE =
   "Everyone on your network, such as a workshop or an office, shares a limit on " +
-  "calculations a minute.";
+  "calculations a minute, and it has been reached.";
+const NO_ANSWER_ON_ANOTHER_ORIGIN_MESSAGE =
+  "PolicyEngine's calculation service could not be reached. Everyone on your network, " +
+  "such as a workshop or an office, shares a limit on calculations a minute, which may " +
+  "have been reached.";
 
 const fetchMock = vi.fn();
 
@@ -121,10 +126,10 @@ describe("ReformAnalyzer's household tab when the dashboard API's rate limit ref
     expect(screen.queryByText(/Error calculating impact/)).not.toBeInTheDocument();
     expect(calculateButton()).toHaveTextContent("Calculate again in 60 s");
     expect(calculateButton()).toBeDisabled();
-    const explanation = screen.queryByRole("status");
-    expect(explanation?.textContent).toBe(EXPLANATION_SENTENCE);
-    expect(explanation?.parentElement?.textContent).toBe(
-      `${EXPLANATION_SENTENCE} This page can calculate again in 60 s.`,
+    const reason = screen.queryByRole("status");
+    expect(reason?.textContent).toBe(LIMIT_REACHED_MESSAGE);
+    expect(reason?.parentElement?.textContent).toBe(
+      `${LIMIT_REACHED_MESSAGE} This page can calculate again in 60 s.`,
     );
 
     act(() => {
@@ -132,7 +137,7 @@ describe("ReformAnalyzer's household tab when the dashboard API's rate limit ref
     });
     expect(calculateButton()).toHaveTextContent("Calculate again in 59 s");
     expect(screen.queryByRole("status")?.parentElement?.textContent).toBe(
-      `${EXPLANATION_SENTENCE} This page can calculate again in 59 s.`,
+      `${LIMIT_REACHED_MESSAGE} This page can calculate again in 59 s.`,
     );
 
     act(() => {
@@ -182,7 +187,58 @@ describe("ReformAnalyzer's household tab when the dashboard API's rate limit ref
     expect(screen.queryByText(/Error calculating impact/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Enter your details and click/)).toBeInTheDocument();
     expect(calculateButton()).toHaveTextContent("Calculate again in 60 s");
-    expect(screen.queryByRole("status")?.textContent).toBe(EXPLANATION_SENTENCE);
+    expect(screen.queryByRole("status")?.textContent).toBe(LIMIT_REACHED_MESSAGE);
+  });
+
+  it("given no answer on the tracker's own host then the pause notice says the calculation service could not be reached", async () => {
+    // Given: the firewall's 429 has no CORS headers, so on the Modal host
+    // the browser reports a network failure instead.
+    answerCalculationsWith(() => {
+      throw new TypeError("Failed to fetch");
+    });
+    await renderHouseholdTab();
+
+    // When
+    await calculate();
+
+    // Then
+    expect(screen.queryByText(/Error calculating impact/)).not.toBeInTheDocument();
+    expect(calculateButton()).toHaveTextContent("Calculate again in 60 s");
+    const reason = screen.queryByRole("status");
+    expect(reason?.textContent).toBe(NO_ANSWER_ON_ANOTHER_ORIGIN_MESSAGE);
+    expect(reason?.parentElement?.textContent).toBe(
+      `${NO_ANSWER_ON_ANOTHER_ORIGIN_MESSAGE} This page can calculate again in 60 s.`,
+    );
+  });
+
+  it("given the baseline fails for another reason and the reform is then refused for the limit then the pause notice gives the refusal's message", async () => {
+    // Given: the baseline fails at once, so ReformAnalyzer sees only that
+    // failure; the firewall refuses the reform a moment later.
+    let answerReform;
+    const reformAnswered = new Promise((resolve) => {
+      answerReform = resolve;
+    });
+    answerCalculationsWith(async (body) => {
+      if (body.policy === undefined) {
+        return jsonAnswer({ status: "error", message: "Internal error", result: null }, 500);
+      }
+      await reformAnswered;
+      return tooManyRequests();
+    });
+    await renderHouseholdTab();
+    await calculate();
+    expect(screen.getByText("Error calculating impact: Internal error")).toBeInTheDocument();
+
+    // When
+    await act(async () => {
+      answerReform();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    // Then
+    expect(calculateButton()).toHaveTextContent("Calculate again in 60 s");
+    expect(screen.queryByRole("status")?.textContent).toBe(LIMIT_REACHED_MESSAGE);
+    expect(screen.queryByText("Error calculating impact: Internal error")).toBeInTheDocument();
   });
 
   it("given another failure replaced the answer when a calculation is refused for the limit then the earlier answer does not come back", async () => {

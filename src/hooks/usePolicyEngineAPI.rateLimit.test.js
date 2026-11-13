@@ -266,27 +266,35 @@ describe("usePolicyEngineAPI when the dashboard API's rate limit refuses a calcu
     const {
       pauseHouseholdCalculations,
       householdCalculationPauseRemaining,
+      householdCalculationPauseReason,
       onHouseholdCalculationPause,
     } = policyEngineModule;
     expect([
       typeof pauseHouseholdCalculations,
       typeof householdCalculationPauseRemaining,
+      typeof householdCalculationPauseReason,
       typeof onHouseholdCalculationPause,
-    ]).toEqual(["function", "function", "function"]);
-    const pauseRemainingHeard = [];
+    ]).toEqual(["function", "function", "function", "function"]);
+    const pausesHeard = [];
     const unsubscribe = onHouseholdCalculationPause(() => {
-      pauseRemainingHeard.push(householdCalculationPauseRemaining());
+      pausesHeard.push({
+        remaining: householdCalculationPauseRemaining(),
+        reason: householdCalculationPauseReason(),
+      });
     });
 
     // When
     pauseHouseholdCalculations();
-    const remainingDuringPause = householdCalculationPauseRemaining();
+    pauseHouseholdCalculations(30_000, LIMIT_REACHED_MESSAGE);
     pauseHouseholdCalculations(0);
     unsubscribe();
     pauseHouseholdCalculations();
 
     // Then
-    expect(remainingDuringPause).toBe(60_000);
-    expect(pauseRemainingHeard).toEqual([60_000, 0]);
+    expect(pausesHeard).toEqual([
+      { remaining: 60_000, reason: LIMIT_MAY_HAVE_BEEN_REACHED_MESSAGE },
+      { remaining: 30_000, reason: LIMIT_REACHED_MESSAGE },
+      { remaining: 0, reason: LIMIT_MAY_HAVE_BEEN_REACHED_MESSAGE },
+    ]);
   });
 });
