@@ -146,6 +146,9 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
   // The answer on screen. A failure the firewall's limit may have caused
   // keeps it; any other failure's error is shown in its place.
   const [results, setResults] = useState(null);
+  // Whether the answer on screen was kept after a refusal for the limit,
+  // so it is for the household calculated before, not the refused one.
+  const [resultsKeptAfterRefusal, setResultsKeptAfterRefusal] = useState(false);
 
   const handleCalculate = async () => {
     track("household_calculated", {
@@ -168,12 +171,16 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
       );
 
       setResults({ baseline, reform });
+      setResultsKeptAfterRefusal(false);
     } catch (err) {
       console.error("Calculation error:", err);
-      if (!err?.rateLimited) {
+      if (err?.rateLimited) {
+        setResultsKeptAfterRefusal(true);
+      } else {
         // The error replaces the answer on screen, so forget the answer:
         // a later refusal for the limit must not bring it back.
         setResults(null);
+        setResultsKeptAfterRefusal(false);
       }
     }
   };
@@ -356,11 +363,23 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
                   </p>
                 </div>
               ) : error || results ? (
-                <ResultsDisplay
-                  baseline={results?.baseline}
-                  reform={results?.reform}
-                  error={error}
-                />
+                <>
+                  {results && resultsKeptAfterRefusal && (
+                    <p style={{
+                      margin: `0 0 ${spacing.sm}`,
+                      color: colors.text.secondary,
+                      fontSize: typography.fontSize.sm,
+                      fontFamily: typography.fontFamily.body,
+                    }}>
+                      The results below are for the household calculated before.
+                    </p>
+                  )}
+                  <ResultsDisplay
+                    baseline={results?.baseline}
+                    reform={results?.reform}
+                    error={error}
+                  />
+                </>
               ) : (
                 <div style={{
                   display: "flex",
