@@ -8,6 +8,7 @@ import HouseholdForm from "./HouseholdForm";
 import ResultsDisplay from "./ResultsDisplay";
 import AggregateImpacts from "./AggregateImpacts";
 import DistrictMap from "./DistrictMap";
+import { districtCongressOf, loadStateDistrictsGeo } from "./districtGeo";
 import BillOverview from "./BillOverview";
 
 const ChartIcon = () => (
@@ -107,20 +108,16 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
       )
     : TABS;
 
-  // Pre-fetch district GeoJSON so it's ready when user clicks Districts tab
-  const [cachedGeoData, setCachedGeoData] = useState(null);
+  // Load the district boundaries early so the Districts tab opens quickly.
+  // DistrictMap opens on the first year of a multi-year analysis, so warm
+  // that year's Congress.
+  const analysisYears = Object.keys(aggregateImpacts?.impactsByYear || {}).sort();
+  const firstYear = analysisYears.length > 1 ? analysisYears[0] : null;
+  const districtCongress = districtCongressOf(aggregateImpacts, firstYear);
   useEffect(() => {
-    if (isFederal) return undefined;
-    const url = `https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_118th_Congressional_Districts/FeatureServer/0/query?where=${encodeURIComponent(`STATE_ABBR='${stateAbbr}'`)}&outFields=*&f=geojson`;
-    let cancelled = false;
-    fetch(url)
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (!cancelled && data?.features?.length > 0) setCachedGeoData(data);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [stateAbbr, isFederal]);
+    if (isFederal) return;
+    loadStateDistrictsGeo(stateAbbr, districtCongress).catch(() => {});
+  }, [stateAbbr, isFederal, districtCongress]);
 
   const [householdInputs, setHouseholdInputs] = useState({
     headAge: 35,
@@ -265,7 +262,6 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
             <DistrictMap
               stateAbbr={stateAbbr}
               reformId={reformConfig.id}
-              prefetchedGeoData={cachedGeoData}
             />
           </div>
         )}
