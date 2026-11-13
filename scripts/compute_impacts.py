@@ -139,8 +139,46 @@ def load_reforms_from_db(supabase, reform_id=None):
 # MICROSIMULATION
 # =============================================================================
 
-def get_state_dataset(state: str) -> str:
-    """Download state-specific dataset from Hugging Face."""
+# Per-state datasets with congressional-district geocoding. Each source says
+# which Congress's districts it assigns households to; every analysis stores
+# that as model_notes.district_congress so the map draws matching boundaries.
+# Choose a source with --state-dataset or the TRACKER_STATE_DATASET variable.
+STATE_DATASETS = {
+    # The archived policyengine-us-data files, built from 119th Congress block
+    # assignments (make_block_cd_distributions.py:
+    # fetch_block_to_district_map(119)).
+    "us-data-cd119": {
+        "dataset_name": "policyengine-us-data",
+        "repo_id": "policyengine/policyengine-us-data",
+        "filename": "states/{state}.h5",
+        "revision": None,
+        "district_congress": 119,
+    },
+    # Add the 120th Congress source here once the microcosm release that
+    # assigns households to 120th districts exists (microcosm #1526).
+}
+DEFAULT_STATE_DATASET = "us-data-cd119"
+
+
+def state_dataset_source(name: str | None = None) -> dict:
+    """The state dataset source to use: the argument, then
+    TRACKER_STATE_DATASET, then the default."""
+    name = name or os.environ.get("TRACKER_STATE_DATASET") or DEFAULT_STATE_DATASET
+    if name not in STATE_DATASETS:
+        raise ValueError(
+            f"Unknown state dataset {name!r}; choose from {sorted(STATE_DATASETS)}"
+        )
+    return {"name": name, **STATE_DATASETS[name]}
+
+
+def state_dataset_version(source: dict) -> str:
+    """Version string stored with the analysis. Sources without a pinned
+    version keep the old behavior: the installed policyengine-us-data."""
+    return source.get("dataset_version") or get_installed_version("policyengine-us-data")
+
+
+def get_state_dataset(state: str, source: dict | None = None) -> str:
+    """Download a state's dataset from Hugging Face."""
     try:
         from huggingface_hub import hf_hub_download
     except ImportError:
@@ -148,14 +186,16 @@ def get_state_dataset(state: str) -> str:
             "huggingface_hub not installed. Run: pip install huggingface_hub"
         )
 
+    source = source or state_dataset_source()
     state_upper = state.upper()
-    filename = f"states/{state_upper}.h5"
+    filename = source["filename"].format(state=state_upper)
 
-    print(f"    Downloading {state_upper} dataset from Hugging Face...")
+    print(f"    Downloading {state_upper} dataset ({source['name']}) from Hugging Face...")
     dataset_path = hf_hub_download(
-        repo_id="policyengine/policyengine-us-data",
+        repo_id=source["repo_id"],
         filename=filename,
         repo_type="model",
+        revision=source.get("revision"),
     )
     print(f"    Dataset ready: {dataset_path}")
     return dataset_path
@@ -347,7 +387,13 @@ def create_reform_class(reform_params: dict):
     return DynamicReform
 
 
-def run_simulations(state: str, reform_params: dict, year: int = 2026, baseline_params: dict | None = None):
+def run_simulations(
+    state: str,
+    reform_params: dict,
+    year: int = 2026,
+    baseline_params: dict | None = None,
+    state_dataset: dict | None = None,
+):
     """
     Run baseline and reform microsimulations.
 
@@ -365,7 +411,7 @@ def run_simulations(state: str, reform_params: dict, year: int = 2026, baseline_
     # dataset (populace-us); state reforms use the geocoded state dataset for
     # district impacts. get_national_dataset() returns None so Microsimulation
     # uses its default.
-    dataset = get_national_dataset() if state == "us" else get_state_dataset(state)
+    dataset = get_national_dataset() if state == "us" else get_state_dataset(state, state_dataset)
     ReformClass = create_reform_class(reform_params)
 
     print("    Running baseline simulation...")
@@ -596,6 +642,19 @@ def compute_district_impacts(baseline, reformed, state: str, year: int = 2026) -
         print("    Warning: Congressional district data not available")
         return {}
 
+    # Every household should sit in one of the state's districts
+    # (state_fips * 100 + 1..n). Anything else means the dataset uses a
+    # different encoding or district plan than this script expects.
+    expected_geoids = {state_fips * 100 + n for n in range(1, num_districts + 1)}
+    found_geoids = {int(g) for g in unique_geoids}
+    unexpected = sorted(found_geoids - expected_geoids)
+    missing = sorted(expected_geoids - found_geoids)
+    if unexpected or missing:
+        print(
+            f"    Warning: district GEOIDs don't match {state_upper}'s {num_districts} "
+            f"districts (unexpected {unexpected[:10]}, missing {missing[:10]})"
+        )
+
     # Compute relative change for winners calculation (matching API fix in policyengine-api#3283)
     absolute_change = reform_income - baseline_income
     capped_baseline = np.maximum(baseline_income, 1)
@@ -760,13 +819,26 @@ def _resolve_pe_us_version(supabase, reform_id: str, reform_params: dict) -> str
     return current_version
 
 
-def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: dict, analysis_year: int, multi_year: bool = False, baseline_params: dict | None = None):
+def district_congress_notes(impacts: dict) -> dict:
+    """model_notes fields that say which Congress's districts the district
+    results use. Empty when there are no district results."""
+    congress = impacts.get("districtCongress")
+    if not impacts.get("districtImpacts") or congress is None:
+        return {}
+    return {"district_congress": congress}
+
+
+def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: dict, analysis_year: int, multi_year: bool = False, baseline_params: dict | None = None, dataset: dict | None = None):
     """Write impacts to Supabase reform_impacts table.
 
     If multi_year=True, stores impacts in model_notes.impacts_by_year[year] instead of
     overwriting the main impact fields. This allows storing multiple years of impacts.
     """
     pe_us_version = _resolve_pe_us_version(supabase, reform_id, reform_params)
+    dataset = dataset or {
+        "name": "policyengine-us-data",
+        "version": get_installed_version("policyengine-us-data"),
+    }
 
     if multi_year:
         import json
@@ -800,6 +872,9 @@ def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: di
             "districtImpacts": impacts.get("districtImpacts"),
             "computedAt": impacts["computedAt"],
         }
+        congress_notes = district_congress_notes(impacts)
+        if congress_notes:
+            impacts_by_year[year_str]["districtCongress"] = congress_notes["district_congress"]
 
         # Merge model_notes
         model_notes = {
@@ -807,6 +882,9 @@ def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: di
             "analysis_year": analysis_year,  # Most recent year computed
             "impacts_by_year": impacts_by_year,
         }
+        # The root district results are this write's, so the root tag must be too
+        model_notes.pop("district_congress", None)
+        model_notes.update(district_congress_notes(impacts))
 
         record = {
             "id": reform_id,
@@ -823,12 +901,13 @@ def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: di
             "baseline_params": baseline_params,
             "model_notes": model_notes,
             "policyengine_us_version": pe_us_version,
-            "dataset_name": "policyengine-us-data",
-            "dataset_version": get_installed_version("policyengine-us-data"),
+            "dataset_name": dataset["name"],
+            "dataset_version": dataset["version"],
         }
     else:
         model_notes = {
             "analysis_year": analysis_year,
+            **district_congress_notes(impacts),
         }
 
         record = {
@@ -845,8 +924,8 @@ def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: di
             "baseline_params": baseline_params,
             "model_notes": model_notes,
             "policyengine_us_version": pe_us_version,
-            "dataset_name": "policyengine-us-data",
-            "dataset_version": get_installed_version("policyengine-us-data"),
+            "dataset_name": dataset["name"],
+            "dataset_version": dataset["version"],
         }
 
     result = supabase.table("reform_impacts").upsert(record).execute()
@@ -927,6 +1006,15 @@ Examples:
              "instead of the database. Requires --output; no Supabase needed."
     )
     parser.add_argument(
+        "--state-dataset",
+        type=str,
+        choices=sorted(STATE_DATASETS),
+        default=None,
+        help="State dataset source (default: TRACKER_STATE_DATASET, else "
+             f"{DEFAULT_STATE_DATASET}). Sets which Congress's districts the "
+             "district results use."
+    )
+    parser.add_argument(
         "--output",
         type=str,
         help="Write the computed reform_impacts record to this JSON file instead of "
@@ -982,7 +1070,12 @@ Examples:
             print(f"  {r['id']:30} [{r['state'].upper()}] ({status})")
         return 0
 
-    print(f"\nProcessing {len(reforms)} reform(s)...")
+    state_dataset = state_dataset_source(args.state_dataset)
+    print(
+        f"\nState dataset: {state_dataset['name']} "
+        f"({state_dataset['district_congress']}th Congress districts)"
+    )
+    print(f"Processing {len(reforms)} reform(s)...")
 
     results = {}
 
@@ -1012,7 +1105,8 @@ Examples:
             # Run simulations
             print("  [1/6] Running microsimulations...")
             baseline, reformed = run_simulations(
-                state, reform["reform"], sim_year, baseline_params=reform.get("baseline")
+                state, reform["reform"], sim_year, baseline_params=reform.get("baseline"),
+                state_dataset=state_dataset,
             )
             # What the bill changes each parameter FROM, under the baseline used.
             baseline_params = baseline_parameter_values(baseline, reform["reform"])
@@ -1057,6 +1151,20 @@ Examples:
             }
             if district_impacts:
                 impacts["districtImpacts"] = district_impacts
+                impacts["districtCongress"] = state_dataset["district_congress"]
+
+            # Federal runs on the national default (populace-us); state runs
+            # on the chosen geocoded state dataset.
+            if state == "us":
+                dataset = {
+                    "name": "populace-us",
+                    "version": get_installed_version("policyengine-us-data"),
+                }
+            else:
+                dataset = {
+                    "name": state_dataset["dataset_name"],
+                    "version": state_dataset_version(state_dataset),
+                }
 
             if offline:
                 # Build the same record write_to_supabase would upsert, but save
@@ -1074,12 +1182,13 @@ Examples:
                     "district_impacts": impacts.get("districtImpacts"),
                     "reform_params": reform["reform"],
                     "baseline_params": baseline_params,
-                    "model_notes": {"analysis_year": sim_year},
+                    "model_notes": {
+                        "analysis_year": sim_year,
+                        **district_congress_notes(impacts),
+                    },
                     "policyengine_us_version": get_installed_version("policyengine-us"),
-                    # Federal runs on the national default (populace-us); state
-                    # runs on the geocoded policyengine-us-data state files.
-                    "dataset_name": "populace-us" if state == "us" else "policyengine-us-data",
-                    "dataset_version": get_installed_version("policyengine-us-data"),
+                    "dataset_name": dataset["name"],
+                    "dataset_version": dataset["version"],
                 }
                 print(f"  Writing record to {args.output}...")
                 with open(args.output, "w") as f:
@@ -1089,7 +1198,7 @@ Examples:
                 print("  Writing to Supabase...")
                 write_to_supabase(
                     supabase, reform_id, impacts, reform["reform"], sim_year, args.multi_year,
-                    baseline_params=baseline_params,
+                    baseline_params=baseline_params, dataset=dataset,
                 )
 
                 # Set status to in_review (skip if already published to avoid taking bills offline)
