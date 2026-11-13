@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { colors, typography, spacing } from "../../designTokens";
-import { usePolicyEngineAPI, compareSemver, reformNeedsStructuralCode } from "../../hooks/usePolicyEngineAPI";
+import {
+  usePolicyEngineAPI,
+  useHouseholdCalculationPause,
+  compareSemver,
+  reformNeedsStructuralCode,
+} from "../../hooks/usePolicyEngineAPI";
 import { buildHousehold } from "../../utils/householdBuilder";
 import { useData } from "../../context/DataContext";
 import { track } from "../../lib/analytics";
@@ -82,6 +87,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
   const { compareReform, loading, error, apiVersion } = usePolicyEngineAPI({
     readModelVersion: isStructural,
   });
+  const calculationPauseSeconds = useHouseholdCalculationPause();
   const { getImpact } = useData();
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -137,8 +143,9 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
     expenses: {},
   });
 
+  // The answer on screen. A failure the firewall's limit may have caused
+  // keeps it; any other failure's error is shown in its place.
   const [results, setResults] = useState(null);
-  const [hasCalculated, setHasCalculated] = useState(false);
 
   const handleCalculate = async () => {
     track("household_calculated", {
@@ -161,10 +168,13 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
       );
 
       setResults({ baseline, reform });
-      setHasCalculated(true);
     } catch (err) {
       console.error("Calculation error:", err);
-      setHasCalculated(true);
+      if (!err?.rateLimited) {
+        // The error replaces the answer on screen, so forget the answer:
+        // a later refusal for the limit must not bring it back.
+        setResults(null);
+      }
     }
   };
 
@@ -297,6 +307,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
                 onChange={setHouseholdInputs}
                 onSubmit={handleCalculate}
                 loading={loading}
+                calculationPauseSeconds={calculationPauseSeconds}
                 stateAbbr={stateAbbr}
                 availableYears={
                   aggregateImpacts?.impactsByYear
@@ -344,7 +355,7 @@ export default function ReformAnalyzer({ reformConfig, stateAbbr, bill }) {
                     Calculating your impact...
                   </p>
                 </div>
-              ) : hasCalculated ? (
+              ) : error || results ? (
                 <ResultsDisplay
                   baseline={results?.baseline}
                   reform={results?.reform}

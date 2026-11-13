@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { colors, typography, spacing } from "../../designTokens";
+import { SHARED_LIMIT_EXPLANATION } from "../../hooks/usePolicyEngineAPI";
 
 function formatWithCommas(n) {
   return Number(n).toLocaleString("en-US");
@@ -154,12 +155,17 @@ export default function HouseholdForm({
   onChange,
   onSubmit,
   loading,
+  // Whole seconds until the page may calculate again after a refusal for
+  // the firewall's limit; 0 when it may now.
+  calculationPauseSeconds = 0,
   stateAbbr,
   availableYears,
 }) {
   // Use provided years or fall back to defaults
   const taxYears = availableYears?.length > 0 ? availableYears : DEFAULT_TAX_YEARS;
   const firstYear = taxYears[0];
+  const calculationsPaused = calculationPauseSeconds > 0;
+  const submitDisabled = loading || calculationsPaused;
 
   // Sync selected year when it's not in the available options
   useEffect(() => {
@@ -490,25 +496,42 @@ export default function HouseholdForm({
       {/* Submit */}
       <button
         type="submit"
-        disabled={loading}
+        disabled={submitDisabled}
         style={{
           width: "100%",
           padding: `${spacing.md} ${spacing.lg}`,
           border: "none",
           borderRadius: spacing.radius.lg,
-          backgroundColor: loading ? colors.gray[400] : colors.primary[600],
+          backgroundColor: submitDisabled ? colors.gray[400] : colors.primary[600],
           color: colors.white,
           fontSize: typography.fontSize.sm,
           fontWeight: typography.fontWeight.semibold,
           fontFamily: typography.fontFamily.primary,
-          cursor: loading ? "not-allowed" : "pointer",
+          cursor: submitDisabled ? "not-allowed" : "pointer",
           transition: "background-color 0.15s ease",
         }}
-        onMouseEnter={(e) => !loading && (e.currentTarget.style.backgroundColor = colors.primary[700])}
-        onMouseLeave={(e) => !loading && (e.currentTarget.style.backgroundColor = colors.primary[600])}
+        onMouseEnter={(e) => !submitDisabled && (e.currentTarget.style.backgroundColor = colors.primary[700])}
+        onMouseLeave={(e) => !submitDisabled && (e.currentTarget.style.backgroundColor = colors.primary[600])}
       >
-        {loading ? "Calculating..." : "Calculate Impact"}
+        {loading
+          ? "Calculating..."
+          : calculationsPaused
+            ? `Calculate again in ${calculationPauseSeconds} s`
+            : "Calculate Impact"}
       </button>
+      {calculationsPaused && (
+        <p style={{
+          margin: 0,
+          color: colors.text.secondary,
+          fontSize: typography.fontSize.sm,
+          fontFamily: typography.fontFamily.body,
+        }}>
+          {/* Only the explanation is announced; the countdown changes
+              every second. */}
+          <span role="status">{SHARED_LIMIT_EXPLANATION}.</span> This page
+          can calculate again in {calculationPauseSeconds} s.
+        </p>
+      )}
     </form>
   );
 }
