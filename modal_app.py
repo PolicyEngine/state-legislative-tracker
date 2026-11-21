@@ -30,10 +30,37 @@ SUPABASE_ANON_KEY = (
     "CI6MjA4NDAwMDg5OH0.FprGrDgkfT0j3nK51VGtCozs6y1pfhtZ07qDUHBm8Go"
 )
 
+# The debian_slim Python 3.11 base runs pip 25.2, whose bundled certifi trusts
+# the compromised eMudhra root "emSign ECC Root CA - G3"
+# (https://emudhra.we-have-a-problem.com). The image replaces it with pip
+# 26.2.2, whose bundled certifi (2026.10.19) drops that root, before any other
+# package install. The wheel's sha256, as PyPI publishes it, makes that one
+# download authentic whatever answers the request.
+PIP_BOOTSTRAP_VERSION = "26.2.2"
+PIP_BOOTSTRAP_WHEEL_SHA256 = (
+    "fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70"
+)
+PIP_BOOTSTRAP_COMMAND = (
+    "printf '%s\\n' "
+    f"'pip=={PIP_BOOTSTRAP_VERSION} --hash=sha256:{PIP_BOOTSTRAP_WHEEL_SHA256}'"
+    " > /tmp/pip-bootstrap.txt"
+    " && python -m pip install --require-hashes --no-deps -r /tmp/pip-bootstrap.txt"
+    " && rm /tmp/pip-bootstrap.txt"
+)
+
 # Image: two layers so prerender always runs fresh while app build stays cached
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("curl", "ca-certificates", "git")
+    # The step above is cached from an earlier build, so its ca-certificates
+    # package still trusts the emSign root. This step upgrades the package
+    # before anything else downloads over HTTPS (curl, pip 26.2.2 and the
+    # Python ssl module read it), and it makes every later step rebuild,
+    # which also reinstalls Node.js from the current 22.x release.
+    .apt_install("ca-certificates")
+    # Replace the base's pip before it downloads anything (see
+    # PIP_BOOTSTRAP_VERSION).
+    .run_commands(PIP_BOOTSTRAP_COMMAND)
     .run_commands(
         # Install Node.js 22 — @supabase/supabase-js needs native WebSocket
         "curl -fsSL https://deb.nodesource.com/setup_22.x | bash -",
@@ -62,6 +89,10 @@ image = (
         " node scripts/prerender.mjs",
     )
     .pip_install("fastapi", "uvicorn", "aiofiles", "httpx", "resend")
+    # certifi (read by httpx and by requests inside resend) is not pinned
+    # above; require the first release without the emSign root. It is a
+    # minimum so a rebuild picks up later removals.
+    .pip_install("certifi>=2026.10.19")
 )
 
 
