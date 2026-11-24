@@ -7,10 +7,10 @@ import { loadCongressionalDistrictsGeo } from "@policyengine/ui-kit/visualizatio
 // (make_block_cd_distributions.py: fetch_block_to_district_map(119)).
 export const DEFAULT_DISTRICT_CONGRESS = 119;
 
-// Congresses whose boundaries the installed ui-kit can draw. ui-kit 0.9's
-// loader takes no argument and always returns the 119th file, so add 120 only
-// after upgrading to the release with PolicyEngine/policyengine-ui-kit#41.
-export const DRAWABLE_CONGRESSES = [119];
+// Congresses whose boundaries the installed ui-kit can draw. ui-kit 0.15
+// (PolicyEngine/policyengine-ui-kit#41) added the 120th; its loader warns and
+// returns the 119th file for any other Congress.
+export const DRAWABLE_CONGRESSES = [119, 120];
 
 function toCongress(value) {
   const n = Number(value);
@@ -83,8 +83,9 @@ export function filterStateDistricts(geo, stateAbbr, congress) {
   const features = (geo?.features || []).filter((f) =>
     f.properties?.DISTRICT_ID?.startsWith(prefix)
   );
-  // The file must be the Congress we asked for: an older ui-kit ignores the
-  // argument and returns the 119th file.
+  // The file must be the Congress we asked for: ui-kit falls back to the
+  // 119th file for a Congress it doesn't have, and before 0.15 it ignored the
+  // argument.
   const session = features[0]?.properties?.CDSESSN;
   if (session && Number(session) !== congress) {
     throw new Error(

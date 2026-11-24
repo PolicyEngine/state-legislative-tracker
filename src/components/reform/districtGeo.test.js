@@ -1,14 +1,19 @@
 import { describe, it, expect, vi } from "vitest";
 
+// Like ui-kit 0.15: 119 or 120 returns that Congress's file, and anything else
+// falls back to the 119th.
 vi.mock("@policyengine/ui-kit/visualization", () => ({
-  loadCongressionalDistrictsGeo: vi.fn(async () => ({
-    type: "FeatureCollection",
-    features: [
-      { properties: { DISTRICT_ID: "TX-01", CDSESSN: "119" } },
-      { properties: { DISTRICT_ID: "TX-35", CDSESSN: "119" } },
-      { properties: { DISTRICT_ID: "TN-09", CDSESSN: "119" } },
-    ],
-  })),
+  loadCongressionalDistrictsGeo: vi.fn(async (congress = 119) => {
+    const session = String(congress) === "120" ? "120" : "119";
+    return {
+      type: "FeatureCollection",
+      features: [
+        { properties: { DISTRICT_ID: "TX-01", CDSESSN: session } },
+        { properties: { DISTRICT_ID: "TX-35", CDSESSN: session } },
+        { properties: { DISTRICT_ID: "TN-09", CDSESSN: session } },
+      ],
+    };
+  }),
 }));
 
 import {
@@ -101,8 +106,13 @@ describe("loadStateDistrictsGeo", () => {
     expect(out.features.map((f) => f.properties.DISTRICT_ID)).toEqual(["TX-01", "TX-35"]);
   });
 
+  it("loads one state's 120th districts", async () => {
+    const out = await loadStateDistrictsGeo("TX", 120);
+    expect(out.features.map((f) => f.properties.CDSESSN)).toEqual(["120", "120"]);
+  });
+
   it("refuses a Congress the installed ui-kit cannot draw", async () => {
-    await expect(loadStateDistrictsGeo("TX", 120)).rejects.toThrow(/no 120th Congress/);
+    await expect(loadStateDistrictsGeo("TX", 118)).rejects.toThrow(/no 118th Congress/);
   });
 });
 
