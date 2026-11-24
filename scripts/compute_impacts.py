@@ -146,12 +146,13 @@ def load_reforms_from_db(supabase, reform_id=None):
 STATE_DATASETS = {
     # The archived policyengine-us-data files, built from 119th Congress block
     # assignments (make_block_cd_distributions.py:
-    # fetch_block_to_district_map(119)).
+    # fetch_block_to_district_map(119)). Pinned to the repo's head on
+    # 2026-11-24 (last commit 2026-05-31), so every run reads the same files.
     "us-data-cd119": {
         "dataset_name": "policyengine-us-data",
         "repo_id": "policyengine/policyengine-us-data",
         "filename": "states/{state}.h5",
-        "revision": None,
+        "revision": "21280dca5995e978d706740a8a4b9b7860cfd7b6",
         "district_congress": 119,
     },
     # Add the 120th Congress source here once the microcosm release that
@@ -821,11 +822,15 @@ def _resolve_pe_us_version(supabase, reform_id: str, reform_params: dict) -> str
 
 def district_congress_notes(impacts: dict) -> dict:
     """model_notes fields that say which Congress's districts the district
-    results use. Empty when there are no district results."""
+    results use, and the Hugging Face revision of the state file they came
+    from. Empty when there are no district results."""
     congress = impacts.get("districtCongress")
     if not impacts.get("districtImpacts") or congress is None:
         return {}
-    return {"district_congress": congress}
+    notes = {"district_congress": congress}
+    if impacts.get("districtDatasetRevision"):
+        notes["district_dataset_revision"] = impacts["districtDatasetRevision"]
+    return notes
 
 
 def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: dict, analysis_year: int, multi_year: bool = False, baseline_params: dict | None = None, dataset: dict | None = None):
@@ -875,6 +880,8 @@ def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: di
         congress_notes = district_congress_notes(impacts)
         if congress_notes:
             impacts_by_year[year_str]["districtCongress"] = congress_notes["district_congress"]
+            if "district_dataset_revision" in congress_notes:
+                impacts_by_year[year_str]["districtDatasetRevision"] = congress_notes["district_dataset_revision"]
 
         # Merge model_notes
         model_notes = {
@@ -884,6 +891,7 @@ def write_to_supabase(supabase, reform_id: str, impacts: dict, reform_params: di
         }
         # The root district results are this write's, so the root tag must be too
         model_notes.pop("district_congress", None)
+        model_notes.pop("district_dataset_revision", None)
         model_notes.update(district_congress_notes(impacts))
 
         record = {
@@ -1152,6 +1160,8 @@ Examples:
             if district_impacts:
                 impacts["districtImpacts"] = district_impacts
                 impacts["districtCongress"] = state_dataset["district_congress"]
+                if state_dataset.get("revision"):
+                    impacts["districtDatasetRevision"] = state_dataset["revision"]
 
             # Federal runs on the national default (populace-us); state runs
             # on the chosen geocoded state dataset.

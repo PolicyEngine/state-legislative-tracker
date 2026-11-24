@@ -20,7 +20,9 @@ import {
   isAtLarge,
   loadStateDistrictsGeo,
   ordinal,
+  rewindIfInverted,
 } from "./districtGeo";
+import { geoArea } from "d3-geo";
 
 describe("districtCongressOf", () => {
   it("defaults untagged analyses to the 119th Congress", () => {
@@ -101,5 +103,36 @@ describe("loadStateDistrictsGeo", () => {
 
   it("refuses a Congress the installed ui-kit cannot draw", async () => {
     await expect(loadStateDistrictsGeo("TX", 120)).rejects.toThrow(/no 120th Congress/);
+  });
+});
+
+describe("rewindIfInverted", () => {
+  // A one-degree square near Austin, wound clockwise as d3-geo expects.
+  const ring = [[-98, 30], [-98, 31], [-97, 31], [-97, 30], [-98, 30]];
+  const feature = (coordinates, type = "Polygon") => ({
+    type: "Feature",
+    properties: { DISTRICT_ID: "TX-10", CDSESSN: "120" },
+    geometry: { type, coordinates },
+  });
+
+  it("leaves a correctly wound feature unchanged", () => {
+    const ok = feature([ring]);
+    expect(geoArea(ok)).toBeLessThan(2 * Math.PI);
+    expect(rewindIfInverted(ok)).toBe(ok);
+  });
+
+  it("rewinds inverted polygons and multipolygons", () => {
+    const inverted = feature([[...ring].reverse()]);
+    expect(geoArea(inverted)).toBeGreaterThan(2 * Math.PI);
+    expect(geoArea(rewindIfInverted(inverted))).toBeLessThan(2 * Math.PI);
+
+    const invertedMulti = feature([[[...ring].reverse()]], "MultiPolygon");
+    expect(geoArea(rewindIfInverted(invertedMulti))).toBeLessThan(2 * Math.PI);
+  });
+
+  it("is applied when a state's districts are filtered", () => {
+    const geo = { type: "FeatureCollection", features: [feature([[...ring].reverse()])] };
+    const { features } = filterStateDistricts(geo, "TX", 120);
+    expect(geoArea(features[0])).toBeLessThan(2 * Math.PI);
   });
 });

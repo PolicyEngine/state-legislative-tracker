@@ -12,60 +12,14 @@ import { colors, typography, spacing } from "../../designTokens";
 import { useData } from "../../context/DataContext";
 import { track } from "../../lib/analytics";
 import {
+  DRAWABLE_CONGRESSES,
   congressLabel,
   districtCongressOf,
   districtNumberOf,
   isAtLarge,
   loadStateDistrictsGeo,
+  ordinal,
 } from "./districtGeo";
-
-// Generic district visualization for other states (card-based grid)
-const STATE_DISTRICTS = {
-  AL: [
-    { id: "1", name: "District 1", region: "Mobile & Southwest" },
-    { id: "2", name: "District 2", region: "Dothan & Southeast" },
-    { id: "3", name: "District 3", region: "East Alabama" },
-    { id: "4", name: "District 4", region: "North Central" },
-    { id: "5", name: "District 5", region: "Huntsville & North" },
-    { id: "6", name: "District 6", region: "Birmingham Suburbs" },
-    { id: "7", name: "District 7", region: "Birmingham & Black Belt" },
-  ],
-  AK: [{ id: "AL", name: "At-Large", region: "Statewide" }],
-  AZ: [
-    { id: "1", name: "District 1", region: "Northeast & Rural" },
-    { id: "2", name: "District 2", region: "Southern Arizona" },
-    { id: "3", name: "District 3", region: "West Phoenix" },
-    { id: "4", name: "District 4", region: "North & West Phoenix" },
-    { id: "5", name: "District 5", region: "East Valley" },
-    { id: "6", name: "District 6", region: "Scottsdale & East" },
-    { id: "7", name: "District 7", region: "South Phoenix" },
-    { id: "8", name: "District 8", region: "Northwest Phoenix" },
-    { id: "9", name: "District 9", region: "Central Phoenix" },
-  ],
-  UT: [
-    { id: "1", name: "District 1", region: "Northern Utah" },
-    { id: "2", name: "District 2", region: "Western & Rural Utah" },
-    { id: "3", name: "District 3", region: "Central & Eastern Utah" },
-    { id: "4", name: "District 4", region: "Salt Lake Suburbs" },
-  ],
-  SC: [
-    { id: "1", name: "District 1", region: "Charleston & Coast" },
-    { id: "2", name: "District 2", region: "Columbia & Midlands" },
-    { id: "3", name: "District 3", region: "Upstate West" },
-    { id: "4", name: "District 4", region: "Greenville-Spartanburg" },
-    { id: "5", name: "District 5", region: "Rock Hill & North Central" },
-    { id: "6", name: "District 6", region: "Pee Dee & Rural East" },
-    { id: "7", name: "District 7", region: "Myrtle Beach & Northeast" },
-  ],
-  OK: [
-    { id: "1", name: "District 1", region: "Tulsa Area" },
-    { id: "2", name: "District 2", region: "Eastern Oklahoma" },
-    { id: "3", name: "District 3", region: "Western Oklahoma" },
-    { id: "4", name: "District 4", region: "South Central Oklahoma" },
-    { id: "5", name: "District 5", region: "Oklahoma City Area" },
-  ],
-  // Add more states as needed...
-};
 
 const ArrowUpIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -178,14 +132,18 @@ function StatBox({ label, value, color }) {
   );
 }
 
-// Fallback card-based view for states without SVG maps
-function CardBasedDistrictView({ stateAbbr, reformId }) {
-  const districts = STATE_DISTRICTS[stateAbbr];
-  const { getImpact } = useData();
-  const reformImpacts = getImpact(reformId);
-  const hasDistrictData = reformImpacts?.districtImpacts;
+// Fallback when the district boundaries can't be drawn: this app has no
+// boundary file for the analysis's Congress, or the file failed to load.
+// Lists the shown year's district results without a map.
+export function CardBasedDistrictView({ stateAbbr, yearImpacts, congress }) {
+  const districtImpacts = yearImpacts?.districtImpacts || {};
+  const prefix = `${stateAbbr}-`;
+  const districts = Object.keys(districtImpacts)
+    .filter((id) => id.startsWith(prefix))
+    .map((id) => ({ id, num: id.slice(prefix.length) }))
+    .sort((a, b) => (parseInt(a.num, 10) || 0) - (parseInt(b.num, 10) || 0));
 
-  if (!districts) {
+  if (districts.length === 0) {
     return (
       <div style={{
         padding: spacing["2xl"],
@@ -200,26 +158,37 @@ function CardBasedDistrictView({ stateAbbr, reformId }) {
           fontSize: typography.fontSize.sm,
           fontFamily: typography.fontFamily.body,
         }}>
-          District data not available for this state
+          District results are not available for this analysis
         </p>
       </div>
     );
   }
 
-  const maxBenefit = hasDistrictData
-    ? Math.max(...districts.map(d => Math.abs(yearImpacts.districtImpacts[`${stateAbbr}-${d.id}`]?.avgBenefit || 0)))
-    : 100;
+  const note = DRAWABLE_CONGRESSES.includes(congress)
+    ? "The district map didn't load, so results are listed by district."
+    : `District boundaries for the ${ordinal(congress)} Congress aren't available in this app yet, so results are listed by district.`;
+  const maxBenefit = Math.max(
+    ...districts.map((d) => Math.abs(districtImpacts[d.id]?.avgBenefit || 0)),
+    1
+  );
 
   return (
-    <div style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(2, 1fr)",
-      gap: spacing.lg,
-    }}>
+    <div>
+      <p style={{
+        margin: `0 0 ${spacing.md}`,
+        fontSize: typography.fontSize.sm,
+        fontFamily: typography.fontFamily.body,
+        color: colors.text.tertiary,
+      }}>
+        {note}
+      </p>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(2, 1fr)",
+        gap: spacing.lg,
+      }}>
       {districts.map((district) => {
-        const impact = hasDistrictData
-          ? yearImpacts.districtImpacts[`${stateAbbr}-${district.id}`]
-          : null;
+        const impact = districtImpacts[district.id];
         const avgBenefit = impact?.avgBenefit || 0;
         const isPositive = avgBenefit > 0;
         const barWidth = maxBenefit > 0 ? (Math.abs(avgBenefit) / maxBenefit) * 100 : 0;
@@ -254,7 +223,7 @@ function CardBasedDistrictView({ stateAbbr, reformId }) {
                 fontWeight: typography.fontWeight.bold,
                 fontFamily: typography.fontFamily.primary,
               }}>
-                {district.id}
+                {district.num}
               </span>
               <div>
                 <span style={{
@@ -263,16 +232,8 @@ function CardBasedDistrictView({ stateAbbr, reformId }) {
                   fontFamily: typography.fontFamily.primary,
                   color: colors.secondary[900],
                 }}>
-                  {district.name}
+                  District {district.num}
                 </span>
-                <p style={{
-                  margin: 0,
-                  fontSize: typography.fontSize.xs,
-                  fontFamily: typography.fontFamily.body,
-                  color: colors.text.tertiary,
-                }}>
-                  {district.region}
-                </p>
               </div>
             </div>
 
@@ -328,6 +289,7 @@ function CardBasedDistrictView({ stateAbbr, reformId }) {
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
@@ -889,7 +851,7 @@ function GenericStateDistrictMap({ stateAbbr, reformId, selectedYear, congress }
   }
 
   if (error || !geoData) {
-    return <CardBasedDistrictView stateAbbr={stateAbbr} reformId={reformId} />;
+    return <CardBasedDistrictView stateAbbr={stateAbbr} yearImpacts={yearImpacts} congress={congress} />;
   }
 
   // District number from ui-kit's DISTRICT_ID ("TX-05")
@@ -1215,7 +1177,8 @@ export default function DistrictMap({ stateAbbr, reformId }) {
             fontFamily: typography.fontFamily.body,
             color: colors.text.secondary,
           }}>
-            {congressLabel(congress)}. Click on a district to see detailed impact analysis
+            {congressLabel(congress)}
+            {DRAWABLE_CONGRESSES.includes(congress) ? ". Click on a district to see detailed impact analysis" : ""}
           </p>
         </div>
 

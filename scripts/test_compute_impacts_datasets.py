@@ -98,6 +98,7 @@ def test_default_source_is_the_119th_congress_us_data_files():
     assert source["district_congress"] == 119
     assert source["repo_id"] == "policyengine/policyengine-us-data"
     assert source["filename"].format(state="TX") == "states/TX.h5"
+    assert source["revision"] == "21280dca5995e978d706740a8a4b9b7860cfd7b6"
     assert ci.state_dataset_version(source) == "9.9.9"
 
 
@@ -171,3 +172,40 @@ def test_multi_year_write_without_districts_drops_the_root_tag():
     notes = supabase.reform_impacts.upserts[-1]["model_notes"]
     assert "district_congress" not in notes
     assert "districtCongress" not in notes["impacts_by_year"]["2027"]
+
+
+def test_district_notes_record_the_state_file_revision():
+    impacts = _impacts(119)
+    impacts["districtDatasetRevision"] = "abc123"
+    assert ci.district_congress_notes(impacts) == {
+        "district_congress": 119,
+        "district_dataset_revision": "abc123",
+    }
+    impacts_without_districts = _impacts(districts=False)
+    impacts_without_districts["districtDatasetRevision"] = "abc123"
+    assert ci.district_congress_notes(impacts_without_districts) == {}
+
+
+def test_multi_year_write_replaces_the_root_revision_and_tags_the_year():
+    existing = {
+        "model_notes": {
+            "analysis_year": 2026,
+            "district_congress": 119,
+            "district_dataset_revision": "old",
+            "impacts_by_year": {"2026": {"districtImpacts": {"TX-1": {}}, "districtDatasetRevision": "old"}},
+        },
+    }
+    supabase = FakeSupabase(existing)
+    untagged = _impacts(120)
+    ci.write_to_supabase(supabase, "tx-test", untagged, {"p": 1}, 2027, multi_year=True)
+    notes = supabase.reform_impacts.upserts[-1]["model_notes"]
+    assert "district_dataset_revision" not in notes
+    assert "districtDatasetRevision" not in notes["impacts_by_year"]["2027"]
+    assert notes["impacts_by_year"]["2026"]["districtDatasetRevision"] == "old"
+
+    tagged = _impacts(120)
+    tagged["districtDatasetRevision"] = "new"
+    ci.write_to_supabase(supabase, "tx-test", tagged, {"p": 1}, 2028, multi_year=True)
+    notes = supabase.reform_impacts.upserts[-1]["model_notes"]
+    assert notes["district_dataset_revision"] == "new"
+    assert notes["impacts_by_year"]["2028"]["districtDatasetRevision"] == "new"

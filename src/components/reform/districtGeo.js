@@ -1,3 +1,4 @@
+import { geoArea } from "d3-geo";
 import { loadCongressionalDistrictsGeo } from "@policyengine/ui-kit/visualization";
 
 // The Congress whose districts an analysis without a tag was computed on.
@@ -55,6 +56,27 @@ export function isAtLarge(properties) {
   return /at large/i.test(properties?.NAMELSAD || "");
 }
 
+/**
+ * A feature whose rings run the wrong way for d3-geo, rewound.
+ *
+ * d3-geo reads a ring wound the other way as the whole globe minus the
+ * district, so the feature has an area over a hemisphere, fills the map as a
+ * rectangle and gets a misplaced centroid. Reversing every ring fixes it.
+ * Correctly wound features come back unchanged.
+ */
+export function rewindIfInverted(feature) {
+  const geometry = feature?.geometry;
+  if (!geometry || geoArea(feature) <= 2 * Math.PI) return feature;
+  const reverseRings = (rings) => rings.map((ring) => [...ring].reverse());
+  if (geometry.type === "Polygon") {
+    return { ...feature, geometry: { ...geometry, coordinates: reverseRings(geometry.coordinates) } };
+  }
+  if (geometry.type === "MultiPolygon") {
+    return { ...feature, geometry: { ...geometry, coordinates: geometry.coordinates.map(reverseRings) } };
+  }
+  return feature;
+}
+
 /** Keep one state's districts from a national boundary file. */
 export function filterStateDistricts(geo, stateAbbr, congress) {
   const prefix = `${stateAbbr}-`;
@@ -69,7 +91,7 @@ export function filterStateDistricts(geo, stateAbbr, congress) {
       `Asked for ${ordinal(congress)} Congress districts but got the ${ordinal(Number(session))}`
     );
   }
-  return { type: "FeatureCollection", features };
+  return { type: "FeatureCollection", features: features.map(rewindIfInverted) };
 }
 
 const cache = new Map();
