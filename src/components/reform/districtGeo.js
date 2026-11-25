@@ -1,0 +1,116 @@
+import { geoArea } from "d3-geo";
+import { loadCongressionalDistrictsGeo } from "@policyengine/ui-kit/visualization";
+
+// The Congress whose districts an analysis without a tag was computed on.
+// Every analysis before tagging used the policyengine-us-data state files,
+// which assign households to 119th Congress districts
+// (make_block_cd_distributions.py: fetch_block_to_district_map(119)).
+export const DEFAULT_DISTRICT_CONGRESS = 119;
+
+// Congresses whose boundaries the installed ui-kit can draw. ui-kit 0.15
+// (PolicyEngine/policyengine-ui-kit#41) added the 120th; its loader warns and
+// returns the 119th file for any other Congress.
+export const DRAWABLE_CONGRESSES = [119, 120];
+
+function toCongress(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : DEFAULT_DISTRICT_CONGRESS;
+}
+
+/**
+ * The Congress whose districts the shown district results were computed on.
+ * A multi-year analysis tags each year; only the root fields fall back to
+ * model_notes.district_congress, which describes the latest write.
+ */
+export function districtCongressOf(impacts, selectedYear) {
+  const yearEntry = selectedYear ? impacts?.impactsByYear?.[selectedYear] : null;
+  if (yearEntry) return toCongress(yearEntry.districtCongress);
+  return toCongress(impacts?.modelNotes?.district_congress);
+}
+
+export function ordinal(n) {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  const suffix = { 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th";
+  return `${n}${suffix}`;
+}
+
+export function congressLabel(congress) {
+  if (congress === 120) return "120th Congress districts (from January 3, 2027)";
+  return `${ordinal(congress)} Congress districts`;
+}
+
+/** District number from a ui-kit boundary feature's properties ("TX-05" -> 5). */
+export function districtNumberOf(properties) {
+  const id = properties?.DISTRICT_ID;
+  if (typeof id === "string" && id.includes("-")) {
+    const n = parseInt(id.split("-")[1], 10);
+    if (!Number.isNaN(n)) return n;
+  }
+  const fp = properties?.CD120FP ?? properties?.CD119FP ?? properties?.CDFP;
+  const n = parseInt(fp, 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+export function isAtLarge(properties) {
+  return /at large/i.test(properties?.NAMELSAD || "");
+}
+
+/**
+ * A feature whose rings run the wrong way for d3-geo, rewound.
+ *
+ * d3-geo reads a ring wound the other way as the whole globe minus the
+ * district, so the feature has an area over a hemisphere, fills the map as a
+ * rectangle and gets a misplaced centroid. Reversing every ring fixes it.
+ * Correctly wound features come back unchanged.
+ */
+export function rewindIfInverted(feature) {
+  const geometry = feature?.geometry;
+  if (!geometry || geoArea(feature) <= 2 * Math.PI) return feature;
+  const reverseRings = (rings) => rings.map((ring) => [...ring].reverse());
+  if (geometry.type === "Polygon") {
+    return { ...feature, geometry: { ...geometry, coordinates: reverseRings(geometry.coordinates) } };
+  }
+  if (geometry.type === "MultiPolygon") {
+    return { ...feature, geometry: { ...geometry, coordinates: geometry.coordinates.map(reverseRings) } };
+  }
+  return feature;
+}
+
+/** Keep one state's districts from a national boundary file. */
+export function filterStateDistricts(geo, stateAbbr, congress) {
+  const prefix = `${stateAbbr}-`;
+  const features = (geo?.features || []).filter((f) =>
+    f.properties?.DISTRICT_ID?.startsWith(prefix)
+  );
+  // The file must be the Congress we asked for: ui-kit falls back to the
+  // 119th file for a Congress it doesn't have, and before 0.15 it ignored the
+  // argument.
+  const session = features[0]?.properties?.CDSESSN;
+  if (session && Number(session) !== congress) {
+    throw new Error(
+      `Asked for ${ordinal(congress)} Congress districts but got the ${ordinal(Number(session))}`
+    );
+  }
+  return { type: "FeatureCollection", features: features.map(rewindIfInverted) };
+}
+
+const cache = new Map();
+
+/** One state's district boundaries for the given Congress, from ui-kit. */
+export function loadStateDistrictsGeo(stateAbbr, congress) {
+  if (!DRAWABLE_CONGRESSES.includes(congress)) {
+    return Promise.reject(
+      new Error(`This ui-kit version has no ${ordinal(congress)} Congress district boundaries`)
+    );
+  }
+  const key = `${stateAbbr}:${congress}`;
+  if (!cache.has(key)) {
+    const promise = loadCongressionalDistrictsGeo(congress).then((geo) =>
+      filterStateDistricts(geo, stateAbbr, congress)
+    );
+    promise.catch(() => cache.delete(key));
+    cache.set(key, promise);
+  }
+  return cache.get(key);
+}
