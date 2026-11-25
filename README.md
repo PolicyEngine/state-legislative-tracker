@@ -118,6 +118,15 @@ scripts/sql/001_create_tables.sql
 scripts/sql/002_add_provisions.sql
 scripts/sql/003_add_dataset_hashes.sql
 scripts/sql/005_add_reform_type.sql
+scripts/sql/009_processed_bills_rls.sql
+```
+
+009 turns on row level security for `processed_bills`, which brings any policy already on the table into force. List those policies before running it:
+
+```sql
+select policyname, permissive, roles, cmd, qual, with_check
+from pg_policies
+where schemaname = 'public' and tablename = 'processed_bills';
 ```
 
 ## Deployment
