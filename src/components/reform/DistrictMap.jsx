@@ -768,7 +768,7 @@ function DistrictDropdown({ geoData, getDistrictInfo, hasDistrictData, reformImp
   );
 }
 
-function GenericStateDistrictMap({ stateAbbr, reformId, selectedYear, congress }) {
+function GenericStateDistrictMap({ stateAbbr, reformId, selectedYear, congress, onMapStatus }) {
   const [selectedDistrict, setSelectedDistrict] = useState(null);
   const [geoState, setGeoState] = useState({ key: null, data: null, error: null });
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -807,6 +807,13 @@ function GenericStateDistrictMap({ stateAbbr, reformId, selectedYear, congress }
   const loading = geoState.key !== geoKey;
   const geoData = loading ? null : geoState.data;
   const error = loading ? null : geoState.error;
+
+  // Tell the header whether the map is drawn, so its click hint doesn't show
+  // while loading or after the boundaries fail to load.
+  const drawn = !loading && !error && Boolean(geoData);
+  useEffect(() => {
+    onMapStatus?.({ key: geoKey, drawn });
+  }, [onMapStatus, geoKey, drawn]);
 
   // Calculate centroids for district labels
   const districtCentroids = useMemo(() => {
@@ -1111,6 +1118,9 @@ export default function DistrictMap({ stateAbbr, reformId }) {
   const defaultYear = hasMultipleYears ? availableYears[0] : null;
   const [selectedYear, setSelectedYear] = useState(defaultYear);
   const congress = districtCongressOf(impacts, selectedYear);
+  // Whether GenericStateDistrictMap drew this state and Congress's map.
+  const [mapStatus, setMapStatus] = useState({ key: null, drawn: false });
+  const mapDrawn = mapStatus.key === `${stateAbbr}:${congress}` && mapStatus.drawn;
 
   // Check if this is a single-district state
   const isSingleDistrict = SINGLE_DISTRICT_STATES.includes(stateAbbr);
@@ -1178,7 +1188,7 @@ export default function DistrictMap({ stateAbbr, reformId }) {
             color: colors.text.secondary,
           }}>
             {congressLabel(congress)}
-            {DRAWABLE_CONGRESSES.includes(congress) ? ". Click on a district to see detailed impact analysis" : ""}
+            {mapDrawn ? ". Click on a district to see detailed impact analysis" : ""}
           </p>
         </div>
 
@@ -1217,6 +1227,7 @@ export default function DistrictMap({ stateAbbr, reformId }) {
           reformId={reformId}
           selectedYear={selectedYear}
           congress={congress}
+          onMapStatus={setMapStatus}
         />
       </div>
     </div>

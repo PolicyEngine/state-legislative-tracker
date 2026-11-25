@@ -57,7 +57,7 @@ describe("district map for the 120th Congress", () => {
     expect(loadCongressionalDistrictsGeo).toHaveBeenCalledWith(120);
     expect(screen.queryByText(/listed by district/)).not.toBeInTheDocument();
     expect(screen.getByText(/120th Congress districts \(from January 3, 2027\)/)).toBeInTheDocument();
-    expect(screen.getByText(/Click on a district/)).toBeInTheDocument();
+    expect(await screen.findByText(/Click on a district/)).toBeInTheDocument();
   });
 });
 
@@ -78,6 +78,8 @@ describe("district results without a drawable map", () => {
     expect(await screen.findByText("District 14")).toBeInTheDocument();
     expect(screen.getByText(/The district map didn't load/)).toBeInTheDocument();
     expect(screen.queryByText(/not available for this/)).not.toBeInTheDocument();
+    expect(screen.getByText(/120th Congress districts/)).toBeInTheDocument();
+    expect(screen.queryByText(/Click on a district/)).not.toBeInTheDocument();
   });
 
   it("uses the selected year's results and that year's tag", async () => {
@@ -100,6 +102,7 @@ describe("district results without a drawable map", () => {
     render(<DistrictMap stateAbbr="SC" reformId="sc-test" />);
     expect(await screen.findByText(/The district map didn't load/)).toBeInTheDocument();
     expect(screen.getByText("District 7")).toBeInTheDocument();
+    expect(screen.queryByText(/Click on a district/)).not.toBeInTheDocument();
   });
 
   it("says when an analysis has no district results", () => {
